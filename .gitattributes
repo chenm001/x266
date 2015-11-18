@@ -1,0 +1,11 @@
+* whitespace=!indent,trail,space
+* ident
+*.[ch] whitespace ident
+*.cpp whitespace ident
+*.hpp whitespace ident
+*.bsv whitespace ident
+*.v whitespace ident
+*.tcl whitespace ident
+
+*.yuv binary -merge
+*.264 binary -merge
