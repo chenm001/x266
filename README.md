@@ -1,12 +1,11 @@
 
-x265-hw - open h.265/HEVC codec hardware implementation
+x266 - open H.266 codec software & hardware implementation
 ==========================================
 
-x265-hw is an open source hardware implementation of the h.265/HEVC video codec.
-It is written from scratch and has a plain Verilog API to enable
-a simple integration into other hardware.
+x266 is an open source hardware implementation of the H.266 video codec.
+It is demonstration research of H.266 project, as soon as H.266 specification start, I write a industrialize H.266 codec.
 
-x265-hw based on Software/Hardware Cooperative concept and flexible task distributed architecture.
+x266 based on Software/Hardware Cooperative concept and flexible task distributed architecture.
 
 
 Building
@@ -17,14 +16,17 @@ Building
 Prebuilt
 =================
 
-Verilog code can be obtained from /src_ver
+- C/C++ interface code can be obtained from /src_c<br>
+- Verilog code can be obtained from /src_ver<br>
 
 
 License
 =======
 
-x265-hw is distributed under the terms of the Private/Education ONLY License.
+x266 is distributed under the terms of the Private/Education ONLY License.
 See COPYRIGHT for more details.
+
+See `LICENSE.TXT` for more details.
 
 Copyright (c) 2015-2016 Min Chen
 Contact: Min Chen <chenm003@gmail.com>
