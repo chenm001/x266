@@ -10,7 +10,7 @@ endinterface
 module mkTranspose(ITranspose#(n,a))
    provisos(
       Bits#(Vector#(n,a), __a),
-      Log#(n, cntBits)
+      Add#(1, TLog#(n), cntBits)
    );
 
    RWire#(Vector#(n, a)) rw_inp           <- mkRWire;
@@ -18,13 +18,13 @@ module mkTranspose(ITranspose#(n,a))
 
    Vector#(n, Reg#(Vector#(n, a))) matrix <- replicateM(mkRegU);
    Reg#(Bit#(cntBits)) count              <- mkReg(0);
-   Reg#(Bool) dir                         <- mkConfigReg(False);
    Reg#(Bool) startOutput                 <- mkConfigReg(False);
 
    rule shift_input(isValid(rw_inp.wget));
       let x = fromMaybe(?, rw_inp.wget);
+      let dir = msb(count);
 
-      if (!dir) begin
+      if (dir == 0) begin
          // Row shift
          for(Integer i = 0; i < valueOf(n) - 1; i = i + 1) begin
             matrix[i] <= matrix[i + 1];
@@ -55,7 +55,6 @@ module mkTranspose(ITranspose#(n,a))
    rule do_start;
       if (count == '1) begin
          startOutput <= True;
-         dir <= !dir;
       end
    endrule
 
