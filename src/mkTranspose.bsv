@@ -18,7 +18,7 @@ module mkTranspose(ITranspose#(n,a))
 
    Vector#(n, Reg#(Vector#(n, a))) matrix <- replicateM(mkRegU);
    Reg#(Bit#(cntBits)) count              <- mkReg(0);
-   Reg#(Bool) dir                         <- mkReg(False);
+   Reg#(Bool) dir                         <- mkConfigReg(False);
    Reg#(Bool) startOutput                 <- mkConfigReg(False);
 
    rule shift_input(isValid(rw_inp.wget));
@@ -53,8 +53,10 @@ module mkTranspose(ITranspose#(n,a))
    endrule
 
    rule do_start;
-      if (count == '1)
+      if (count == '1) begin
          startOutput <= True;
+         dir <= !dir;
+      end
    endrule
 
 
