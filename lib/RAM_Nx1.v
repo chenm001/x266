@@ -24,12 +24,12 @@
 
 module RAM_Nx1(clkA, clkB, weA, reB, addrA, addrB, diA, doB);
 
-  parameter WIDTHA      = 18;
-  parameter SIZEA       = 2048;
-  parameter ADDRWIDTHA  = 11;
-  parameter WIDTHB      = 9;
-  parameter SIZEB       = 4096;
-  parameter ADDRWIDTHB  = 12;
+  parameter WIDTHA      = 72;
+  parameter SIZEA       = 512;
+  parameter ADDRWIDTHA  = 9;
+  parameter WIDTHB      = 18;
+  parameter SIZEB       = 2048;
+  parameter ADDRWIDTHB  = 11;
 
   input                         clkA;
   input                         clkB;
@@ -40,52 +40,24 @@ module RAM_Nx1(clkA, clkB, weA, reB, addrA, addrB, diA, doB);
   input       [WIDTHA-1:0]      diA;
   output reg  [WIDTHB-1:0]      doB;
 
-  `define max(a,b) {(a) > (b) ? (a) : (b)}
-  `define min(a,b) {(a) < (b) ? (a) : (b)}
-
-  function integer log2;
-    input integer value;
-    reg [31:0] shifted;
-    integer res;
-  begin
-    if (value < 2)
-      log2 = value;
-    else
-    begin
-      shifted = value-1;
-      for (res=0; shifted>0; res=res+1)
-        shifted = shifted>>1;
-      log2 = res;
-    end
-  end
-  endfunction
-
-  localparam maxSIZE   = `max(SIZEA, SIZEB);
-  localparam maxWIDTH  = `max(WIDTHA, WIDTHB);
-  localparam minWIDTH  = `min(WIDTHA, WIDTHB);
-  localparam RATIO     = maxWIDTH / minWIDTH;
-  localparam log2RATIO = log2(RATIO);
-
-  reg     [minWIDTH-1:0]  RAM [0:maxSIZE-1];
-
-  reg     [WIDTHB-1:0]  readB;
+  reg [WIDTHA-1:0] mux;
+  reg [WIDTHA-1:0] RAM [SIZEA-1:0];
 
   always @(posedge clkA)
-  begin : ramwrite
-    integer i;
-    reg [log2RATIO-1:0] lsbaddr;
-    for (i=0; i< RATIO; i= i+ 1) begin : write1
-        lsbaddr = i;
-        if (weA) begin
-            if (weA)
-                RAM[{addrA, lsbaddr}] <= diA[(i+1)*minWIDTH-1 -: minWIDTH];
-        end
-    end
+  begin
+    if(weA)
+      RAM[addrA] <= diA;
   end
 
   always @(posedge clkB)
   begin
-    if (reB)
-      doB <= RAM[addrB];
+    mux = RAM[addrB[ADDRWIDTHB-1:1]];
+    if(reB)
+    begin
+      if (addrB[0])
+        doB <= mux[WIDTHA-1:WIDTHB];
+      else
+        doB <= mux[WIDTHB-1:0];
+    end
   end
 endmodule
