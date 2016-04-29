@@ -257,6 +257,7 @@ module mkTb(Empty);
    FIFOF#(Vector#(4, Bit#(16))) fifo_out <- mkPipelineFIFOF;
    Reg#(Bit#(16)) cycles <- mkReg(0);
    Reg#(Bit#(9))  states <- mkReg(0);
+   Reg#(Bit#(8))  passed <- mkReg(0);
 
    IDct32 dct32 <- mkDct32;
 
@@ -310,8 +311,11 @@ module mkTb(Empty);
    endrule
 
    rule do_end(states >= 17+32*8);
-      $display("All test passed!");
-      $finish;
+      $display("[%d] All test passed!", passed);
+      states <= 0;
+      passed <= passed + 1;
+      if (passed >= 10)
+         $finish;
    endrule
 
       //states <= (states == 17+32*8) ? 0 : states + 1;
