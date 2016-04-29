@@ -28,6 +28,7 @@ import SpecialFIFOs::*;
 import BUtils::*;
 import BRAMCore::*;
 import SMul::*;
+import ARAM::*;
 
 Integer g_t32[32][16] =
 {
@@ -123,17 +124,16 @@ module mkDct32(IDct32);
    endrule
 
    // Internal
-   Vector#(16, FIFOF#(Bit#(64)))  mem;
-   for(Integer i = 0; i < 15; i = i + 1)
-      mem[i] <- mkUGSizedFIFOF(16);
-   mem[15] <- mkSizedFIFOF(16);
+   Vector#(16, BRAM_SDP_PORT#(5,64,6,32))  mem <- replicateM(mkRAM_Nx1);
 
-   Reg#(Bit#(8)) rowIdx <- mkConfigReg(0);
-   Reg#(Bit#(4)) colCnt <- mkConfigReg(0);
+   Reg#(Bit#(9)) rowIdx <- mkConfigReg(0);
+   Reg#(Bit#(6)) colCnt <- mkConfigReg(0);
    Reg#(Bit#(3)) colIdx <- mkConfigReg(0);
 
    Vector#(4, IDct32Core#(10)) dct_1D <- replicateM(mkDct32Core);
    Vector#(4, IDct32Core#(17)) dct_2D <- replicateM(mkDct32Core);
+   Wire#(Bit#(1)) w_syncCol <- mkDWire(0);
+   Reg#(Bit#(2)) syncCol <- mkReg(0);
    FIFOF#(Vector#(32, Bit#(17))) fifo_col <- mkPipelineFIFOF;        // [E[0..15] O[0..15]]
 
    rule do_1D(fifo_in.notEmpty);
@@ -155,27 +155,37 @@ module mkDct32(IDct32);
       let y2 = dct_1D[2].dct(takeTail(x[0]), {rowIdx[3:0], 1'd1});
       let y3 = dct_1D[3].dct(takeTail(x[1]), {rowIdx[3:0], 1'd1});
 
-      mem[rowIdx[7:4]].enq({y3,y2,y1,y0});
+      mem[rowIdx[7:4]].write({rowIdx[8],rowIdx[3:0]}, {y3,y2,y1,y0});
       $display("[%6d] (%2d,%2d) %04X, %04X, %04X, %04X", cycles, rowIdx[7:4], rowIdx[3:0], y0, y1, y2, y3);
 
       rowIdx <= rowIdx + 1;
       if (rowIdx[3:0] == '1) begin
          fifo_in.deq;
       end
+
+      if (rowIdx[7:4] == '1) begin
+         w_syncCol <= 1;
+      end
    endrule
 
-   //(* no_implicit_conditions *)
-   rule pre_col(mem[15].notEmpty);
+   rule read_mem;
+      for(Integer i = 0; i < 16; i = i + 1) begin
+         mem[i].read(colCnt);
+      end
+      syncCol <= {syncCol[0], w_syncCol};
+   endrule
+
+   rule pre_col({syncCol[1],colCnt[4:0]} != 0);
       Vector#(32, Bit#(16)) x;
       Vector#(32, Bit#(17)) y;
 
       for(Integer i = 0; i < 32 / 2; i = i + 1) begin
-         Vector#(4,Bit#(16)) t = unpack(mem[i].first());
-         x[i*2+0] = t[{colCnt[0], 1'd0}];
-         x[i*2+1] = t[{colCnt[0], 1'd1}];
+         Vector#(2,Bit#(16)) t = unpack(mem[i].read_resp());
+         x[i*2+0] = t[0];
+         x[i*2+1] = t[1];
       end
 
-      if (True) begin
+      if (False) begin
          $write("[%6d] INP-2D: ", cycles);
          for(Integer i = 0; i < 32; i = i + 1) begin
             $write("%04X, ", x[i]);
@@ -195,17 +205,12 @@ module mkDct32(IDct32);
 
       fifo_col.enq(y);
       colCnt <= colCnt + 1;
-      if (colCnt[0] == 1) begin
-         for(Integer i = 0; i < 16; i = i + 1) begin
-            mem[i].deq;
-         end
-      end
    endrule
 
    rule do_2D;
       let x = fifo_col.first;
 
-      if (True) begin
+      if (False) begin
          $write("[%6d] EO-2D: ", cycles);
          for(Integer i = 0; i < 32; i = i + 1) begin
             Bit#(16) t = truncate(x[i]);
@@ -220,7 +225,7 @@ module mkDct32(IDct32);
       let y3 = dct_2D[3].dct(takeTail(x), {colIdx, 2'd3});
 
       fifo_out.enq(unpack({y3,y2,y1,y0}));
-      $display("[%6d] %3d: %04X, %04X, %04X, %04X", cycles, colIdx, y0, y1, y2, y3);
+      //$display("[%6d] %3d: %04X, %04X, %04X, %04X", cycles, colIdx, y0, y1, y2, y3);
 
       colIdx <= colIdx + 1;
       if (colIdx == '1) begin
