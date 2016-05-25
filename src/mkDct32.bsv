@@ -94,14 +94,17 @@ module mkDct32Core(IDct32Core#(a))
       for(Integer i = 0; i < 16; i = i + 1)
          x0[i] = smul[i].c(x[i], fromInteger(g_t32[idx][i]));
 
+      // Export 4 of DCT4 result from here
       Bit#(c1) x1[8];
       for(Integer i = 0; i < 8; i = i + 1)
          x1[i] = sExtend(x0[2 * i + 0]) + sExtend(x0[2 * i + 1]);
 
+      // Export DCT8 result from here
       Bit#(c2) x2[4];
       for(Integer i = 0; i < 4; i = i + 1)
          x2[i] = sExtend(x1[2 * i + 0]) + sExtend(x1[2 * i + 1]);
 
+      // Export DCT16 result from here
       Bit#(bs) x3[2];
       for(Integer i = 0; i < 2; i = i + 1)
          x3[i] = sExtend(x2[2 * i + 0]) + sExtend(x2[2 * i + 1]);
