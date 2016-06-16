@@ -108,7 +108,7 @@ module mkIntra32(IIntra32);
    Reg#(Maybe#(Vector#(64, Bit#(8))))           stage0   <- mkReg(tagged Invalid);
    FIFOF#(Tuple3#(Bit#(4), Vector#(32, Bit#( 8)), Vector#(32, Bit#( 8)))) stage1 <- mkPipelineFIFOF;
    FIFOF#(Vector#(2, (Vector#(32, Bit#(13)))))  stage2   <- mkPipelineFIFOF;
-   Reg#(Vector#(32, Bit#(8)))                   rowd1    <- mkRegU;
+   Reg#(Vector#(32, Bit#(8)))                   pixd1    <- mkRegU;
    Reg#(Bit#(6))                                cnt1     <- mkReg(0);
 
    Integer chen_debug = 0;
@@ -130,7 +130,7 @@ module mkIntra32(IIntra32);
                            xL[ 9], xL[ 8], xL[ 7], xL[ 6], xL[ 5], xL[ 4], xL[ 3], xL[ 2]
                         });
          end
-          1,  2,  3,  4,  5,  6,  7,  8: begin
+          1,  2,  3,  4,  5,  6,  7, 8: begin
             y = unpack({?,                                                         xL[57],
                            xL[56], xL[55], xL[54], xL[53], xL[52], xL[51], xL[50], xL[49],
                            xL[48], xL[47], xL[46], xL[45], xL[44], xL[43], xL[42], xL[41],
@@ -141,7 +141,7 @@ module mkIntra32(IIntra32);
                            xL[ 8], xL[ 7], xL[ 6], xL[ 5], xL[ 4], xL[ 3], xL[ 2], xL[ 1]
                         });
          end
-         9: begin
+          9: begin
             y = unpack({?, xL[32], xL[31], xL[30], xL[29], xL[28], xL[27], xL[26], xL[25],
                            xL[24], xL[23], xL[22], xL[21], xL[20], xL[19], xL[18], xL[17],
                            xL[16], xL[15], xL[14], xL[13], xL[12], xL[11], xL[10], xL[ 9],
@@ -329,6 +329,7 @@ module mkIntra32(IIntra32);
       moded1 <= mode;
       mode   <= mode + 1;
       stage0 <= tagged Valid y;
+      cnt1   <= (mode < 16) ? ~0 : 0;
 
       if (chen_debug == 1) begin
          if (mode == 2)
@@ -337,57 +338,38 @@ module mkIntra32(IIntra32);
    endrule
 
 
-   rule do_stage1_H(moded1 < 16 &&& stage0 matches tagged Valid .x);
-      Vector#(32, Bit#(8)) y;
-      let modeX = moded1[3:0];
-
-      for(Integer i = 0; i < 32; i = i + 1) begin
-         y[i] = x[mapTbl[modeX][i]];
-      end
-
-      if (chen_debug == 1) begin
-         $write("%2d:  ", cnt1);
-         for(Integer i=0; i<32;i=i+1)
-            $write("%2d,", -y[i]);
-         $display("");
-      end
-
-      // Prediction
-      rowd1 <= y;
-      
-      if (cnt1 != 0) begin
-         stage1.enq(tuple3(modeX, rowd1, y));
-      end
-
-      // next row
-      let next_cnt = cnt1 + 1;
-      if (cnt1 == 32) begin
-         next_cnt = 0;
-         stage0 <= tagged Invalid;
-      end
-      else begin
-         stage0 <= tagged Valid ((modeX < 8) ? shiftOutFrom0(?, x, 1) : shiftOutFromN(?, x, 1));
-      end
-      cnt1 <= next_cnt;
-   endrule
-
-
-   rule do_stage1_V(moded1 >= 16 &&& stage0 matches tagged Valid .x);
+   rule do_stage1(stage0 matches tagged Valid .x);
       Vector#(33, Bit#(8)) y0 = take(x);
       Vector#(31, Bit#(8)) y1 = takeAt(33, x);
       let modeX = moded1[3:0];
       let fac = facTbl[modeX][cnt1];
 
+      Vector#(32, Bit#(8)) m = take    (y0);
+      Vector#(32, Bit#(8)) n = takeTail(y0);
+      let shiftIdx = modeX;
+
+      if (moded1 < 16) begin
+         m = pixd1;
+         for(Integer i = 0; i < 32; i = i + 1) begin
+            n[i] = x[mapTbl[modeX][i]];
+         end
+         shiftIdx = 0;
+      end
+
+      pixd1 <= n;
+
       // Prediction
-      stage1.enq(tuple3(modeX, take(y0), drop(y0)));
+      if (cnt1[5] != 0) begin
+         stage1.enq(tuple3(modeX, m, n));
+      end
 
       // next row
       cnt1 <= cnt1 + 1;
       if (cnt1 == 31) begin
          stage0 <= tagged Invalid;
       end
-      else if (mapShift[modeX][cnt1] == 1) begin
-         y0 = ((modeX < 8) ? shiftInAtN(y0, y1[0]) : shiftInAt0(y0, y1[0]));
+      else if (mapShift[shiftIdx][cnt1] == 1) begin
+         y0 = ((moded1 >= 24 && moded1 <= 31) ? shiftInAt0(y0, y1[0]) : shiftInAtN(y0, y1[0]));
          y1 = shiftOutFrom0(?, y1, 1);
          stage0 <= tagged Valid append(y0, y1);
       end
