@@ -29,3 +29,8 @@ function Bit#(mn) roundN(Bit#(m) x, Integer n)
    return (x[valueOf(m)-1:n] + zeroExtend(x[n-1]));
 endfunction
 
+function a msb(b x)
+   provisos(Bits#(a, sa), Bits#(b, sb), Add#(_a, sa, sb));
+   let r = truncate(pack(x) >> fromInteger((valueOf(sb) - valueOf(sa))));
+   return unpack(r);
+endfunction
