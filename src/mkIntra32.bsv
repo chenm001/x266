@@ -106,8 +106,9 @@ module mkIntra32(IIntra32);
    Reg#(Bit#(6))                                mode     <- mkReg(0);            // 0-Mode2, 1-Mode3..., 15-Mode17, 16-Mode34, 17-Mode33..., 32-Mode18
    Reg#(Bit#(6))                                moded1   <- mkRegU;
    Reg#(Maybe#(Vector#(64, Bit#(8))))           stage0   <- mkReg(tagged Invalid);
-   FIFOF#(Vector#(2, (Vector#(32, Bit#(13)))))  stage1   <- mkPipelineFIFOF;
-   Reg#(Vector#(32, Bit#(13)))                  sum1     <- mkRegU;              // (32 - F) * X
+   FIFOF#(Tuple3#(Bit#(4), Vector#(32, Bit#( 8)), Vector#(32, Bit#( 8)))) stage1 <- mkPipelineFIFOF;
+   FIFOF#(Vector#(2, (Vector#(32, Bit#(13)))))  stage2   <- mkPipelineFIFOF;
+   Reg#(Vector#(32, Bit#(8)))                   rowd1    <- mkRegU;
    Reg#(Bit#(6))                                cnt1     <- mkReg(0);
 
    Integer chen_debug = 0;
@@ -352,20 +353,10 @@ module mkIntra32(IIntra32);
       end
 
       // Prediction
-      Vector#(32, Bit#(13)) xm;
-      Vector#(32, Bit#(13)) xn;
-      for(Integer i = 0; i < 32; i = i + 1) begin
-         let fac = facTbl[modeX][i];
-
-         let t = (fromInteger(fac) * zeroExtend(y[i]));
-         //xn[i] = zeroExtend(y[i]) * 32 - t;
-         xn[i] = fromInteger(32 - fac) * zeroExtend(y[i]);
-         xm[i] = t;
-      end
-      sum1 <= xn;
+      rowd1 <= y;
       
       if (cnt1 != 0) begin
-         stage1.enq(vec(sum1, xm));
+         stage1.enq(tuple3(modeX, rowd1, y));
       end
 
       // next row
@@ -388,19 +379,7 @@ module mkIntra32(IIntra32);
       let fac = facTbl[modeX][cnt1];
 
       // Prediction
-      Vector#(32, Bit#(13)) xm;
-      Vector#(32, Bit#(13)) xn;
-      xm[0] = (fromInteger(32 - fac) * zeroExtend(y0[0]));
-      xn[0] = (fromInteger(     fac) * zeroExtend(y0[1]));
-      for(Integer i = 1; i < 32; i = i + 1) begin
-         //xm[i] = (fromInteger(32 - fac) * zeroExtend(y0[i    ]));
-         xm[i] = zeroExtend(y0[i]) * 32 - xn[i - 1];
-         xn[i] = (fromInteger(     fac) * zeroExtend(y0[i + 1]));
-      end
-      
-      if (cnt1 != 0) begin
-         stage1.enq(vec(xm, xn));
-      end
+      stage1.enq(tuple3(modeX, take(y0), drop(y0)));
 
       // next row
       cnt1 <= cnt1 + 1;
@@ -417,6 +396,23 @@ module mkIntra32(IIntra32);
 
    rule do_stage2;
       let x = stage1.first;
+      let modeX = tpl_1(x);
+      let y0 = tpl_2(x);
+      let y1 = tpl_3(x);
+      stage1.deq;
+
+      Vector#(32, Bit#(13)) xm;
+      Vector#(32, Bit#(13)) xn;
+      for(Integer i = 0; i < 32; i = i + 1) begin
+         let fac = facTbl[modeX][i];
+         xm[i] = (fromInteger(32 - fac) * zeroExtend(y0[i]));
+         xn[i] = (fromInteger(     fac) * zeroExtend(y1[i]));
+      end
+      stage2.enq(vec(xm, xn));
+   endrule
+
+   rule do_stage3;
+      let x = stage2.first;
       Vector#(32, Bit#(8)) y;
       for(Integer i = 0; i < 32; i = i + 1) begin
          y[i] = roundN((x[0][i] + x[1][i]), 5);
