@@ -69,7 +69,7 @@ Integer facTbl[16][32] = {
    { 9, 18, 27,  4, 13, 22, 31,  8, 17, 26,  3, 12, 21, 30,  7, 16, 25,  2, 11, 20, 29,  6, 15, 24,  1, 10, 19, 28,  5, 14, 23,  0},   // Mode  7, 29
    { 5, 10, 15, 20, 25, 30,  3,  8, 13, 18, 23, 28,  1,  6, 11, 16, 21, 26, 31,  4,  9, 14, 19, 24, 29,  2,  7, 12, 17, 22, 27,  0},   // Mode  8, 28
    { 2,  4,  6,  8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,  0,  2,  4,  6,  8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,  0},   // Mode  9, 27
-   { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},   //*Mode 10, 26
+   { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},   //*Mode 10, 26,  1
    {30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10,  8,  6,  4,  2,  0, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10,  8,  6,  4,  2,  0},   // Mode 11, 25
    {27, 22, 17, 12,  7,  2, 29, 24, 19, 14,  9,  4, 31, 26, 21, 16, 11,  6,  1, 28, 23, 18, 13,  8,  3, 30, 25, 20, 15, 10,  5,  0},   // Mode 12, 24
    {23, 14,  5, 28, 19, 10,  1, 24, 15,  6, 29, 20, 11,  2, 25, 16,  7, 30, 21, 12,  3, 26, 17,  8, 31, 22, 13,  4, 27, 18,  9,  0},   // Mode 13, 23
@@ -79,7 +79,7 @@ Integer facTbl[16][32] = {
    { 6, 12, 18, 24, 30,  4, 10, 16, 22, 28,  2,  8, 14, 20, 26,  0,  6, 12, 18, 24, 30,  4, 10, 16, 22, 28,  2,  8, 14, 20, 26,  0}    // Mode 17, 19
 };
 
-Bit#(1) mapShift[16][31] = {   // 0-Shift, 1-Keep
+Bit#(1) mapShift[16][31] = {   // 0-Keep, 1-Shift
 //  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,
    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},     // Mode 34
    {1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1},     // Mode 33
@@ -89,7 +89,7 @@ Bit#(1) mapShift[16][31] = {   // 0-Shift, 1-Keep
    {0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1},     // Mode 29
    {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1},     // Mode 28
    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},     // Mode 27
-   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},     // Mode 26
+   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},     // Mode 26,  1
    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},     // Mode 25
    {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},     // Mode 24
    {0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0},     // Mode 23
@@ -110,8 +110,10 @@ module mkIntra32(IIntra32);
    FIFOF#(Vector#(2, (Vector#(32, Bit#(13)))))  stage2   <- mkPipelineFIFOF;
    Reg#(Vector#(32, Bit#(8)))                   pixd1    <- mkRegU;
    Reg#(Bit#(6))                                cnt1     <- mkReg(0);
+   Reg#(Bit#(8))                                dcVal    <- mkRegU;
 
    Integer chen_debug = 0;
+
 
    rule do_stage0(!isValid(stage0) &&& reg_i matches tagged Valid .x);
       let xL = cons(?, x.left);
@@ -315,6 +317,15 @@ module mkIntra32(IIntra32);
                            xT[ 7], xT[ 6], xT[ 5], xT[ 4], xT[ 3], xT[ 2], xT[ 1], xT[ 0]
                         });
          end
+         33: begin
+            Bit#(8) dc = truncate(dcVal >> 6);
+            y = unpack({?,
+                           dc, dc, dc, dc, dc, dc, dc, dc,
+                           dc, dc, dc, dc, dc, dc, dc, dc,
+                           dc, dc, dc, dc, dc, dc, dc, dc,
+                           dc, dc, dc, dc, dc, dc, dc, dc
+                        });
+         end
       endcase
 
       // swap Top and Left on Horizon/Vertical mode edge
@@ -324,9 +335,9 @@ module mkIntra32(IIntra32);
          tmpLeft = takeAt(1, x.top);
          tmpTop  = cons(x.top[0], x.left);
       end
-      reg_i  <= (mode == 32) ? (tagged Invalid) : (tagged Valid IntraRef_t {left:tmpLeft, top:tmpTop});
+      reg_i  <= (mode == 33) ? (tagged Invalid) : (tagged Valid IntraRef_t {left:tmpLeft, top:tmpTop});
 
-      moded1 <= mode;
+      moded1 <= (mode == 33) ? 24 : mode;
       mode   <= mode + 1;
       stage0 <= tagged Valid y;
       cnt1   <= (mode < 16) ? ~0 : 0;
@@ -406,6 +417,11 @@ module mkIntra32(IIntra32);
    interface io_in  =  interface Put; 
                            method Action put(IntraRef_t x) if (!isValid(reg_i));
                               reg_i <= tagged Valid x;
+                              Bit#(14) sum = 0;
+                              for(Integer i = 0; i < 32; i = i + 1) begin
+                                 sum = sum + zeroExtend(x.left[i]) + zeroExtend(x.top[1+i]);
+                              end
+                              dcVal <= truncate(sum >> 6);
                            endmethod
                       endinterface;
    interface io_out = toGet(fifo_o);
