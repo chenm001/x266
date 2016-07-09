@@ -33,7 +33,9 @@ import BUtils::*;
 import BRAMCore::*;
 import SMul::*;
 import ARAM::*;
+import Utils::*;
 
+// Internal ROM Table
 Integer g_t32[32][16] =
 {
     { 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64 },
@@ -70,30 +72,39 @@ Integer g_t32[32][16] =
     {  4,-13, 22,-31, 38,-46, 54,-61, 67,-73, 78,-82, 85,-88, 90,-90 }
 };
 
+// External interface
 interface IDct32;
+   method Action setSize(Bit#(2) dsize);
    interface Put#(Vector#(2, Vector#(32, Bit#(9)))) io_in;
-   interface Get#(Vector#(4, Bit#(16))) io_out;
+   interface Get#(Vector#(32, Bit#(16))) io_out;
 endinterface
 
 interface IDct32Core#(numeric type a);
-   method Bit#(16) dct(Vector#(16, Bit#(a)) x, Bit#(5) idx);
+   method Vector#(15, Bit#(16)) dct(Vector#(16, Bit#(a)) x, Bit#(5) idx);
 endinterface
+
 
 module mkDct32Core(IDct32Core#(a))
    provisos(
-      Add#(_x, 9, a),
       Add#(0, 8, b),
       Add#(1, c, TAdd#(a, b)),
       Add#(c, 1, c1),
       Add#(c, 2, c2),
       Add#(a, 10/*(5-1+6)*/, bs),
-      Add#(shift, 16, bs),
-      Add#(0, TExp#(TSub#(shift, 1)), round)
+      Add#(shift32, 16, bs),
+      Add#(1, shift16, shift32),
+      Add#(2, shift8, shift32),
+      Add#(3, shift4, shift32),
+      Add#(0, TExp#(TSub#(shift32, 1)), round),
+      Add#(_x1, 9, a),
+      Add#(_x2, 16, c),
+      Add#(_x3, 16, c1),
+      Add#(_x4, 16, c2)
    );
 
    Vector#(16, SMUL#(a,b)) smul <- replicateM(mkSMUL);
 
-   method Bit#(16) dct(Vector#(16, Bit#(a)) x, Bit#(5) idx);
+   method Vector#(15, Bit#(16)) dct(Vector#(16, Bit#(a)) x, Bit#(5) idx);
       Bit#(c) x0[16];
       for(Integer i = 0; i < 16; i = i + 1)
          x0[i] = smul[i].c(x[i], fromInteger(g_t32[idx][i]));
@@ -113,16 +124,33 @@ module mkDct32Core(IDct32Core#(a))
       for(Integer i = 0; i < 2; i = i + 1)
          x3[i] = sExtend(x2[2 * i + 0]) + sExtend(x2[2 * i + 1]);
 
-      Bit#(bs) sum = sExtend(x3[0]) + sExtend(x3[1]) + fromInteger(valueOf(round));
+      // Export DCT32 result from here
+      Bit#(bs) x4 = sExtend(x3[0]) + sExtend(x3[1]);
 
-      return truncate(sum >> valueOf(shift));
+
+      // Generate DCT{4,8,16,32} coeff
+      Vector#(15, Bit#(16)) coeff;
+
+      for(Integer i = 0; i < 8; i = i + 1)
+         coeff[0 + i] = roundN(x0[i], valueOf(shift4));
+
+      for(Integer i = 0; i < 4; i = i + 1)
+         coeff[8 + i] = roundN(x1[i], valueOf(shift8));
+
+      for(Integer i = 0; i < 2; i = i + 1)
+         coeff[12 + i] = roundN(x2[i], valueOf(shift16));
+
+      coeff[14] = roundN(x4, valueOf(shift32));
+
+      return coeff;
    endmethod
 endmodule
 
 (* synthesize *)
 module mkDct32(IDct32);
-   FIFOF#(Vector#(2, Vector#(32, Bit#(10)))) fifo_in <- mkPipelineFIFOF;         // [E[0..15] O[0..15]]
-   FIFOF#(Vector#(4, Bit#(16))) fifo_out <- mkPipelineFIFOF;
+   FIFOF#(Vector#(2, Vector#(32, Bit#(10)))) fifo_in     <- mkPipelineFIFOF;         // [E[0..15] O[0..15]]
+   FIFOF#(Vector#(32, Bit#(16)))             fifo_out    <- mkPipelineFIFOF;
+   Reg#(Bit#(2))                             dct_size    <- mkReg(3);
 
 
    Reg#(Bit#(16)) cycles <- mkReg(0);
@@ -142,8 +170,47 @@ module mkDct32(IDct32);
    Wire#(Bit#(1)) w_syncCol <- mkDWire(0);
    Reg#(Bit#(2)) syncCol <- mkReg(0);
    FIFOF#(Vector#(32, Bit#(17))) fifo_col <- mkPipelineFIFOF;        // [E[0..15] O[0..15]]
+   RWire#(Tuple3#(Bit#(2), Bit#(9), Vector#(32, Bit#(16)))) wr_1D <- mkRWire;
 
-   rule do_1D(fifo_in.notEmpty);
+
+   rule write_bram_1D(wr_1D.wget matches tagged Valid .x);
+      let sz  = tpl_1(x);
+      let idx = tpl_2(x);
+      let dat = tpl_3(x);
+
+      case(sz)
+         0: begin
+           mem[{idx[0], 3'd0}].write(0, {dat[ 5], dat[ 4], dat[ 1], dat[ 0]});
+           mem[{idx[0], 3'd1}].write(0, {dat[ 7], dat[ 6], dat[ 3], dat[ 2]});
+           mem[{idx[0], 3'd2}].write(0, {dat[13], dat[12], dat[ 9], dat[ 8]});
+           mem[{idx[0], 3'd3}].write(0, {dat[15], dat[14], dat[10], dat[11]});
+           mem[{idx[0], 3'd4}].write(0, {dat[21], dat[20], dat[17], dat[16]});
+           mem[{idx[0], 3'd5}].write(0, {dat[23], dat[22], dat[19], dat[18]});
+           mem[{idx[0], 3'd6}].write(0, {dat[29], dat[28], dat[25], dat[24]});
+           mem[{idx[0], 3'd7}].write(0, {dat[31], dat[30], dat[27], dat[26]});
+         end
+
+         1: begin
+           mem[{idx[1:0], 2'd0}].write(0, {dat[ 3], dat[ 2], dat[ 1], dat[ 0]});
+           mem[{idx[1:0], 2'd1}].write(0, {dat[ 7], dat[ 6], dat[ 5], dat[ 4]});
+           mem[{idx[1:0], 2'd2}].write(0, {dat[11], dat[10], dat[ 9], dat[ 8]});
+           mem[{idx[1:0], 2'd3}].write(0, {dat[15], dat[14], dat[13], dat[12]});
+         end
+
+         2: begin
+           mem[{idx[2:0], 1'd0}].write({2'd0, idx[5:3]}, {dat[ 3], dat[ 2], dat[ 1], dat[ 0]});
+           mem[{idx[2:0], 1'd1}].write({2'd0, idx[5:3]}, {dat[ 7], dat[ 6], dat[ 5], dat[ 4]});
+         end
+
+         default: begin
+            mem[idx[7:4]].write({idx[8],idx[3:0]}, pack(take(dat)));
+            $display("[%6d] (%2d,%2d) %04X, %04X, %04X, %04X", cycles, idx[7:4], idx[3:0], dat[0], dat[1], dat[2], dat[3]);
+         end
+      endcase
+   endrule
+
+
+   rule do_dct_1D(fifo_in.notEmpty);
       let x = fifo_in.first;
 
       /*
@@ -162,18 +229,60 @@ module mkDct32(IDct32);
       let y2 = dct_1D[2].dct(takeTail(x[0]), {rowIdx[3:0], 1'd1});
       let y3 = dct_1D[3].dct(takeTail(x[1]), {rowIdx[3:0], 1'd1});
 
-      mem[rowIdx[7:4]].write({rowIdx[8],rowIdx[3:0]}, {y3,y2,y1,y0});
-      $display("[%6d] (%2d,%2d) %04X, %04X, %04X, %04X", cycles, rowIdx[7:4], rowIdx[3:0], y0, y1, y2, y3);
+      let idxTmpA = rowIdx[3:0];
+      let idxTmpB = rowIdx[7:4];
+      case(dct_size)
+         0: begin
+            Vector#(8, Bit#(16)) m0 = takeAt(0, y0);
+            Vector#(8, Bit#(16)) m1 = takeAt(0, y1);
+            Vector#(8, Bit#(16)) m2 = takeAt(0, y2);
+            Vector#(8, Bit#(16)) m3 = takeAt(0, y3);
+            wr_1D.wset(tuple3(dct_size, rowIdx, unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)})));
 
-      rowIdx <= rowIdx + 1;
-      if (rowIdx[3:0] == '1) begin
+            // Update Row & Col sync
+            idxTmpA = idxTmpA | 4'b1110;
+            idxTmpB = idxTmpB | 4'b1111;
+         end
+
+         1: begin
+            Vector#(4, Bit#(16)) m0 = takeAt(8, y0);
+            Vector#(4, Bit#(16)) m1 = takeAt(8, y1);
+            Vector#(4, Bit#(16)) m2 = takeAt(8, y2);
+            Vector#(4, Bit#(16)) m3 = takeAt(8, y3);
+            wr_1D.wset(tuple3(dct_size, rowIdx, unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)})));
+
+            // Update Row & Col sync
+            idxTmpA = idxTmpA | 4'b1100;
+            idxTmpB = idxTmpB | 4'b1100;
+         end
+
+         2: begin
+            Vector#(2, Bit#(16)) m0 = takeAt(12, y0);
+            Vector#(2, Bit#(16)) m1 = takeAt(12, y1);
+            Vector#(2, Bit#(16)) m2 = takeAt(12, y2);
+            Vector#(2, Bit#(16)) m3 = takeAt(12, y3);
+            wr_1D.wset(tuple3(dct_size, rowIdx, unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)})));
+
+            // Update Row & Col sync
+            idxTmpA = idxTmpA | 4'b1000;
+            idxTmpB = {2'b11, rowIdx[4:3]};
+         end
+
+         default: begin
+            wr_1D.wset(tuple3(dct_size, rowIdx, unpack({?, y3[14], y2[14], y1[14], y0[14]})));
+         end
+      endcase
+
+      // Update Row & Col sync
+      if (idxTmpA == '1) begin
          fifo_in.deq;
       end
-
-      if (rowIdx[7:4] == '1) begin
+      if (idxTmpB == '1) begin
          w_syncCol <= 1;
       end
+      rowIdx <= rowIdx + 1;
    endrule
+
 
    rule read_mem;
       for(Integer i = 0; i < 16; i = i + 1) begin
@@ -182,7 +291,8 @@ module mkDct32(IDct32);
       syncCol <= {syncCol[0], w_syncCol};
    endrule
 
-   rule pre_col({syncCol[1],colCnt[4:0]} != 0);
+
+   rule pre_2D({syncCol[1],colCnt[4:0]} != 0);
       Vector#(32, Bit#(16)) x;
       Vector#(32, Bit#(17)) y;
 
@@ -214,7 +324,8 @@ module mkDct32(IDct32);
       colCnt <= colCnt + 1;
    endrule
 
-   rule do_2D;
+
+   rule do_dct_2D;
       let x = fifo_col.first;
 
       if (False) begin
@@ -231,7 +342,35 @@ module mkDct32(IDct32);
       let y2 = dct_2D[2].dct(take    (x), {colIdx, 2'd2});
       let y3 = dct_2D[3].dct(takeTail(x), {colIdx, 2'd3});
 
-      fifo_out.enq(unpack({y3,y2,y1,y0}));
+      case(dct_size)
+         0: begin
+            Vector#(8, Bit#(16)) m0 = takeAt(0, y0);
+            Vector#(8, Bit#(16)) m1 = takeAt(0, y1);
+            Vector#(8, Bit#(16)) m2 = takeAt(0, y2);
+            Vector#(8, Bit#(16)) m3 = takeAt(0, y3);
+            fifo_out.enq(unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)}));
+         end
+
+         1: begin
+            Vector#(4, Bit#(16)) m0 = takeAt(8, y0);
+            Vector#(4, Bit#(16)) m1 = takeAt(8, y1);
+            Vector#(4, Bit#(16)) m2 = takeAt(8, y2);
+            Vector#(4, Bit#(16)) m3 = takeAt(8, y3);
+            fifo_out.enq(unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)}));
+         end
+
+         2: begin
+            Vector#(2, Bit#(16)) m0 = takeAt(12, y0);
+            Vector#(2, Bit#(16)) m1 = takeAt(12, y1);
+            Vector#(2, Bit#(16)) m2 = takeAt(12, y2);
+            Vector#(2, Bit#(16)) m3 = takeAt(12, y3);
+            fifo_out.enq(unpack({?, pack(m3), pack(m2), pack(m1), pack(m0)}));
+         end
+
+         default: begin
+            fifo_out.enq(unpack({?, y3[14], y2[14], y1[14], y0[14]}));
+         end
+      endcase
       //$display("[%6d] %3d: %04X, %04X, %04X, %04X", cycles, colIdx, y0, y1, y2, y3);
 
       colIdx <= colIdx + 1;
@@ -239,6 +378,13 @@ module mkDct32(IDct32);
          fifo_col.deq;
       end
    endrule
+
+
+
+   // External Interface
+   method Action setSize(Bit#(2) dsize);
+      dct_size <= dsize;
+   endmethod
 
    interface Put io_in = interface Put; 
                             method Action put(Vector#(2, Vector#(32, Bit#(9))) x);
@@ -253,6 +399,7 @@ module mkDct32(IDct32);
                                fifo_in.enq(y);
                             endmethod
                          endinterface;
+
    interface Get io_out = toGet(fifo_out);
    
 endmodule : mkDct32
