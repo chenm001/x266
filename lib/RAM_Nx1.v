@@ -45,7 +45,7 @@ module RAM_Nx1(clkA, clkB, weA, reB, addrA, addrB, diA, doB);
   output reg  [WIDTHB-1:0]      doB;
 
   reg [WIDTHA-1:0] mux;
-  reg [WIDTHA-1:0] RAM [SIZEA-1:0];
+  reg [WIDTHA-1:0] RAM [SIZEA-1:0] /* synthesis syn_ramstyle="no_rw_check" */ ;
 
   always @(posedge clkA)
   begin
