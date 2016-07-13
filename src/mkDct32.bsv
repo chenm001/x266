@@ -413,7 +413,7 @@ import "BDPI" function ActionValue#(Vector#(4, Bit#(16))) dct32_getDct();
 (* synthesize *)
 module mkTb(Empty);
    FIFOF#(Vector#(2, Vector#(32, Bit#(9)))) fifo_in <- mkPipelineFIFOF;
-   FIFOF#(Vector#(4, Bit#(16))) fifo_out <- mkPipelineFIFOF;
+   FIFOF#(Vector#(32, Bit#(16))) fifo_out <- mkPipelineFIFOF;
    Reg#(Bit#(16)) cycles <- mkReg(0);
    Reg#(Bit#(9))  states <- mkReg(0);
    Reg#(Bit#(8))  passed <- mkReg(0);
@@ -453,9 +453,9 @@ module mkTb(Empty);
          states <= states + 1;
    endrule
 
-   rule do_check(states >= 17 && states < 17+32*8);
+   rule do_check_32(states >= 17 && states < 17+32*8);
       let x <- dct32_getDct;
-      let y = fifo_out.first;
+      Vector#(4, Bit#(16)) y = take(fifo_out.first);
 
       if (x != y) begin
          $display("Verify failed: %X -> %X", x, y);
