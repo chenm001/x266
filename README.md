@@ -2,10 +2,11 @@
 x266 - open H.266 codec software & hardware implementation
 ==========================================
 
-x266 is an open source hardware implementation of the H.266 video codec.
-It is demonstration research of H.266 project, as soon as H.266 specification start, I write a industrialize H.266 codec.
+x266 is an open source highly optimal software/hardware co-design architecture implementation of the next generation H.266 video codec.
 
-x266 based on Software/Hardware Cooperative concept and flexible task distributed architecture.
+It is demonstration research of industrialized implement video coding H.266. as soon as H.266 specification release, I will publishing my industrialize H.266 codec.
+
+x266 based on Software/Hardware Cooperative concept and flexible task distributed and resource reuse architecture.
 
 
 Building
@@ -28,5 +29,6 @@ See COPYRIGHT for more details.
 
 See `LICENSE.TXT` for more details.
 
-Copyright (c) 2015-2016 Min Chen
-Contact: Min Chen <chenm003@gmail.com>
+Creator on November 2015<br>
+Copyright (c) 2015-2016 Min Chen<br>
+Contact: Min Chen <chenm003@gmail.com><br>
