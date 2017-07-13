@@ -32,7 +32,7 @@ import BUtils::*;
 
 interface ISatd8;
    interface Put#(Vector#(8, Bit#(9))) inp;
-   interface Get#(Vector#(1, Bit#(16))) oup;
+   interface Get#(Bit#(16)) oup;
 endinterface
 
 function Vector#(8, Bit#(na)) satd_1d(Vector#(8, Bit#(n)) x)
@@ -75,17 +75,17 @@ endfunction
 
 (* synthesize *)
 module mkSatd8(ISatd8);
-   FIFOF#(Vector#(8, Bit#(9)))               fifo_inp     <- mkPipelineFIFOF;
-   FIFOF#(Vector#(1, Bit#(16)))              fifo_out    <- mkPipelineFIFOF;
+   FIFOF#(Vector#(8, Bit#(9)))               fifo_inp    <- mkPipelineFIFOF;
+   FIFOF#(Bit#(16))                          fifo_out    <- mkPipelineFIFOF;
 
    RWire#(Vector#(8, Bit#(12)))              rw_trans    <- mkRWire;
    RWire#(Bool)                              rw_oflag    <- mkRWire;
 
-   Reg#(Bit#(16))                            flags       <- mkConfigReg(0);
+   Reg#(Bit#(8))                             flags       <- mkConfigReg(0);
    Reg#(Bool)                                dir         <- mkConfigReg(True);
    Vector#(8, Reg#(Vector#(8, Bit#(12))))    matrix      <- replicateM(mkConfigRegU);
 
-   rule shift_matrix(isValid(rw_trans.wget) || flags[15:8] != 0);
+   rule shift_matrix(isValid(rw_trans.wget) || flags[7] != 0);
       let x = fromMaybe(?, rw_trans.wget);
       let y = isValid(rw_trans.wget) ? 1 : 0;
       
@@ -103,13 +103,13 @@ module mkSatd8(ISatd8);
          end
       end
 
-      let next_flags = flags * 2 + y;
+      let next_flags = (flags << 1) + y;
       flags <= next_flags;
-      if (next_flags == '1)
+      if (next_flags == 8'b1111_1111)
          dir <= !dir;
    endrule
 
-   rule do_2d(flags[15:8] != 0);
+   rule do_2d(flags[7] != 0);
       Vector#(8, Bit#(12)) tmp = ?;
       
       if (dir) begin
@@ -121,11 +121,11 @@ module mkSatd8(ISatd8);
          end
       end
       let x = satd_1d(tmp);
-      Vector#(1, Bit#(16)) sum = unpack(0);
+      Bit#(16) sum = 0;
 
       for(Integer i = 0; i < 8; i = i + 1) begin
          Int#(15) v = unpack(x[i]);
-         sum[0] = sum[0] + zExtend(pack(abs(v)));
+         sum = sum + zExtend(pack(abs(v)));
       end
 
       fifo_out.enq(sum);
