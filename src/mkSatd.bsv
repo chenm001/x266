@@ -32,7 +32,12 @@ import BUtils::*;
 
 interface ISatd8;
    interface Put#(Vector#(8, Bit#(9))) inp;
-   interface Get#(Bit#(16)) oup;
+   interface Get#(Bit#(19)) oup;
+endinterface
+
+interface ISatd8x2;
+   interface Put#(Vector#(16, Bit#(9))) inp;
+   interface Get#(Vector#(2, Bit#(19))) oup;
 endinterface
 
 function Vector#(8, Bit#(na)) satd_1d(Vector#(8, Bit#(n)) x)
@@ -76,7 +81,7 @@ endfunction
 (* synthesize *)
 module mkSatd8(ISatd8);
    FIFOF#(Vector#(8, Bit#(9)))               fifo_inp    <- mkPipelineFIFOF;
-   FIFOF#(Bit#(16))                          fifo_out    <- mkPipelineFIFOF;
+   FIFOF#(Bit#(19))                          fifo_out    <- mkPipelineFIFOF;
 
    RWire#(Vector#(8, Bit#(12)))              rw_trans    <- mkRWire;
    RWire#(Bool)                              rw_oflag    <- mkRWire;
@@ -84,6 +89,9 @@ module mkSatd8(ISatd8);
    Reg#(Bit#(8))                             flags       <- mkConfigReg(0);
    Reg#(Bool)                                dir         <- mkConfigReg(True);
    Vector#(8, Reg#(Vector#(8, Bit#(12))))    matrix      <- replicateM(mkConfigRegU);
+
+   Reg#(Bit#(3))                             sum_cnt     <- mkReg(0);
+   Reg#(Bit#(21))                            sum_satd    <- mkReg(0);
 
    rule shift_matrix(isValid(rw_trans.wget) || flags[7] != 0);
       let x = fromMaybe(?, rw_trans.wget);
@@ -111,7 +119,8 @@ module mkSatd8(ISatd8);
 
    rule do_2d(flags[7] != 0);
       Vector#(8, Bit#(12)) tmp = ?;
-      
+
+      // Get 2D SATD data
       if (dir) begin
          tmp = matrix[0];
       end
@@ -120,7 +129,11 @@ module mkSatd8(ISatd8);
             tmp[i] = matrix[i][0];
          end
       end
+
+      // 2D Transform
       let x = satd_1d(tmp);
+
+      // Sum of row
       Bit#(16) sum = 0;
 
       for(Integer i = 0; i < 8; i = i + 1) begin
@@ -128,7 +141,16 @@ module mkSatd8(ISatd8);
          sum = sum + zExtend(pack(abs(v)));
       end
 
-      fifo_out.enq(sum);
+      // Sum 8 rows to final value
+      let next_sum_satd = sum_satd + zExtend(sum);
+
+      if (sum_cnt == 3'b111) begin
+         let y = truncate((next_sum_satd + 2) >> 2);
+         fifo_out.enq(y);
+         next_sum_satd = 0;
+      end
+      sum_satd <= next_sum_satd;
+      sum_cnt <= sum_cnt + 1;
    endrule
 
    rule do_1d(fifo_inp.notEmpty());
@@ -142,4 +164,28 @@ module mkSatd8(ISatd8);
 
    interface Put inp = toPut(fifo_inp);
    interface Get oup = toGet(fifo_out);
+endmodule
+
+
+(* synthesize *)
+module mkSatd8x2(ISatd8x2);
+   ISatd8   satd0    <- mkSatd8;
+   ISatd8   satd1    <- mkSatd8;
+
+   interface Put inp = interface Put;
+                          method Action put(Vector#(16, Bit#(9)) x);
+                             Vector#(2, Vector#(8, Bit#(9))) y = unpack(pack(x));
+                             satd0.inp.put(y[0]);
+                             satd1.inp.put(y[1]);
+                          endmethod
+                       endinterface;
+   
+   interface Get oup = interface Get;
+                          method ActionValue#(Vector#(2, Bit#(19))) get();
+                             let x0 <- satd0.oup.get();
+                             let x1 <- satd1.oup.get();
+                             Vector#(2, Bit#(19)) y = unpack({x0, x1});
+                             return y;
+                          endmethod
+                       endinterface;
 endmodule
