@@ -29,15 +29,16 @@ import GetPut::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
 import BUtils::*;
+import Connectable::*;
 
 interface ISatd8;
-   interface Put#(Vector#(8, Bit#(9))) inp;
-   interface Get#(Bit#(19)) oup;
+   interface Put#(Vector#(8, Bit#(9))) io_in;
+   interface Get#(Bit#(19)) io_out;
 endinterface
 
 interface ISatd8x2;
-   interface Put#(Vector#(16, Bit#(9))) inp;
-   interface Get#(Vector#(2, Bit#(19))) oup;
+   interface Put#(Vector#(16, Bit#(9))) io_in;
+   interface Get#(Vector#(2, Bit#(19))) io_out;
 endinterface
 
 function Vector#(8, Bit#(na)) satd_1d(Vector#(8, Bit#(n)) x)
@@ -162,8 +163,8 @@ module mkSatd8(ISatd8);
       rw_trans.wset(y);
    endrule
 
-   interface Put inp = toPut(fifo_inp);
-   interface Get oup = toGet(fifo_out);
+   interface Put io_in = toPut(fifo_inp);
+   interface Get io_out = toGet(fifo_out);
 endmodule
 
 
@@ -172,20 +173,73 @@ module mkSatd8x2(ISatd8x2);
    ISatd8   satd0    <- mkSatd8;
    ISatd8   satd1    <- mkSatd8;
 
-   interface Put inp = interface Put;
+   interface Put io_in = interface Put;
                           method Action put(Vector#(16, Bit#(9)) x);
                              Vector#(2, Vector#(8, Bit#(9))) y = unpack(pack(x));
-                             satd0.inp.put(y[0]);
-                             satd1.inp.put(y[1]);
+                             satd0.io_in.put(y[0]);
+                             satd1.io_in.put(y[1]);
                           endmethod
                        endinterface;
    
-   interface Get oup = interface Get;
+   interface Get io_out = interface Get;
                           method ActionValue#(Vector#(2, Bit#(19))) get();
-                             let x0 <- satd0.oup.get();
-                             let x1 <- satd1.oup.get();
+                             let x0 <- satd0.io_out.get();
+                             let x1 <- satd1.io_out.get();
                              Vector#(2, Bit#(19)) y = unpack({x0, x1});
                              return y;
                           endmethod
                        endinterface;
 endmodule
+
+
+`ifdef TEST_BENCH_mkSatd
+import "BDPI" function Action satd8x8_genNew();
+import "BDPI" function ActionValue#(Vector#(8, Bit#(9))) satd8x8_getDiff();
+import "BDPI" function ActionValue#(Bit#(19)) satd8x8_getSatd();
+
+(* synthesize *)
+module mkTb(Empty);
+   FIFOF#(Vector#(8, Bit#(9)))      fifo_in  <- mkPipelineFIFOF;
+   ISatd8                           dut      <- mkSatd8;
+   Reg#(Bit#(3))                    cnt      <- mkReg(0);
+   Reg#(Bit#(4))                    state    <- mkReg(0);
+   Reg#(Bit#(16))                   cycles   <- mkReg(0);
+
+   mkConnection(toGet(fifo_in), dut.io_in);
+
+   rule do_cycles;
+      cycles <= cycles + 1;
+   endrule
+
+   rule do_init(state == 0);
+      if (cnt == 1)
+          $finish;
+      satd8x8_genNew();
+      state <= 1;
+   endrule
+   
+   rule do_data(state >= 1 && state <= 8);
+      let x <- satd8x8_getDiff();
+      fifo_in.enq(x);
+      state <= state + 1;
+   endrule
+
+   rule do_check(state == 9);
+      let x <- satd8x8_getSatd();
+      let y <- dut.io_out.get();
+
+      if (x == y) begin
+         $display("Check %d passed\n", cnt);
+      end
+      else begin
+         $display("Check %d failed\n", cnt);
+         $finish;
+      end
+
+      cnt <= cnt + 1;
+      state <= 0;
+   endrule
+
+endmodule
+
+`endif
