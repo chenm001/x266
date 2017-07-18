@@ -25,75 +25,81 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "tb_common.h"
 
 static int satd8x8(const int16_t diff[64])
 {
-    int i, ii;
+    int i, j, ii;
     int32_t sad = 0;
     int16_t m1[8][8], m2[8][8], m3[8][8];
 
     //horizontal
     for (i=0; i < 8; i++)
     {
-      ii = i << 3;
-      m2[i][0] = diff[ii  ] + diff[ii+4];
-      m2[i][1] = diff[ii+1] + diff[ii+5];
-      m2[i][2] = diff[ii+2] + diff[ii+6];
-      m2[i][3] = diff[ii+3] + diff[ii+7];
-      m2[i][4] = diff[ii  ] - diff[ii+4];
-      m2[i][5] = diff[ii+1] - diff[ii+5];
-      m2[i][6] = diff[ii+2] - diff[ii+6];
-      m2[i][7] = diff[ii+3] - diff[ii+7];
+        ii = i << 3;
+        m2[i][0] = diff[ii  ] + diff[ii+4];
+        m2[i][1] = diff[ii+1] + diff[ii+5];
+        m2[i][2] = diff[ii+2] + diff[ii+6];
+        m2[i][3] = diff[ii+3] + diff[ii+7];
+        m2[i][4] = diff[ii  ] - diff[ii+4];
+        m2[i][5] = diff[ii+1] - diff[ii+5];
+        m2[i][6] = diff[ii+2] - diff[ii+6];
+        m2[i][7] = diff[ii+3] - diff[ii+7];
 
-      m1[i][0] = m2[i][0] + m2[i][2];
-      m1[i][1] = m2[i][1] + m2[i][3];
-      m1[i][2] = m2[i][0] - m2[i][2];
-      m1[i][3] = m2[i][1] - m2[i][3];
-      m1[i][4] = m2[i][4] + m2[i][6];
-      m1[i][5] = m2[i][5] + m2[i][7];
-      m1[i][6] = m2[i][4] - m2[i][6];
-      m1[i][7] = m2[i][5] - m2[i][7];
+        m1[i][0] = m2[i][0] + m2[i][2];
+        m1[i][1] = m2[i][1] + m2[i][3];
+        m1[i][2] = m2[i][0] - m2[i][2];
+        m1[i][3] = m2[i][1] - m2[i][3];
+        m1[i][4] = m2[i][4] + m2[i][6];
+        m1[i][5] = m2[i][5] + m2[i][7];
+        m1[i][6] = m2[i][4] - m2[i][6];
+        m1[i][7] = m2[i][5] - m2[i][7];
 
-      m2[i][0] = m1[i][0] + m1[i][1];
-      m2[i][1] = m1[i][0] - m1[i][1];
-      m2[i][2] = m1[i][2] + m1[i][3];
-      m2[i][3] = m1[i][2] - m1[i][3];
-      m2[i][4] = m1[i][4] + m1[i][5];
-      m2[i][5] = m1[i][4] - m1[i][5];
-      m2[i][6] = m1[i][6] + m1[i][7];
-      m2[i][7] = m1[i][6] - m1[i][7];
+        m2[i][0] = m1[i][0] + m1[i][1];
+        m2[i][1] = m1[i][0] - m1[i][1];
+        m2[i][2] = m1[i][2] + m1[i][3];
+        m2[i][3] = m1[i][2] - m1[i][3];
+        m2[i][4] = m1[i][4] + m1[i][5];
+        m2[i][5] = m1[i][4] - m1[i][5];
+        m2[i][6] = m1[i][6] + m1[i][7];
+        m2[i][7] = m1[i][6] - m1[i][7];
+
+        //printf("[INP ] %03X-%03X-%03X-%03X-%03X-%03X-%03X-%03X\n", diff[ii+0] & 0x1FF, diff[ii+1] & 0x1FF, diff[ii+2] & 0x1FF, diff[ii+3] & 0x1FF, diff[ii+4] & 0x1FF, diff[ii+5] & 0x1FF, diff[ii+6] & 0x1FF, diff[ii+7] & 0x1FF);
+        //printf("[TRN1] %04X-%04X-%04X-%04X-%04X-%04X-%04X-%04X\n", m2[i][0] & 0x7FFF, m2[i][1] & 0x7FFF, m2[i][2] & 0x7FFF, m2[i][3] & 0x7FFF, m2[i][4] & 0x7FFF, m2[i][5] & 0x7FFF, m2[i][6] & 0x7FFF, m2[i][7] & 0x7FFF);
     }
 
     //vertical
     for (i=0; i < 8; i++)
     {
-      m3[0][i] = m2[0][i] + m2[4][i];
-      m3[1][i] = m2[1][i] + m2[5][i];
-      m3[2][i] = m2[2][i] + m2[6][i];
-      m3[3][i] = m2[3][i] + m2[7][i];
-      m3[4][i] = m2[0][i] - m2[4][i];
-      m3[5][i] = m2[1][i] - m2[5][i];
-      m3[6][i] = m2[2][i] - m2[6][i];
-      m3[7][i] = m2[3][i] - m2[7][i];
+        m3[0][i] = m2[0][i] + m2[4][i];
+        m3[1][i] = m2[1][i] + m2[5][i];
+        m3[2][i] = m2[2][i] + m2[6][i];
+        m3[3][i] = m2[3][i] + m2[7][i];
+        m3[4][i] = m2[0][i] - m2[4][i];
+        m3[5][i] = m2[1][i] - m2[5][i];
+        m3[6][i] = m2[2][i] - m2[6][i];
+        m3[7][i] = m2[3][i] - m2[7][i];
 
-      m1[0][i] = m3[0][i] + m3[2][i];
-      m1[1][i] = m3[1][i] + m3[3][i];
-      m1[2][i] = m3[0][i] - m3[2][i];
-      m1[3][i] = m3[1][i] - m3[3][i];
-      m1[4][i] = m3[4][i] + m3[6][i];
-      m1[5][i] = m3[5][i] + m3[7][i];
-      m1[6][i] = m3[4][i] - m3[6][i];
-      m1[7][i] = m3[5][i] - m3[7][i];
+        m1[0][i] = m3[0][i] + m3[2][i];
+        m1[1][i] = m3[1][i] + m3[3][i];
+        m1[2][i] = m3[0][i] - m3[2][i];
+        m1[3][i] = m3[1][i] - m3[3][i];
+        m1[4][i] = m3[4][i] + m3[6][i];
+        m1[5][i] = m3[5][i] + m3[7][i];
+        m1[6][i] = m3[4][i] - m3[6][i];
+        m1[7][i] = m3[5][i] - m3[7][i];
 
-      m2[0][i] = m1[0][i] + m1[1][i];
-      m2[1][i] = m1[0][i] - m1[1][i];
-      m2[2][i] = m1[2][i] + m1[3][i];
-      m2[3][i] = m1[2][i] - m1[3][i];
-      m2[4][i] = m1[4][i] + m1[5][i];
-      m2[5][i] = m1[4][i] - m1[5][i];
-      m2[6][i] = m1[6][i] + m1[7][i];
-      m2[7][i] = m1[6][i] - m1[7][i];
+        m2[0][i] = m1[0][i] + m1[1][i];
+        m2[1][i] = m1[0][i] - m1[1][i];
+        m2[2][i] = m1[2][i] + m1[3][i];
+        m2[3][i] = m1[2][i] - m1[3][i];
+        m2[4][i] = m1[4][i] + m1[5][i];
+        m2[5][i] = m1[4][i] - m1[5][i];
+        m2[6][i] = m1[6][i] + m1[7][i];
+        m2[7][i] = m1[6][i] - m1[7][i];
+
+        //printf("[TRN2] %04X-%04X-%04X-%04X-%04X-%04X-%04X-%04X\n", m2[i][0] & 0x7FFF, m2[i][1] & 0x7FFF, m2[i][2] & 0x7FFF, m2[i][3] & 0x7FFF, m2[i][4] & 0x7FFF, m2[i][5] & 0x7FFF, m2[i][6] & 0x7FFF, m2[i][7] & 0x7FFF);
     }
 
     for (i = 0; i < 8; i++)
@@ -105,6 +111,8 @@ static int satd8x8(const int16_t diff[64])
     }
 
     sad=((sad+2)>>2);
+
+    //printf("Satd = %d\n", sad);
 
     return sad;
 }

@@ -67,14 +67,14 @@ function Vector#(8, Bit#(na)) satd_1d(Vector#(8, Bit#(n)) x)
    m1[6] = m0[4] - m0[6];
    m1[7] = m0[5] - m0[7];
 
-   m2[0] = m0[0] + m0[1];
-   m2[1] = m0[0] - m0[1];
-   m2[2] = m0[2] + m0[3];
-   m2[3] = m0[2] - m0[3];
-   m2[4] = m0[4] + m0[5];
-   m2[5] = m0[4] - m0[5];
-   m2[6] = m0[6] + m0[7];
-   m2[7] = m0[6] - m0[7];
+   m2[0] = m1[0] + m1[1];
+   m2[1] = m1[0] - m1[1];
+   m2[2] = m1[2] + m1[3];
+   m2[3] = m1[2] - m1[3];
+   m2[4] = m1[4] + m1[5];
+   m2[5] = m1[4] - m1[5];
+   m2[6] = m1[6] + m1[7];
+   m2[7] = m1[6] - m1[7];
 
    return m2;
 endfunction
@@ -131,8 +131,12 @@ module mkSatd8(ISatd8);
          end
       end
 
+      //$display("[COL ] %04X-%04X-%04X-%04X-%04X-%04X-%04X-%04X", tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5], tmp[6], tmp[7]);
+
       // 2D Transform
       let x = satd_1d(tmp);
+
+      //$display("[TRN2] %04X-%04X-%04X-%04X-%04X-%04X-%04X-%04X", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
 
       // Sum of row
       Bit#(16) sum = 0;
@@ -158,7 +162,11 @@ module mkSatd8(ISatd8);
       let x = fifo_inp.first;
       fifo_inp.deq;
 
+      //$display("[INP ] %03X-%03X-%03X-%03X-%03X-%03X-%03X-%03X", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
+
       let y = satd_1d(x);
+
+      //$display("[TRN1] %04X-%04X-%04X-%04X-%04X-%04X-%04X-%04X", y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7]);
 
       rw_trans.wset(y);
    endrule
@@ -194,14 +202,14 @@ endmodule
 
 `ifdef TEST_BENCH_mkSatd
 import "BDPI" function Action satd8x8_genNew();
-import "BDPI" function ActionValue#(Vector#(8, Bit#(9))) satd8x8_getDiff();
+import "BDPI" function ActionValue#(Vector#(8, Bit#(16))) satd8x8_getDiff();
 import "BDPI" function ActionValue#(Bit#(19)) satd8x8_getSatd();
 
 (* synthesize *)
 module mkTb(Empty);
    FIFOF#(Vector#(8, Bit#(9)))      fifo_in  <- mkPipelineFIFOF;
    ISatd8                           dut      <- mkSatd8;
-   Reg#(Bit#(3))                    cnt      <- mkReg(0);
+   Reg#(Bit#(8))                    cnt      <- mkReg(0);
    Reg#(Bit#(4))                    state    <- mkReg(0);
    Reg#(Bit#(16))                   cycles   <- mkReg(0);
 
@@ -212,14 +220,14 @@ module mkTb(Empty);
    endrule
 
    rule do_init(state == 0);
-      if (cnt == 1)
-          $finish;
       satd8x8_genNew();
       state <= 1;
    endrule
    
    rule do_data(state >= 1 && state <= 8);
-      let x <- satd8x8_getDiff();
+      let xx <- satd8x8_getDiff();
+      Vector#(8, Bit#(9)) x = map(truncate, xx);
+
       fifo_in.enq(x);
       state <= state + 1;
    endrule
@@ -232,9 +240,12 @@ module mkTb(Empty);
          $display("Check %d passed\n", cnt);
       end
       else begin
-         $display("Check %d failed\n", cnt);
+         $display("Check %d failed, Satd = %d -> %d\n", cnt, y, x);
          $finish;
       end
+
+      if (cnt == 255)
+          $finish;
 
       cnt <= cnt + 1;
       state <= 0;
