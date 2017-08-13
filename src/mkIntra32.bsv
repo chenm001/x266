@@ -66,7 +66,8 @@ module mkIntra(IIntra#(size));
    Reg#(Bit#(6))                                   mode     <- mkRegU;
    Reg#(Bit#(8))                                   dcVal    <- mkRegU;
    Reg#(Bit#(31))                                  sflag    <- mkRegU;
-   FIFOF#(Vector#(64, Bit#(8)))                    fifo_s1  <- mkPipelineFIFOF;
+   FIFOF#(Tuple2#(Bit#(6), Vector#(64, Bit#(8))))  fifo_s1  <- mkPipelineFIFOF;
+   Reg#(Bit#(6))                                   rows     <- mkReg(0);
 
    Integer mapTbl[17][32] = {
       { 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},   // Mode  2, 26-34
@@ -324,8 +325,8 @@ module mkIntra(IIntra#(size));
    endfunction
 
    rule stage1(isValid(id));
-      Vector#(34, Bit#(8)) x0 = take(buff);
-      Vector#(34, Bit#(8)) x1 = (sflag[0] == 1) ? takeAt(1, buff) : x0;
+      Vector#(33, Bit#(8)) x0 = take(buff);
+      Vector#(33, Bit#(8)) x1 = (sflag[0] == 1) ? takeAt(1, buff) : x0;
       Vector#(32, Bit#(8)) y = ?;
       Vector#(32, Bit#(8)) z = ?;
 
@@ -338,9 +339,30 @@ module mkIntra(IIntra#(size));
 
       buff <= shiftInAtN(buff, ?);
       sflag <= (sflag >> 1);
-      fifo_s1.enq(append(y, z));
+      rows <= rows + 1;
+      if (rows == ~0)
+         id <= tagged Invalid;
+
+      fifo_s1.enq(tuple2(rows, append(y, z)));
    endrule
 
+   rule stage2;
+      let x = fifo_s1.first;
+      let r = tpl_1(x);
+      let v = tpl_2(x);
+      fifo_s1.deq;
+
+      Vector#(32, Bit#(8)) z = ?;
+      Vector#(2, Vector#(32, Bit#(8))) y = unpack(pack(x));
+      let fac = facTbl[mode][r];
+
+      for(Integer i = 0; i < 32; i = i + 1) begin
+         Bit#(13) tmp = zExtend(v[0][i]) * zExtend(32 - fac) + zExtend(v[1][i]) * zExtend(fac) + 16;
+         z[i] = truncate(tmp >> 6);
+      end
+
+      fifo_o.enq(z);
+   endrule
 
 
    interface io_in  =  interface Put; 
