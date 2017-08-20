@@ -154,7 +154,7 @@ trap_entry:
   LREG x31, 248(sp)
 
   addi sp, sp, 272
-  eret
+  mret
 
 .section ".tdata.begin"
 .globl _tdata_begin

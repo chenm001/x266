@@ -11,8 +11,10 @@ bmarks_tests=(
 	median
 	multiply
 	qsort
+	rsort
 	towers
 	vvadd
+#	spmv
 	)
 
 vmh_dir=../../programs/build/benchmarks/vmh

@@ -29,8 +29,8 @@ module mkDelayedMemory(DelayedMemory);
     Fifo#(2, MemResp) outFifo <- mkCFFifo();
 
 `ifdef SIM
-	RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
-	MemInitIfc memInit <- mkDummyMemInit;
+    RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
+    MemInitIfc memInit <- mkDummyMemInit;
 `else
     RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
     MemInitIfc memInit <- mkMemInitRegFile(mem);

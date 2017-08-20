@@ -30,7 +30,7 @@ function Data alu(Data a, Data b, AluFunc func);
      Xor   : (a ^ b);
      Slt   : zeroExtend( pack( signedLT(a, b) ) );
      Sltu  : zeroExtend( pack( a < b ) );
-	 // 5-bit shift width for 32-bit data
+     // 5-bit shift width for 32-bit data
      Sll   : (a << b[4:0]);
      Srl   : (a >> b[4:0]);
      Sra   : signedShiftRight(a, b[4:0]);
@@ -80,8 +80,8 @@ function ExecInst exec(DecodedInst dInst, Data rVal1, Data rVal2, Addr pc, Addr 
   
   eInst.data = dInst.iType == Csrr ?
                  csrVal :
-			   dInst.iType == Csrw ?
-			     rVal1 :
+               dInst.iType == Csrw ?
+                 rVal1 :
                dInst.iType==St ?
                  rVal2 :
                (dInst.iType==J || dInst.iType == Jr) ?

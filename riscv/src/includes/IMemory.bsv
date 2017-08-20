@@ -10,10 +10,10 @@ endinterface
 
 (* synthesize *)
 module mkIMemory(IMemory);
-	// In simulation we always init memory from a fixed VMH file (for speed)
+    // In simulation we always init memory from a fixed VMH file (for speed)
 `ifdef SIM
-	RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
-	MemInitIfc memInit <- mkDummyMemInit;
+    RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
+    MemInitIfc memInit <- mkDummyMemInit;
 `else
     RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
     MemInitIfc memInit <- mkMemInitRegFile(mem);

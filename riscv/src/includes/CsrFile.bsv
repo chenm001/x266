@@ -15,7 +15,7 @@ import Types::*;
 import ProcTypes::*;
 import Ehr::*;
 import ConfigReg::*;
-import Fifo::*;
+import myFifo::*;
 
 interface CsrFile;
     method Action start(Data id);
@@ -29,10 +29,10 @@ endinterface
 module mkCsrFile(CsrFile);
     Reg#(Bool) startReg <- mkConfigReg(False);
 
-	// CSR 
+    // CSR 
     Reg#(Data) numInsts <- mkConfigReg(0); // csrInstret -- read only
     Reg#(Data) cycles <- mkReg(0); // csrCycle -- read only
-	Reg#(Data) coreId <- mkConfigReg(0); // csrMhartid -- read only
+    Reg#(Data) coreId <- mkConfigReg(0); // csrMhartid -- read only
     Fifo#(2, CpuToHostData) toHostFifo <- mkCFFifo; // csrMtohost -- write only
 
     rule count (startReg);
@@ -43,7 +43,7 @@ module mkCsrFile(CsrFile);
     method Action start(Data id) if(!startReg);
         startReg <= True;
         cycles <= 0;
-		coreId <= id;
+        coreId <= id;
     endmethod
 
     method Bool started;
@@ -55,22 +55,22 @@ module mkCsrFile(CsrFile);
                     csrCycle: cycles;
                     csrInstret: numInsts;
                     csrMhartid: coreId;
-					default: ?;
+                    default: ?;
                 endcase);
     endmethod
 
     method Action wr(Maybe#(CsrIndx) csrIdx, Data val);
         if(csrIdx matches tagged Valid .idx) begin
             case (idx)
-				csrMtohost: begin
-					// high 16 bits encodes type, low 16 bits are data
-					Bit#(16) hi = truncateLSB(val);
-					Bit#(16) lo = truncate(val);
-					toHostFifo.enq(CpuToHostData {
-						c2hType: unpack(truncate(hi)),
-						data: lo
-					});
-				end
+                csrMtohost: begin
+                    // high 16 bits encodes type, low 16 bits are data
+                    Bit#(16) hi = truncateLSB(val);
+                    Bit#(16) lo = truncate(val);
+                    toHostFifo.enq(CpuToHostData {
+                        c2hType: unpack(truncate(hi)),
+                        data: lo
+                    });
+                end
             endcase
         end
         numInsts <= numInsts + 1;

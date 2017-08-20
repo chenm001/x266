@@ -31,17 +31,17 @@ module mkBtb( Btb#(indexSize) ) provisos( Add#(indexSize,a__,32), NumAlias#(TSub
     endmethod
 
     method Action update(Addr thisPc, Addr nextPc);
-		let index = getIndex(thisPc);
-		let tag = getTag(thisPc);
+        let index = getIndex(thisPc);
+        let tag = getTag(thisPc);
         if( nextPc != thisPc + 4 ) begin
             // update entry
             valid[index] <= True;
             tags[index] <= tag;
             targets[index] <= nextPc;
         end
-		else if(tag == tags[index]) begin
-			valid[index] <= False;
-		end
+        else if(tag == tags[index]) begin
+            valid[index] <= False;
+        end
     endmethod
 endmodule
 

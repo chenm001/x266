@@ -20,15 +20,15 @@ import MemTypes::*;
 
 // cpu to host data type
 typedef enum {
-	ExitCode = 2'd0,
-	PrintChar = 2'd1,
-	PrintIntLow = 2'd2,
-	PrintIntHigh = 2'd3
+    ExitCode = 2'd0,
+    PrintChar = 2'd1,
+    PrintIntLow = 2'd2,
+    PrintIntHigh = 2'd3
 } CpuToHostType deriving(Bits, Eq, FShow);
 
 typedef struct {
-	CpuToHostType c2hType;
-	Bit#(16) data;
+    CpuToHostType c2hType;
+    Bit#(16) data;
 } CpuToHostData deriving(Bits, Eq, FShow);
 
 interface Proc;
@@ -61,7 +61,7 @@ typedef Bit#(12) CsrIndx;
 CsrIndx csrInstret = 12'hc02;
 CsrIndx csrCycle   = 12'hc00;
 CsrIndx csrMhartid = 12'hf10;
-CsrIndx csrMtohost = 12'h780;
+CsrIndx csrMtohost = 12'h7b0;
 
 // LR, SC, FENCE not implemented
 // LB(U), LH(U), SB, SH not implemented
@@ -73,40 +73,40 @@ CsrIndx csrMtohost = 12'h780;
 // SCALL, SBREAK not implemented
 
 typedef enum {
-	Unsupported, 
-	Alu, 
-	Ld, 
-	St, 
-	J, 
-	Jr, 
-	Br, 
-	Csrr, 
-	Csrw, 
-	Auipc
+    Unsupported, 
+    Alu, 
+    Ld, 
+    St, 
+    J, 
+    Jr, 
+    Br, 
+    Csrr, 
+    Csrw, 
+    Auipc
 } IType deriving(Bits, Eq, FShow);
 
 typedef enum {
-	Eq, 
-	Neq, 
-	Lt, 
-	Ltu, 
-	Ge, 
-	Geu, 
-	AT, 
-	NT
+    Eq, 
+    Neq, 
+    Lt, 
+    Ltu, 
+    Ge, 
+    Geu, 
+    AT, 
+    NT
 } BrFunc deriving(Bits, Eq, FShow);
 
 typedef enum {
-	Add, 
-	Sub, 
-	And, 
-	Or, 
-	Xor, 
-	Slt, 
-	Sltu, 
-	Sll, 
-	Sra, 
-	Srl
+    Add, 
+    Sub, 
+    And, 
+    Or, 
+    Xor, 
+    Slt, 
+    Sltu, 
+    Sll, 
+    Sra, 
+    Srl
 } AluFunc deriving(Bits, Eq, FShow);
 
 typedef void Exception;
@@ -126,14 +126,14 @@ typedef struct {
     Maybe#(RIndx)    dst;
     Maybe#(RIndx)    src1;
     Maybe#(RIndx)    src2;
-	Maybe#(CsrIndx)  csr;
+    Maybe#(CsrIndx)  csr;
     Maybe#(Data)     imm;
 } DecodedInst deriving(Bits, Eq, FShow);
 
 typedef struct {
     IType            iType;
     Maybe#(RIndx)    dst;
-	Maybe#(CsrIndx)  csr;
+    Maybe#(CsrIndx)  csr;
     Data             data;
     Addr             addr;
     Bool             mispredict;
@@ -190,141 +190,141 @@ endfunction
 
 // pretty print instuction
 function Fmt showInst(Instruction inst);
-	Fmt ret = $format("");
+    Fmt ret = $format("");
 
-	Opcode opcode = inst[  6 :  0 ];
-	let rd     = inst[ 11 :  7 ];
-	let funct3 = inst[ 14 : 12 ];
-	let rs1    = inst[ 19 : 15 ];
-	let rs2    = inst[ 24 : 20 ];
-//	let funct7 = inst[ 31 : 25 ];
-	let aluSel = inst[30]; // select between Add/Sub, Srl/Sra
+    Opcode opcode = inst[  6 :  0 ];
+    let rd     = inst[ 11 :  7 ];
+    let funct3 = inst[ 14 : 12 ];
+    let rs1    = inst[ 19 : 15 ];
+    let rs2    = inst[ 24 : 20 ];
+//    let funct7 = inst[ 31 : 25 ];
+    let aluSel = inst[30]; // select between Add/Sub, Srl/Sra
 
-	Bit#(32) immI   = signExtend(inst[31:20]);
-	Bit#(32) immS   = signExtend({ inst[31:25], inst[11:7] });
-	Bit#(32) immB   = signExtend({ inst[31], inst[7], inst[30:25], inst[11:8], 1'b0});
-	Bit#(32) immU   = { inst[31:12], 12'b0 };
-	Bit#(32) immJ   = signExtend({ inst[31], inst[19:12], inst[20], inst[30:25], inst[24:21], 1'b0});
+    Bit#(32) immI   = signExtend(inst[31:20]);
+    Bit#(32) immS   = signExtend({ inst[31:25], inst[11:7] });
+    Bit#(32) immB   = signExtend({ inst[31], inst[7], inst[30:25], inst[11:8], 1'b0});
+    Bit#(32) immU   = { inst[31:12], 12'b0 };
+    Bit#(32) immJ   = signExtend({ inst[31], inst[19:12], inst[20], inst[30:25], inst[24:21], 1'b0});
 
-	case (opcode)
-		opOpImm: begin
-			ret = case (funct3)
-				fnADD: $format("addi");
-				fnSLT: $format("slti");
-				fnSLTU: $format("sltiu");
-				fnAND: $format("andi");
-				fnOR: $format("ori");
-				fnXOR: $format("xori");
-				fnSLL: $format("slli");
-				fnSR: (aluSel == 0 ? $format("srli") : $format("srai"));
-				default: $format("unsupport OpImm 0x%0x", inst);
-			endcase;
-			ret = ret + $format(" r%d = r%d ", rd, rs1);
-			ret = ret + (case (funct3)
-				fnSLL, fnSR: $format("0x%0x", immI[4:0]); // only low 5 bits for shift
-				default: $format("0x%0x", immI);
-			endcase);
-		end
+    case (opcode)
+        opOpImm: begin
+            ret = case (funct3)
+                fnADD: $format("addi");
+                fnSLT: $format("slti");
+                fnSLTU: $format("sltiu");
+                fnAND: $format("andi");
+                fnOR: $format("ori");
+                fnXOR: $format("xori");
+                fnSLL: $format("slli");
+                fnSR: (aluSel == 0 ? $format("srli") : $format("srai"));
+                default: $format("unsupport OpImm 0x%0x", inst);
+            endcase;
+            ret = ret + $format(" r%d = r%d ", rd, rs1);
+            ret = ret + (case (funct3)
+                fnSLL, fnSR: $format("0x%0x", immI[4:0]); // only low 5 bits for shift
+                default: $format("0x%0x", immI);
+            endcase);
+        end
 
-		opOp: begin
-			ret = case (funct3)
-				fnADD: (aluSel == 0 ? $format("add") : $format("sub"));
-				fnSLT: $format("slt");
-				fnSLTU: $format("sltu");
-				fnAND: $format("and");
-				fnOR: $format("or");
-				fnXOR: $format("xor");
-				fnSLL: $format("sll");
-				fnSR: (aluSel == 0 ? $format("srl") : $format("sra"));
-				default: $format("unsupport Op 0x%0x", inst);
-			endcase;
-			ret = ret + $format(" r%d = r%d r%d", rd, rs1, rs2);
-		end
+        opOp: begin
+            ret = case (funct3)
+                fnADD: (aluSel == 0 ? $format("add") : $format("sub"));
+                fnSLT: $format("slt");
+                fnSLTU: $format("sltu");
+                fnAND: $format("and");
+                fnOR: $format("or");
+                fnXOR: $format("xor");
+                fnSLL: $format("sll");
+                fnSR: (aluSel == 0 ? $format("srl") : $format("sra"));
+                default: $format("unsupport Op 0x%0x", inst);
+            endcase;
+            ret = ret + $format(" r%d = r%d r%d", rd, rs1, rs2);
+        end
 
-		opLui: begin
-			ret = $format("lui r%d 0x%0x", rd, immU);
-		end
+        opLui: begin
+            ret = $format("lui r%d 0x%0x", rd, immU);
+        end
 
-		opAuipc: begin
-			ret = $format("auipc r%d 0x%0x", rd, immU);
-		end
+        opAuipc: begin
+            ret = $format("auipc r%d 0x%0x", rd, immU);
+        end
 
-		opJal: begin
-			ret = $format("jal r%d 0x%0x", rd, immJ);
-		end
+        opJal: begin
+            ret = $format("jal r%d 0x%0x", rd, immJ);
+        end
 
-		opJalr: begin
-			ret = $format("jalr r%d [r%d 0x%0x]", rd, rs1, immI);
-		end
+        opJalr: begin
+            ret = $format("jalr r%d [r%d 0x%0x]", rd, rs1, immI);
+        end
 
-		opBranch: begin
-			ret = case(funct3)
-				fnBEQ: $format("beq");
-				fnBNE: $format("bne");
-				fnBLT: $format("blt");
-				fnBLTU: $format("bltu");
-				fnBGE: $format("bge");
-				fnBGEU: $format("bgeu");
-				default: $format("unsupport Branch 0x%0x", inst);
-			endcase;
-			ret = ret + $format(" r%d r%d 0x%0x", rs1, rs2, immB);
-		end
+        opBranch: begin
+            ret = case(funct3)
+                fnBEQ: $format("beq");
+                fnBNE: $format("bne");
+                fnBLT: $format("blt");
+                fnBLTU: $format("bltu");
+                fnBGE: $format("bge");
+                fnBGEU: $format("bgeu");
+                default: $format("unsupport Branch 0x%0x", inst);
+            endcase;
+            ret = ret + $format(" r%d r%d 0x%0x", rs1, rs2, immB);
+        end
 
-		opLoad: begin
-			ret = case(funct3)
-				fnLW: $format("lw");
-				default: $format("unsupport Load 0x%0x", inst);
-			endcase;
-			ret = ret + $format(" r%d = [r%d 0x%0x]", rd, rs1, immI);
-		end
+        opLoad: begin
+            ret = case(funct3)
+                fnLW: $format("lw");
+                default: $format("unsupport Load 0x%0x", inst);
+            endcase;
+            ret = ret + $format(" r%d = [r%d 0x%0x]", rd, rs1, immI);
+        end
 
-		opStore: begin
-			ret = case(funct3)
-				fnSW: $format("sw");
-				default: $format("unsupport Store 0x%0x", inst);
-			endcase;
-			ret = ret + $format(" [r%d 0x%0x] = r%d", rs1, immS, rs2);
-		end
+        opStore: begin
+            ret = case(funct3)
+                fnSW: $format("sw");
+                default: $format("unsupport Store 0x%0x", inst);
+            endcase;
+            ret = ret + $format(" [r%d 0x%0x] = r%d", rs1, immS, rs2);
+        end
 
-		opMiscMem: begin
-			ret = case (funct3)
-				//fnFENCE: $format("fence");
-				//fnFENCEI: $format("fence.i");
-				default: $format("unsupport MiscMem 0x%0x", inst);
-			endcase;
-		end
+        opMiscMem: begin
+            ret = case (funct3)
+                //fnFENCE: $format("fence");
+                //fnFENCEI: $format("fence.i");
+                default: $format("unsupport MiscMem 0x%0x", inst);
+            endcase;
+        end
 
-		opAmo: begin
-			ret = $format("unsupport Amo 0x%0x", inst);
-		end
+        opAmo: begin
+            ret = $format("unsupport Amo 0x%0x", inst);
+        end
 
-		opSystem: begin
-			case (funct3)
-				fnCSRRW, fnCSRRS: begin //fnCSRRC, fnCSRRWI, fnCSRRSI, fnCSRRCI: begin
-					ret = case(funct3)
-						fnCSRRW: $format("csrrw");
-						fnCSRRS: $format("csrrs");
-					endcase;
-					ret = ret + $format(" r%d csr0x%0x r%d", rd, immI[11:0], rs1);
-				end
+        opSystem: begin
+            case (funct3)
+                fnCSRRW, fnCSRRS: begin //fnCSRRC, fnCSRRWI, fnCSRRSI, fnCSRRCI: begin
+                    ret = case(funct3)
+                        fnCSRRW: $format("csrrw");
+                        fnCSRRS: $format("csrrs");
+                    endcase;
+                    ret = ret + $format(" r%d csr0x%0x r%d", rd, immI[11:0], rs1);
+                end
 
-				fnPRIV: begin
-					ret = case (truncate(immI))
-						//privSCALL: $format("scall");
-						default: $format("unsupport System PRIV 0x%0x", inst);
-					endcase;
-				end
+                fnPRIV: begin
+                    ret = case (truncate(immI))
+                        //privSCALL: $format("scall");
+                        default: $format("unsupport System PRIV 0x%0x", inst);
+                    endcase;
+                end
 
-				default: begin
-					ret = $format("unsupport System 0x%0x", inst);
-				end
-			endcase
-		end
+                default: begin
+                    ret = $format("unsupport System 0x%0x", inst);
+                end
+            endcase
+        end
 
-		default: begin
-			ret = $format("unsupport 0x%0x", inst);
-		end
-	endcase
+        default: begin
+            ret = $format("unsupport 0x%0x", inst);
+        end
+    endcase
 
   return ret;
 

@@ -160,54 +160,54 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
     Reg#(Bool)           full     <- mkReg(False);
     Bit#(TLog#(n))       max_index = fromInteger(valueOf(n)-1);
 
-	Ehr#(3, Maybe#(dt)) enqEn <- mkEhr(Invalid);
-	Ehr#(3, Bool) deqEn <- mkEhr(False);
-	Ehr#(2, Bool) clearEn <- mkEhr(False);
+    Ehr#(3, Maybe#(dt)) enqEn <- mkEhr(Invalid);
+    Ehr#(3, Bool) deqEn <- mkEhr(False);
+    Ehr#(2, Bool) clearEn <- mkEhr(False);
 
-	function Bit#(TLog#(n)) nextPtr(Bit#(TLog#(n)) curPtr);
-		return curPtr == max_index ? 0 : curPtr + 1;
-	endfunction
+    function Bit#(TLog#(n)) nextPtr(Bit#(TLog#(n)) curPtr);
+        return curPtr == max_index ? 0 : curPtr + 1;
+    endfunction
 
-	(* fire_when_enabled *)
-	(* no_implicit_conditions *)
-	rule cononicalize;
-		if(clearEn[1]) begin
-			enqP <= 0;
-			deqP <= 0;
-			full <= False;
-			empty <= True;
-		end
-		else begin
-			let enqP_nxt = enqP;
-			let deqP_nxt = deqP;
-			// change ptr
-			if(enqEn[2] matches tagged Valid .x) begin
-				data[enqP] <= x;
-				enqP_nxt = nextPtr(enqP);
-			end
-			if(deqEn[2]) begin
-				deqP_nxt = nextPtr(deqP);
-			end
-			enqP <= enqP_nxt;
-			deqP <= deqP_nxt;
-			// change full, empty
-			Bool isEnq = isValid(enqEn[2]);
-			Bool isDeq = deqEn[2];
-			Bool nextPtrEq = deqP_nxt == enqP_nxt;
-			if(isEnq && !isDeq) begin
-				empty <= False;
-				full <= nextPtrEq;
-			end
-			else if(!isEnq && isDeq) begin
-				full <= False;
-				empty <= nextPtrEq;
-			end
-		end
-		// clear enables
-		clearEn[1] <= False;
-		enqEn[2] <= Invalid;
-		deqEn[2] <= False;
-	endrule
+    (* fire_when_enabled *)
+    (* no_implicit_conditions *)
+    rule cononicalize;
+        if(clearEn[1]) begin
+            enqP <= 0;
+            deqP <= 0;
+            full <= False;
+            empty <= True;
+        end
+        else begin
+            let enqP_nxt = enqP;
+            let deqP_nxt = deqP;
+            // change ptr
+            if(enqEn[2] matches tagged Valid .x) begin
+                data[enqP] <= x;
+                enqP_nxt = nextPtr(enqP);
+            end
+            if(deqEn[2]) begin
+                deqP_nxt = nextPtr(deqP);
+            end
+            enqP <= enqP_nxt;
+            deqP <= deqP_nxt;
+            // change full, empty
+            Bool isEnq = isValid(enqEn[2]);
+            Bool isDeq = deqEn[2];
+            Bool nextPtrEq = deqP_nxt == enqP_nxt;
+            if(isEnq && !isDeq) begin
+                empty <= False;
+                full <= nextPtrEq;
+            end
+            else if(!isEnq && isDeq) begin
+                full <= False;
+                empty <= nextPtrEq;
+            end
+        end
+        // clear enables
+        clearEn[1] <= False;
+        enqEn[2] <= Invalid;
+        deqEn[2] <= False;
+    endrule
 
     method Bool search(st x);
         // look between deqP and enqP
@@ -230,13 +230,13 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
     method Bool notFull = !full;
 
     method Action enq(dt x) if( !full );
-		enqEn[0] <= Valid (x);
+        enqEn[0] <= Valid (x);
     endmethod
 
     method Bool notEmpty = !empty;
 
     method Action deq if( !empty );
-		deqEn[0] <= True;
+        deqEn[0] <= True;
     endmethod
 
     method dt first if( !empty );
@@ -244,9 +244,9 @@ module mkCFSFifo( function Bool isFound(dt x, st y), SFifo#(n, dt, st) ifc ) pro
     endmethod
 
     method Action clear;
-		clearEn[0] <= True;
-		enqEn[1] <= Invalid;
-		deqEn[1] <= False;
+        clearEn[0] <= True;
+        enqEn[1] <= Invalid;
+        deqEn[1] <= False;
     endmethod
 endmodule
 

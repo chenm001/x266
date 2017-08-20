@@ -6,8 +6,8 @@ RVTEST_RV32U
 RVTEST_CODE_BEGIN
 
 	# Look at cache lines at 0x4000, 0x6000
-	la x1, 0x04000
-	la x2, 0x06000
+	li x1, 0x04000
+	li x2, 0x06000
 
 	# Store some data into a single cache line
 	# I -> M
