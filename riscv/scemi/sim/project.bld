@@ -36,23 +36,17 @@ bsv-define:               PROC_FILE=TwoStage SIM
 workstation-project-file: twostage.bspec
 exe-file:                 twostage_dut
 
+[fivestage]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=FiveStage SIM
+workstation-project-file: fivestage.bspec
+exe-file:                 fivestage_dut
+
 [sixstage]
 extends-target:           bsim_dut
 bsv-define:               PROC_FILE=SixStage SIM
 workstation-project-file: sixstage.bspec
 exe-file:                 sixstage_dut
-
-[sixstagebht]
-extends-target:           bsim_dut
-bsv-define:               PROC_FILE=SixStageBHT SIM
-workstation-project-file: sixstagebht.bspec
-exe-file:                 sixstagebht_dut
-
-[sixstagebonus]
-extends-target:           bsim_dut
-bsv-define:               PROC_FILE=SixStageBonus SIM
-workstation-project-file: sixstagebonus.bspec
-exe-file:                 sixstagebonus_dut
 
 [tb]
 extends-target:       common
@@ -61,6 +55,6 @@ build-for:            c++
 c++-header-directory: tbinclude
 c++-header-aliases
 c++-files:            ../Tb.cpp ../ResetXactor.cpp
-c++-options:          -O0
+c++-options:          -O2
 exe-file:             tb
 c++-define:           SIM
