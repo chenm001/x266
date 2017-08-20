@@ -62,7 +62,7 @@ module mkCsrFile(CsrFile);
     method Action wr(Maybe#(CsrIndx) csrIdx, Data val);
         if(csrIdx matches tagged Valid .idx) begin
             case (idx)
-                csrMtohost: begin
+                csrMdcsr: begin
                     // high 16 bits encodes type, low 16 bits are data
                     Bit#(16) hi = truncateLSB(val);
                     Bit#(16) lo = truncate(val);
