@@ -1,0 +1,66 @@
+[DEFAULT]
+default-targets:     all
+bsc-compile-options: -aggressive-conditions -keep-fires -show-schedule
+bsc-link-options:    -Xc++ -O0 -keep-fires
+
+[common]
+hide-target
+top-module:             mkBridge
+top-file:               ../Bridge.bsv
+bsv-source-directories: ../../scemi ../../src ../../src/includes
+verilog-directory:      vlog_dut
+binary-directory:       bdir_dut
+simulation-directory:   simdir_dut
+info-directory:         info_dut
+altera-directory:       quartus
+xilinx-directory:       xilinx
+scemi-parameters-file:  scemi.params
+
+[dut]
+hide-target
+extends-target: common
+
+[bsim_dut]
+hide-target
+extends-target:             dut
+build-for:                  bluesim
+scemi-type:                 TCP
+scemi-tcp-port:             3375
+exe-file:                   bsim_dut
+create-workstation-project: true
+post-targets:               tb
+
+[twostage]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=TwoStage SIM
+workstation-project-file: twostage.bspec
+exe-file:                 twostage_dut
+
+[sixstage]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=SixStage SIM
+workstation-project-file: sixstage.bspec
+exe-file:                 sixstage_dut
+
+[sixstagebht]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=SixStageBHT SIM
+workstation-project-file: sixstagebht.bspec
+exe-file:                 sixstagebht_dut
+
+[sixstagebonus]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=SixStageBonus SIM
+workstation-project-file: sixstagebonus.bspec
+exe-file:                 sixstagebonus_dut
+
+[tb]
+extends-target:       common
+scemi-tb
+build-for:            c++
+c++-header-directory: tbinclude
+c++-header-aliases
+c++-files:            ../Tb.cpp ../ResetXactor.cpp
+c++-options:          -O0
+exe-file:             tb
+c++-define:           SIM

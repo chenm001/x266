@@ -48,6 +48,8 @@ checkasm
 *.mbtree
 *.temp
 *.pyc
+*.bo
+*.ba
 
 .digress_x264
 dataDec.txt
