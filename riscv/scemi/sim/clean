@@ -12,4 +12,4 @@ rm -rf tbinclude scemi.params *.bspec
 # remove sim logs
 rm -rf logs
 # remove vmh
-rm -f *.vmh
+rm -f *.vmh *.vmh.D
