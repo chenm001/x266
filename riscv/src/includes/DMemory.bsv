@@ -24,13 +24,13 @@ module mkDMemory(DMemory);
     // This is Video Processing MCU, all of data is uninitialize when start.
     // workaround for testbench, it have data section for verify
 `ifdef SIM
-    RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
+    RegFile#(Bit#(15), Data) mem <- mkRegFileFullLoad("mem.vmh");
 `else
-    RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
+    RegFile#(Bit#(15), Data) mem <- mkRegFileFull();
 `endif
 
     method ActionValue#(MemResp) req(MemReq r);
-        Bit#(16) index = truncate(r.addr>>2);
+        Bit#(15) index = truncate(r.addr>>2);
         let data = mem.sub(index);
         if(r.op==St) begin
             mem.upd(index, r.data);

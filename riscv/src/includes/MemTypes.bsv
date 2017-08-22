@@ -11,9 +11,3 @@ typedef struct{
     Addr  addr;
     Data  data;
 } MemReq deriving(Eq, Bits, FShow);
-
-typedef 16 NumTokens;
-typedef Bit#(TLog#(NumTokens)) Token;
-
-typedef 16 LoadBufferSz;
-typedef Bit#(TLog#(LoadBufferSz)) LoadBufferIndex;

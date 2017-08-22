@@ -9,7 +9,7 @@ endinterface
 (* synthesize *)
 module mkIMemory(IMemory);
     // This is Video Processing MCU, all of programs in the ROM
-    RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
+    RegFile#(Bit#(15), Data) mem <- mkRegFileFullLoad("mem.vmh");
 
     method MemResp req(Addr a);
         return mem.sub(truncate(a>>2));

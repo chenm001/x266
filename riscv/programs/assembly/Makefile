@@ -50,8 +50,8 @@ RISCV_LINK_OPTS := -T$(asmdir)/link.ld
 RISCV_OBJDUMP := $(RISCV_PREFIX)-objdump --disassemble --disassemble-zeroes --section=.text --section=.text.startup --section=.data
 # convert to VMH: 64KB memory
 RISCV_ELF2HEX := $(RISCV_TOOL_DIR)/elf2hex
-VMH_WIDTH := 8
-VMH_DEPTH := 65536
+VMH_WIDTH := 4
+VMH_DEPTH := 32768
 
 #------------------------------------------------------------
 # Build assembly tests
@@ -61,9 +61,8 @@ rv32ui_tests_dump := $(patsubst %,$(dump_dir)/%.riscv.dump, $(rv32ui_tests))
 rv32ui_tests_vmh  := $(patsubst %,$(vmh_dir)/%.riscv.vmh, $(rv32ui_tests))
 
 $(rv32ui_tests_vmh): $(vmh_dir)/%.riscv.vmh: $(bin_dir)/%.riscv
-	@echo "@0" > $(vmh_dir)/temp
-	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $(vmh_dir)/temp
-	python $(asmdir)/../trans_vmh.py $(vmh_dir)/temp $@
+	@echo "@0" > $@
+	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $@
 
 $(rv32ui_tests_dump): $(dump_dir)/%.riscv.dump: $(bin_dir)/%.riscv
 	$(RISCV_OBJDUMP) $< > $@

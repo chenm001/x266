@@ -69,11 +69,8 @@ _start:
   la  tp, _end + 63
   and tp, tp, -64
 
-  # allocate 128KB of stack + TLS for each thread
-#define STKSHIFT 17
-  csrr a0, mhartid
-  sll a2, a0, STKSHIFT
-  add tp, tp, a2
+  # allocate 32KB of stack
+#define STKSHIFT 15
   add sp, a0, 1
   sll sp, sp, STKSHIFT
   add sp, sp, tp
