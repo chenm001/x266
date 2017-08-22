@@ -11,7 +11,7 @@ bmarks_tests=(
 	median
 	multiply
 	qsort
-	rsort
+#	rsort
 	towers
 	vvadd
 #	spmv

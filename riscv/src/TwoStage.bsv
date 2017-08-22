@@ -4,8 +4,7 @@ import Types::*;
 import ProcTypes::*;
 import MemTypes::*;
 import RFile::*;
-import IMemory::*;
-import DMemory::*;
+import OCMemory::*;
 import Decode::*;
 import Exec::*;
 import CsrFile::*;
@@ -36,8 +35,7 @@ module mkProc(Proc);
     Ehr#(2, Addr) pcReg <- mkEhr(?);
     RFile            rf <- mkRFile;
     Scoreboard#(2)   sb <- mkCFScoreboard;
-    IMemory        iMem <- mkIMemory;
-    DMemory        dMem <- mkDMemory;
+    OCMemory        mem <- mkMemory;
     CsrFile        csrf <- mkCsrFile;
     Btb#(6)         btb <- mkBtb; // 64-entry BTB
 
@@ -53,7 +51,7 @@ module mkProc(Proc);
     // fetch, decode, reg read stage
     rule doFetch(csrf.started);
         // fetch
-        Data inst = iMem.req(pcReg[0]);
+        Data inst = mem.ireq(pcReg[0]);
         Addr predPc = btb.predPc(pcReg[0]);
     //    Addr predPc = pcReg[0]; // discussion 1: if we always predict PC to be next PC
         // decode
@@ -114,9 +112,9 @@ module mkProc(Proc);
             ExecInst eInst = exec(f2e.dInst, f2e.rVal1, f2e.rVal2, f2e.pc, f2e.predPc, f2e.csrVal);  
             // memory
             if(eInst.iType == Ld) begin
-                eInst.data <- dMem.req(MemReq{op: Ld, addr: eInst.addr, data: ?});
+                eInst.data <- mem.dreq(MemReq{op: Ld, addr: eInst.addr, data: ?});
             end else if(eInst.iType == St) begin
-                let d <- dMem.req(MemReq{op: St, addr: eInst.addr, data: eInst.data});
+                let d <- mem.dreq(MemReq{op: St, addr: eInst.addr, data: eInst.data});
             end
             // check unsupported instruction at commit time. Exiting
             if(eInst.iType == Unsupported) begin

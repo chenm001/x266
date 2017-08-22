@@ -21,11 +21,11 @@ vmh_dir := $(build_dir)/vmh
 bmarks = \
 	median \
 	qsort \
-	rsort \
 	towers \
 	vvadd \
 	multiply \
-	spmv \
+#	rsort \
+#	spmv \
 
 bmarks_host = \
 
