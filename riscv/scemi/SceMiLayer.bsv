@@ -32,8 +32,6 @@ module [SceMiModule] mkSceMiLayer();
     SceMiClockPortIfc clk_port <- mkSceMiClockPort(conf);
     DutInterface dut <- buildDutWithSoftReset(mkDutWrapper, clk_port);
 
-    Empty imem <- mkPutXactor(dut.iMemInit.request, clk_port);
-    Empty dmem <- mkPutXactor(dut.dMemInit.request, clk_port);
     Empty tohost <- mkCpuToHostXactor(dut, clk_port);
     Empty fromhost <- mkHostToCpuXactor(dut, clk_port);
 

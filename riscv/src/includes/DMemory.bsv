@@ -14,25 +14,22 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 import Types::*;
 import MemTypes::*;
 import RegFile::*;
-import MemInit::*;
 
 interface DMemory;
     method ActionValue#(MemResp) req(MemReq r);
-    interface MemInitIfc init;
 endinterface
 
 (* synthesize *)
 module mkDMemory(DMemory);
-    // In simulation we always init memory from a fixed VMH file (for speed)
+    // This is Video Processing MCU, all of data is uninitialize when start.
+    // workaround for testbench, it have data section for verify
 `ifdef SIM
     RegFile#(Bit#(16), Data) mem <- mkRegFileFullLoad("mem.vmh");
-    MemInitIfc memInit <- mkDummyMemInit;
 `else
     RegFile#(Bit#(16), Data) mem <- mkRegFileFull();
-    MemInitIfc memInit <- mkMemInitRegFile(mem);
 `endif
 
-    method ActionValue#(MemResp) req(MemReq r) if (memInit.done());
+    method ActionValue#(MemResp) req(MemReq r);
         Bit#(16) index = truncate(r.addr>>2);
         let data = mem.sub(index);
         if(r.op==St) begin
@@ -40,7 +37,4 @@ module mkDMemory(DMemory);
         end
         return data;
     endmethod
-
-    interface MemInitIfc init = memInit;
 endmodule
-

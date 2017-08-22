@@ -10,20 +10,6 @@
 #include "ResetXactor.h"
 
 
-// Initialize the memories from the given vmh file.
-bool mem_init(const char *filename, InportProxyT<MemInit>& imem, InportProxyT<MemInit>& dmem)
-{
-#ifndef SIM
-#error "mem_init for non-simulation has not been implemented"
-#endif
-	// in simulation, mem is init by mem.vmh, just send done
-    MemInit msg;
-    msg.the_tag = MemInit::tag_InitDone;
-    imem.sendMessage(msg);
-    dmem.sendMessage(msg);
-    return true;
-}
-
 int main(int argc, char* argv[])
 {
     int sceMiVersion = SceMi::Version( SCEMI_VERSION_STRING );
@@ -31,8 +17,6 @@ int main(int argc, char* argv[])
     SceMi *sceMi = SceMi::Init(sceMiVersion, &params);
 
     // Initialize the SceMi ports
-    InportProxyT<MemInit> imem("", "scemi_imem_inport", sceMi);
-    InportProxyT<MemInit> dmem("", "scemi_dmem_inport", sceMi);
     OutportQueueT<ToHost> tohost("", "scemi_tohost_get_outport", sceMi);
     InportProxyT<FromHost> fromhost("", "scemi_fromhost_put_inport", sceMi);
     ResetXactor reset("", "scemi", sceMi);
@@ -44,18 +28,6 @@ int main(int argc, char* argv[])
 	{
         // Reset the dut.
         reset.reset();
-
-        // Initialize the memories.
-        if (!mem_init(NULL, imem, dmem)) {
-            fprintf(stderr, "Failed to load memory\n");
-            std::cout << "shutting down..." << std::endl;
-            shutdown.blocking_send_finish();
-            scemi_service_thread->stop();
-            scemi_service_thread->join();
-            SceMi::Shutdown(sceMi);
-            std::cout << "finished" << std::endl;
-            return 1;
-        }
 
         // Start the core: start PC = 0x200
         fromhost.sendMessage(0x200);

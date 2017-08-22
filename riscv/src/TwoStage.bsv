@@ -3,7 +3,6 @@
 import Types::*;
 import ProcTypes::*;
 import MemTypes::*;
-import MemInit::*;
 import RFile::*;
 import IMemory::*;
 import DMemory::*;
@@ -50,8 +49,6 @@ module mkProc(Proc);
 
     // FIFO between two stages
     Fifo#(2, Fetch2Execute) f2eFifo <- mkCFFifo;
-
-    Bool memReady = iMem.init.done && dMem.init.done;
 
     // fetch, decode, reg read stage
     rule doFetch(csrf.started);
@@ -147,17 +144,14 @@ module mkProc(Proc);
         end
     endrule
 
-    method ActionValue#(CpuToHostData) cpuToHost if(csrf.started);
+    method ActionValue#(CpuToHostData) cpuToHost() if (csrf.started);
         let ret <- csrf.cpuToHost;
         return ret;
     endmethod
 
-    method Action hostToCpu(Bit#(32) startpc) if ( !csrf.started && memReady );
+    method Action hostToCpu(Bit#(32) startpc) if (!csrf.started);
         csrf.start(0); // only 1 core, id = 0
         pcReg[0] <= startpc;
     endmethod
-
-    interface iMemInit = iMem.init;
-    interface dMemInit = dMem.init;
 endmodule
 
