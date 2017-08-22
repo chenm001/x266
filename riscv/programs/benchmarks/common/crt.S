@@ -71,7 +71,7 @@ _start:
 
   # allocate 32KB of stack
 #define STKSHIFT 15
-  add sp, a0, 1
+  add sp, x0, 1
   sll sp, sp, STKSHIFT
   add sp, sp, tp
 
