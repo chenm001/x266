@@ -34,8 +34,6 @@ typedef struct {
 interface Proc;
     method ActionValue#(CpuToHostData) cpuToHost;
     method Action hostToCpu(Addr startpc);
-    interface MemInitIfc iMemInit;
-    interface MemInitIfc dMemInit;
 endinterface
 
 // general purpose reg index
