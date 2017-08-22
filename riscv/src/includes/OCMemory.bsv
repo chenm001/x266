@@ -11,20 +11,22 @@ endinterface
 module mkMemory(OCMemory);
     // This is Video Processing MCU
 `ifdef SIM
-    RegFile#(Bit#(15), Data) mem <- mkRegFileWCFLoad("mem.vmh", 0, ~0);
+    RegFile#(Bit#(14), Data) imem <- mkRegFileFullLoad("mem.vmh");
+    RegFile#(Bit#(15), Data) dmem <- mkRegFileWCFLoad("mem.vmh.D", 0, ~0);
 `else
-    RegFile#(Bit#(15), Data) mem <- mkRegFileWCF(0, ~0);
+    RegFile#(Bit#(14), Data) imem <- mkRegFileFull();
+    RegFile#(Bit#(15), Data) dmem <- mkRegFileWCF(0, ~0);
 `endif
 
     method MemResp ireq(Addr a);
-        return mem.sub(truncate(a>>2));
+        return imem.sub(truncate((a - iMemSt) >> 2));
     endmethod
 
     method ActionValue#(MemResp) dreq(MemReq r);
-        Bit#(15) index = truncate(r.addr>>2);
-        let data = mem.sub(index);
+        Bit#(15) index = truncate((r.addr - dMemSt) >> 2);
+        let data = dmem.sub(index);
         if(r.op==St) begin
-            mem.upd(index, r.data);
+            dmem.upd(index, r.data);
         end
         return data;
     endmethod

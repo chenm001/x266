@@ -47,7 +47,8 @@ for test_name in ${asm_tests[@]}; do
 		echo "ERROR: $mem_file does not exit, you need to first compile"
 		exit
 	fi
-	cp ${mem_file} mem.vmh 
+	cp ${mem_file} mem.vmh
+	cp ${mem_file}.D mem.vmh.D
 
 	# run test
 	./${simdut} > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log

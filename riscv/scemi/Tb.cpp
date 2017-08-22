@@ -53,6 +53,8 @@ int main(int argc, char* argv[])
 			} else if(type == CpuToHostType::e_PrintIntHigh) {
 				print_int |= uint32_t(data) << 16;
 				fprintf(stderr, "%d", print_int);
+			} else {
+			    fprintf(stderr, "\nUnknown type %d\n", type);
 			}
         }
     }

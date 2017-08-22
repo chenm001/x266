@@ -11,3 +11,6 @@ typedef struct{
     Addr  addr;
     Data  data;
 } MemReq deriving(Eq, Bits, FShow);
+
+Addr iMemSt = 'h00000;
+Addr dMemSt = 'h10000;

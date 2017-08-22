@@ -10,53 +10,64 @@
 /* The OUTPUT_ARCH command specifies the machine architecture where the
    argument is one of the names used in the BFD library. More
    specifically one of the entires in bfd/cpu-mips.c */
-
 OUTPUT_ARCH( "riscv" )
 
 /*----------------------------------------------------------------------*/
 /* Sections                                                             */
 /*----------------------------------------------------------------------*/
 
+MEMORY
+{
+    rom (RX) : ORIGIN = 0x00000, LENGTH = 0x10000
+    ram (RW) : ORIGIN = 0x10000, LENGTH = 0x20000
+}
+
 SECTIONS
 {
 
   /* text: test code section */
   . = 0x100;
-  .text : 
+  .text 0x100 : ONLY_IF_RO
   {
     crt.o(.text)
-    *(.text)
-  }
+    *(.text*)
+  } > rom
 
   /* data segment */
-  .data : { *(.data) }
+  .data : ONLY_IF_RW
+  {
+    *(.data)
+  } > ram
 
-  .sdata : {
+  .sdata : ONLY_IF_RW
+  {
     _gp = . + 0x800;
     *(.srodata.cst16) *(.srodata.cst8) *(.srodata.cst4) *(.srodata.cst2) *(.srodata*)
     *(.sdata .sdata.* .gnu.linkonce.s.*)
-  }
+  } > ram
 
   /* bss segment */
-  .sbss : {
+  .sbss : ONLY_IF_RW
+  {
     *(.sbss .sbss.* .gnu.linkonce.sb.*)
     *(.scommon)
-  }
+  } > ram
   .bss : { *(.bss) }
 
   /* thread-local data segment */
-  .tdata :
+  .tdata : ONLY_IF_RW
   {
     _tls_data = .;
     crt.o(.tdata.begin)
     *(.tdata)
     crt.o(.tdata.end)
-  }
-  .tbss :
+  } > ram
+
+  .tbss : ONLY_IF_RW
   {
     *(.tbss)
     crt.o(.tbss.end)
-  }
+  } > ram
 
   /* End of uninitalized data segement */
   _end = .;

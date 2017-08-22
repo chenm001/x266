@@ -51,7 +51,10 @@ RISCV_OBJDUMP := $(RISCV_PREFIX)-objdump --disassemble --disassemble-zeroes --se
 # convert to VMH: 64KB memory
 RISCV_ELF2HEX := $(RISCV_TOOL_DIR)/elf2hex
 VMH_WIDTH := 4
-VMH_DEPTH := 32768
+VMH_DEPTH_I := 16384
+VMH_DEPTH_D := 32768
+VMH_DEPTH_T := $(shell expr $(VMH_DEPTH_I) + $(VMH_DEPTH_D))
+VMH_DEPTH := $(shell echo "x=l($(VMH_DEPTH_T))/l(2); scale=0; 2^((x+0.5)/1)" | bc -l)
 
 # files
 c_srcs := $(foreach bench,$(bmarks),$(wildcard $(bmarkdir)/$(bench)/*.c))
@@ -69,8 +72,13 @@ bmarks_riscv_dump := $(patsubst %,$(dump_dir)/%.riscv.dump,$(bmarks))
 bmarks_riscv_vmh  := $(patsubst %,$(vmh_dir)/%.riscv.vmh,$(bmarks))
 
 $(bmarks_riscv_vmh): $(vmh_dir)/%.riscv.vmh: $(bin_dir)/%.riscv
+	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< > $(vmh_dir)/temp
 	@echo "@0" > $@
-	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $@
+	@head -n $(VMH_DEPTH_I) $(vmh_dir)/temp >> $@
+	@echo "@0" > $@.D
+	@head -$(VMH_DEPTH_T) $(vmh_dir)/temp | tail -$(VMH_DEPTH_D) >> $@.D
+#	@echo "@0" > $@
+#	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $@
 
 $(bmarks_riscv_dump): $(dump_dir)/%.riscv.dump: $(bin_dir)/%.riscv
 	$(RISCV_OBJDUMP) $< > $@
