@@ -24,8 +24,8 @@ bmarks = \
 	towers \
 	vvadd \
 	multiply \
-#	rsort \
-#	spmv \
+	rsort \
+	spmv \
 
 bmarks_host = \
 
