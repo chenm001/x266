@@ -50,6 +50,7 @@ checkasm
 *.pyc
 *.bo
 *.ba
+*.v
 
 .digress_x264
 dataDec.txt
