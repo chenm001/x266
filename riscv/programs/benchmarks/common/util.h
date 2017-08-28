@@ -56,6 +56,15 @@
 void printInt(uint32_t c);
 void printChar(uint32_t c);
 void printStr(char *x);
+int printf(const char* fmt, ...);
+int sprintf(char* str, const char* fmt, ...);
+void* memcpy(void* dest, const void* src, unsigned len);
+void* memset(void* dest, int byte, unsigned len);
+unsigned strnlen(const char *s, unsigned n);
+int strcmp(const char* s1, const char* s2);
+char* strcpy(char* dest, const char* src);
+long atol(const char* str);
+
 
 static int verify(int n, const volatile int* test, const int* verify) {
     // correct: return 0
