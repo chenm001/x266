@@ -64,46 +64,46 @@ CsrIndx csrMdcsr   = 12'h7b0;
 // LR, SC, FENCE not implemented
 // LB(U), LH(U), SB, SH not implemented
 
-// For CSR, only following two are implemented 
+// For CSR, only following two are implemented
 // CSRR rd csr (i.e. CSRRS rd csr x0)
 // CSRW csr rs1 (i.e. CSRRW x0 csr rs1)
 
 // SCALL, SBREAK not implemented
 
 typedef enum {
-    Unsupported, 
-    Alu, 
-    Ld, 
-    St, 
-    J, 
-    Jr, 
-    Br, 
-    Csrr, 
-    Csrw, 
+    Unsupported,
+    Alu,
+    Ld,
+    St,
+    J,
+    Jr,
+    Br,
+    Csrr,
+    Csrw,
     Auipc
 } IType deriving(Bits, Eq, FShow);
 
 typedef enum {
-    Eq, 
-    Neq, 
-    Lt, 
-    Ltu, 
-    Ge, 
-    Geu, 
-    AT, 
+    Eq,
+    Neq,
+    Lt,
+    Ltu,
+    Ge,
+    Geu,
+    AT,
     NT
 } BrFunc deriving(Bits, Eq, FShow);
 
 typedef enum {
-    Add, 
-    Sub, 
-    And, 
-    Or, 
-    Xor, 
-    Slt, 
-    Sltu, 
-    Sll, 
-    Sra, 
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+    Slt,
+    Sltu,
+    Sll,
+    Sra,
     Srl
 } AluFunc deriving(Bits, Eq, FShow);
 
@@ -159,7 +159,7 @@ Bit#(3) fnBGEU  = 3'b111;
 Bit#(3) fnLW    = 3'b010;
 //Bit#(3) fnLB    = 3'b000;
 //Bit#(3) fnLH    = 3'b001;
-//Bit#(3) fnLBU   = 3'b100;
+Bit#(3) fnLBU   = 3'b100;
 //Bit#(3) fnLHU   = 3'b101;
 // Store
 Bit#(3) fnSW    = 3'b010;
