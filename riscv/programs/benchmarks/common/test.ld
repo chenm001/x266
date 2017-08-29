@@ -36,7 +36,12 @@ SECTIONS
   /* data segment */
   .data : ONLY_IF_RW
   {
-    *(.data)
+    *(.data*)
+  } > ram
+
+  .rodata : ONLY_IF_RO
+  {
+    *(.rodata*)
   } > ram
 
   .sdata : ONLY_IF_RW
