@@ -21,9 +21,11 @@ rv32ui_tests = \
 	auipc \
 	beq bge bgeu blt bltu bne \
 	j jal jalr \
+	lb lbu lh lhu \
 	lw \
 	lui \
 	or ori \
+	sb sh \
 	sw \
 	sll slli \
 	slt slti \
