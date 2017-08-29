@@ -45,11 +45,11 @@ void printChar(uint32_t c) {
 void printStr(char* x) {
   while(1) {
 	 // get 4B aligned addr
-     uint32_t* y = (uint32_t*)(((uint32_t)x) & ~0x03);
+     uint32_t* y = (uint32_t*)(((uint32_t)x) & ~0x3);
      uint32_t fullC = *y;
      uint32_t mod = ((uint32_t)x) & 0x3;
      uint32_t shift = mod << 3;
-     uint32_t c = (fullC & (0x0FF << shift)) >> shift;
+     uint32_t c = (fullC >> shift) & 0xFF;
      if(c == (uint32_t)'\0')
        break;
      printChar(c);
