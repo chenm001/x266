@@ -194,9 +194,7 @@ endfunction: fv_fall_through_pc
 
 // ----------------
 
-(* synthesize *)
-module mkRISCV(RISCV_IFC);
-   Bit #(4) cfg_verbose = 0;
+module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    // internal components
    Memory_IFC           memory   <- mkMemory;
@@ -815,6 +813,11 @@ endmodule
 
 // ================================================================
 
+(* synthesize *)
+module mkRISCV(RISCV_IFC);
+   (* hide *) let _m <- _mkRISCV(0);
+   return _m;
+endmodule
 
 // ================================================================
 `ifdef TEST_BENCH_RISCV
