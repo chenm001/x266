@@ -212,8 +212,6 @@ module mkRISCV(RISCV_IFC);
    Reg#(Bit #(64))   csr_time    <- mkConfigReg(0);
    Reg#(Bit #(64))   csr_instret <- mkConfigReg(0);
 
-   Reg#(Bool)        csr_instret_update <- mkReg(False);
-
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
    // We have them here so that we can at least record the cause, so that the
@@ -273,21 +271,12 @@ module mkRISCV(RISCV_IFC);
 
          else if (csr_addr == csr_CYCLE)    csr_cycle   <= zeroExtend(csr_value);
          else if (csr_addr == csr_TIME)     csr_time    <= zeroExtend(csr_value);
-         else if (csr_addr == csr_INSTRET) begin
-            csr_instret        <= zeroExtend(csr_value);
-            csr_instret_update <= True;
-         end
 
          else if (csr_addr == csr_CYCLEH)
             csr_cycle <= { csr_value[31:0], truncate(csr_cycle) };
 
          else if (csr_addr == csr_TIMEH)
             csr_time  <= { csr_value [31:0], truncate(csr_time) };
-
-         else if (csr_addr == csr_INSTRETH) begin
-            csr_instret         <= { csr_value[31:0], truncate(csr_instret) };
-            csr_instret_update  <= True;
-         end
 
          else if (csr_addr == csr_DCSR) begin
             csr_dcsr <= tagged Valid csr_value;
@@ -534,7 +523,7 @@ module mkRISCV(RISCV_IFC);
                else if ((decoded.funct3 == f3_SRxI) && (instr[31:25] == 7'b010_0000))
                   fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
 
-               else 
+               else
                   fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
             endaction
          endfunction: fa_exec_OP_IMM
@@ -700,8 +689,7 @@ module mkRISCV(RISCV_IFC);
       if (cfg_verbose > 1) $display("[%6d] RISCV(rl_fetch): STATE_FETCH (PC = 0x%08X)", csr_cycle, pc);
 
       memory.imem_req(pc);
-      csr_instret_update <= False;
-      cpu_state          <= STATE_EXEC;
+      cpu_state <= STATE_EXEC;
    endrule
 
    // ---------------- EXECUTE
@@ -792,9 +780,8 @@ module mkRISCV(RISCV_IFC);
    // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
 
    rule rl_finish(cpu_state == STATE_FINISH);
-      if (!csr_instret_update)
-         csr_instret <= csr_instret + 1;
-      cpu_state <= STATE_FETCH;
+      csr_instret <= csr_instret + 1;
+      cpu_state   <= STATE_FETCH;
    endrule
 
    // ---------------- Increment csr_cycle and csr_time according to external oracles
@@ -824,7 +811,7 @@ module mkRISCV(RISCV_IFC);
       csr_dcsr <= tagged Invalid;
       return ret;
    endmethod
-endmodule  
+endmodule
 
 // ================================================================
 
@@ -848,12 +835,12 @@ module mkTb();
       case(csrCmd)
          0: begin // Exit
             //$display("Exit with code %d", csrDat);
-				if (csrDat == 0) begin
-					$display("PASSED\n");
-				end
-				else begin
-					$display("FAILED: exit code = %d\n", csrDat);
-				end
+            if (csrDat == 0) begin
+               $display("PASSED\n");
+            end
+            else begin
+               $display("FAILED: exit code = %d\n", csrDat);
+            end
             $finish;
          end
          1: begin // PrintChar
