@@ -442,9 +442,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S  imm_s    = extend(unpack(decoded.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
 
-               if (cfg_verbose > 1) begin
-                  $display("[%6d] RISCV(fa_exec_LD_Req), Addr = 0x%08X", csr_cycle, mem_addr);
-               end
+               if (cfg_verbose > 1) $display("[%7d] fa_exec_LD_Req: Addr = 0x%08X", csr_cycle, mem_addr);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
@@ -657,8 +655,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         if (cfg_verbose != 0)
-            $display("RISCV_Spec.fa_exec: instr 0x%08h", instr);
+         if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
 
          if      (decoded.opcode == op_LUI)      fa_exec_LUI();
          else if (decoded.opcode == op_AUIPC)    fa_exec_AUIPC();
@@ -684,7 +681,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Issue instruction request
 
    rule rl_fetch(cpu_state == STATE_FETCH);
-      if (cfg_verbose > 1) $display("[%6d] RISCV(rl_fetch): STATE_FETCH (PC = 0x%08X)", csr_cycle, pc);
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch: PC = 0x%08X", csr_cycle, pc);
 
       memory.imem_req(pc);
       cpu_state <= STATE_EXEC;
@@ -707,7 +704,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // IMem response is ok
          tagged IMem_Resp_Ok  .instr:
             begin
-               if (cfg_verbose > 1) $display("[%6d] RISCV(rl_exec): STATE_EXEC (PC = 0x%08X, instr = 0x%08X)", csr_cycle, pc, instr);
+               if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
                rg_instr <= instr;
                fa_exec (instr);
             end
@@ -717,7 +714,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ---------------- LD-responses from DMem
 
    rule rl_exec_LD_response(cpu_state == STATE_EXEC_LD_RESPONSE);
-      if (cfg_verbose > 1) $display("[%6d] RISCV(rl_exec_LD_response): STATE_EXEC_LD_RESPONSE", csr_cycle);
+      if (cfg_verbose > 1) $display("[%7d] rl_exec_LD_response: ", csr_cycle);
 
       Decoded_Instr decoded = fv_decode(rg_instr);
 
@@ -765,7 +762,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ---------------- ST-responses from DMem
 
    rule rl_exec_ST_response(cpu_state == STATE_EXEC_ST_RESPONSE);
-      if (cfg_verbose > 1) $display("[%6d] RISCV_Spec.rl_exec_ST_response: STATE_EXEC_ST_RESPONSE", csr_cycle);
+      if (cfg_verbose > 1) $display("[%7d] rl_exec_ST_response: ", csr_cycle);
 
       DMem_Resp resp <- memory.dmem_resp;
 
@@ -778,6 +775,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
 
    rule rl_finish(cpu_state == STATE_FINISH);
+      if (cfg_verbose > 1) $display("[%7d] rl_finish: ", csr_cycle);
+
       csr_instret <= csr_instret + 1;
       cpu_state   <= STATE_FETCH;
    endrule
