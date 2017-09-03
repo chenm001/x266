@@ -183,12 +183,12 @@ typedef enum {STATE_IDLE,
               STATE_FINISH,
               STATE_HALT
    } CPU_STATE
-deriving (Eq, Bits, FShow);
+deriving(Eq, Bits, FShow);
 
 // ----------------
 // Default fall-through PC
 
-function Addr fv_fall_through_pc (Addr pc);
+function Addr fv_fall_through_pc(Addr pc);
    return pc + 4;
 endfunction: fv_fall_through_pc
 
@@ -207,14 +207,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    // CSRs
    Reg#(Bit #(64))   csr_cycle   <- mkConfigReg(0);
-   Reg#(Bit #(64))   csr_time    <- mkConfigReg(0);
    Reg#(Bit #(64))   csr_instret <- mkConfigReg(0);
 
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
-   // We have them here so that we can at least record the cause, so that the
-   // environment (Supervisor, Hypervisor, Machine, or magic) can deal with it.
-   // They will actually be used when we extend the spec to include machine-mode.
 
    Reg#(Word)  csr_mepc       <- mkRegU;
    Reg#(Word)  csr_mcause     <- mkRegU;
@@ -222,12 +218,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    Reg#(Maybe#(Word)) csr_dcsr <- mkReg(tagged Invalid);
 
-   // ----------------
-   // These CSRs are technically not present in the user-mode ISA.
-   // We have them here because even bare-metal riscv-gcc ELF binaries access them.
-
-   Reg#(Word)  csr_mstatus    <- mkRegU;
-   Reg#(Word)  csr_mtvec      <- mkRegU;
 
    // ----------------------------------------------------------------
    // Non-architectural state, for this model
@@ -243,15 +233,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Maybe#(Word) fv_read_csr(CSR_Addr csr_addr);
       if      (csr_addr == csr_CYCLE)     return tagged Valid truncate   (csr_cycle);
-      else if (csr_addr == csr_TIME)      return tagged Valid truncate   (csr_time);
       else if (csr_addr == csr_INSTRET)   return tagged Valid truncate   (csr_instret);
 
       else if (csr_addr == csr_CYCLEH  )  return tagged Valid truncateLSB(csr_cycle);
-      else if (csr_addr == csr_TIMEH   )  return tagged Valid truncateLSB(csr_time);
       else if (csr_addr == csr_INSTRETH)  return tagged Valid truncateLSB(csr_instret);
-
-      else if (csr_addr == csr_MSTATUS)   return tagged Valid csr_mstatus;
-      else if (csr_addr == csr_MTVEC)     return tagged Valid csr_mtvec;
 
       else if (csr_addr == csr_DCSR)      return tagged Valid 0 ;
 
@@ -264,17 +249,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_write_csr(CSR_Addr csr_addr, Word csr_value);
       action
-         if      (csr_addr == csr_MSTATUS)  csr_mstatus <= zeroExtend(csr_value);
-         else if (csr_addr == csr_MTVEC)    csr_mtvec   <= zeroExtend(csr_value);
-
-         else if (csr_addr == csr_CYCLE)    csr_cycle   <= zeroExtend(csr_value);
-         else if (csr_addr == csr_TIME)     csr_time    <= zeroExtend(csr_value);
+              if (csr_addr == csr_CYCLE)    csr_cycle   <= zeroExtend(csr_value);
 
          else if (csr_addr == csr_CYCLEH)
             csr_cycle <= { csr_value[31:0], truncate(csr_cycle) };
-
-         else if (csr_addr == csr_TIMEH)
-            csr_time  <= { csr_value [31:0], truncate(csr_time) };
 
          else if (csr_addr == csr_DCSR) begin
             csr_dcsr <= tagged Valid csr_value;
@@ -706,7 +684,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             begin
                if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
                rg_instr <= instr;
-               fa_exec (instr);
+               fa_exec(instr);
             end
       endcase
    endrule
@@ -725,8 +703,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          tagged DMem_Resp_Ok .u: begin
             case (decoded.funct3)
                f3_LB:  begin
-                          Int#(8)   s8    = unpack(truncate (u));
-                          Word_S    s     = signExtend (s8);
+                          Int#(8)   s8    = unpack(truncate(u));
+                          Word_S    s     = signExtend(s8);
                           Word      value = pack(s);
                           fa_finish_with_Rd(decoded.rd, value);
                        end
@@ -736,7 +714,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                           fa_finish_with_Rd(decoded.rd, value);
                        end
                f3_LH:  begin
-                          Int#(16)  s16   = unpack(truncate (u));
+                          Int#(16)  s16   = unpack(truncate(u));
                           Word_S    s     = signExtend(s16);
                           Word      value = pack(s);
                           fa_finish_with_Rd(decoded.rd, value);
@@ -747,7 +725,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                           fa_finish_with_Rd(decoded.rd, value);
                        end
                f3_LW:  begin
-                          Int#(32)  s32   = unpack(truncate (u));
+                          Int#(32)  s32   = unpack(truncate(u));
                           Word_S    s     = signExtend(s32);
                           Word      value = pack(s);
                           fa_finish_with_Rd(decoded.rd, value);
@@ -781,14 +759,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       cpu_state   <= STATE_FETCH;
    endrule
 
-   // ---------------- Increment csr_cycle and csr_time according to external oracles
+   // ---------------- Increment csr_cycle according to external oracles
 
    rule rl_incr_cycle;
       csr_cycle <= csr_cycle + 1;
-   endrule
-
-   rule rl_incr_time;
-      csr_time <= csr_time + 1;
    endrule
 
    // ----------------------------------------------------------------
@@ -803,8 +777,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       return(cpu_state == STATE_HALT);
    endmethod
 
-   method ActionValue#(Word) cpuToHost() if (isValid(csr_dcsr));
-      let ret = fromMaybe(?, csr_dcsr);
+   method ActionValue#(Word) cpuToHost() if (csr_dcsr matches tagged Valid .ret);
       csr_dcsr <= tagged Invalid;
       return ret;
    endmethod
