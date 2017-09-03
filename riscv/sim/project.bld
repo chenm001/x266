@@ -1,20 +1,20 @@
 [DEFAULT]
 default-targets:     all
 bsc-compile-options: -aggressive-conditions -keep-fires -show-schedule
-bsc-link-options:    -Xc++ -O0 -keep-fires
+bsc-link-options:    -Xc++ -O2 -keep-fires
 
 [common]
 hide-target
-top-module:             mkBridge
-top-file:               ../Bridge.bsv
-bsv-source-directories: ../../scemi ../../src ../../src/includes
+top-module:             mkTb
+top-file:               ../src/RISCV.bsv
+bsv-source-directories: ../src ../src/includes
+bsv-define:             TEST_BENCH_RISCV
 verilog-directory:      vlog_dut
 binary-directory:       bdir_dut
 simulation-directory:   simdir_dut
 info-directory:         info_dut
 altera-directory:       quartus
 xilinx-directory:       xilinx
-scemi-parameters-file:  scemi.params
 
 [dut]
 hide-target
@@ -24,11 +24,26 @@ extends-target: common
 hide-target
 extends-target:             dut
 build-for:                  bluesim
-scemi-type:                 TCP
-scemi-tcp-port:             3375
 exe-file:                   bsim_dut
 create-workstation-project: true
-post-targets:               tb
+post-targets:               
+
+[rtl_dut]
+hide-target
+extends-target:             dut
+build-for:                  rtl
+create-workstation-project: true
+
+[onestage]
+extends-target:           bsim_dut
+bsv-define:               PROC_FILE=OneStage SIM
+workstation-project-file: onestage.bspec
+exe-file:                 onestage_dut
+
+[rtl_onestage]
+extends-target:           rtl_dut
+bsv-define:               PROC_FILE=OneStage SIM
+workstation-project-file: rtl_onestage.bspec
 
 [twostage]
 extends-target:           bsim_dut
@@ -41,12 +56,6 @@ extends-target:           bsim_dut
 bsv-define:               PROC_FILE=FiveStage SIM
 workstation-project-file: fivestage.bspec
 exe-file:                 fivestage_dut
-
-[sixstage]
-extends-target:           bsim_dut
-bsv-define:               PROC_FILE=SixStage SIM
-workstation-project-file: sixstage.bspec
-exe-file:                 sixstage_dut
 
 [tb]
 extends-target:       common

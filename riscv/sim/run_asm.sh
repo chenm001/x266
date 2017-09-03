@@ -14,10 +14,10 @@ asm_tests=(
 	auipc
 	beq bge bgeu blt bltu bne
 	j jal jalr
-	lw
+	lb lbu lh lhu lw
 	lui
 	or ori
-	sw
+	sb sh sw
 	sll slli
 	slt slti
 	sra srai
@@ -28,7 +28,7 @@ asm_tests=(
 	cache
 	)
 
-vmh_dir=../../programs/build/assembly/vmh
+vmh_dir=../programs/build/assembly/vmh
 log_dir=logs
 wait_time=3
 
@@ -51,8 +51,9 @@ for test_name in ${asm_tests[@]}; do
 	cp ${mem_file}.D mem.vmh.D
 
 	# run test
-	./${simdut} > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log
-	sleep ${wait_time} # wait for bsim to setup
-	./tb # run test bench
+	#./${simdut} > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log
+	#sleep ${wait_time} # wait for bsim to setup
+	#./tb # run test bench
+	./${simdut} | tee ${log_dir}/${test_name}.log
 	echo ""
 done
