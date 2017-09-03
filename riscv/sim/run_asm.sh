@@ -51,9 +51,6 @@ for test_name in ${asm_tests[@]}; do
 	cp ${mem_file}.D mem.vmh.D
 
 	# run test
-	#./${simdut} > ${log_dir}/${test_name}.log & # run bsim, redirect outputs to log
-	#sleep ${wait_time} # wait for bsim to setup
-	#./tb # run test bench
-	./${simdut} | tee ${log_dir}/${test_name}.log
+	./${simdut} > ${log_dir}/${test_name}.log
 	echo ""
 done

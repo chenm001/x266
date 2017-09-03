@@ -832,29 +832,28 @@ module mkTb();
       let csr_value <- dut.cpuToHost;
       Bit#(16) csrCmd = truncateLSB(csr_value);
       Bit#(16) csrDat = truncate(csr_value);
+
       case(csrCmd)
          0: begin // Exit
-            //$display("Exit with code %d", csrDat);
             if (csrDat == 0) begin
-               $display("PASSED\n");
+               $fdisplay(stderr, "PASSED\n");
             end
             else begin
-               $display("FAILED: exit code = %d\n", csrDat);
+               $fdisplay(stderr, "FAILED: exit code = %d\n", csrDat);
             end
             $finish;
          end
          1: begin // PrintChar
-            $write("%c", csrDat[7:0]);
-            //$display("%X", csrDat[7:0]);
+            $fwrite(stderr, "%c", csrDat[7:0]);
          end
          2: begin // PrintIntLow
             csr_int_low <= csrDat;
          end
          3: begin // PrintIntHigh
-            $write("%d", {csrDat, csr_int_low});
+            $fwrite(stderr, "%d", {csrDat, csr_int_low});
          end
          default: begin
-            $display("Unknown type %d", csrCmd);
+            $fdisplay(stderr, "Unknown type %d", csrCmd);
          end
       endcase
    endrule
@@ -867,7 +866,7 @@ module mkTb();
       let halted = dut.halted;
 
       if (halted) begin
-         $display("CPU Task Finished");
+         $fdisplay(stderr, "CPU Task Finished");
          $finish;
       end
    endrule
