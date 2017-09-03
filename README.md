@@ -12,6 +12,10 @@ x266 based on Software/Hardware Cooperative concept and flexible task distribute
 Building
 ========
 
+- RISC-V<br>
+    build onestage<br>
+    ./run_asm.sh onestage<br>
+    ./run_bmark.sh onestage<br>
 
 
 Prebuilt
