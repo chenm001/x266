@@ -405,6 +405,22 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_BLTU) fa_finish_cond_branch(v1  <  v2,    next_pc);
                else if (decoded.funct3 == f3_BGEU) fa_finish_cond_branch(v1  >= v2,    next_pc);
                else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
+                              case(decoded.funct3)
+                                 f3_BEQ  : "beq";
+                                 f3_BNE  : "bne";
+                                 f3_BLT  : "blt";
+                                 f3_BGE  : "bge";
+                                 f3_BLTU : "bltu";
+                                 f3_BGEU : "bgeu";
+                              endcase,
+                              regNameABI[decoded.rs1],
+                              regNameABI[decoded.rs2],
+                              next_pc
+                  );
+               end
             endaction
          endfunction: fa_exec_BRANCH
 
