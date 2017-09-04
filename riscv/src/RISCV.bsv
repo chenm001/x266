@@ -433,8 +433,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S  imm_s    = extend(unpack(decoded.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
 
-               if (cfg_verbose > 1) $display("[%7d] fa_exec_LD_Req: Addr = 0x%08h", csr_cycle, mem_addr);
-
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
                      let req = DMem_Req {mem_op:        MEM_OP_LOAD,
@@ -454,6 +452,20 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_LHU)     fa_LD_Req(BITS16);
                else if (decoded.funct3 == f3_LW)      fa_LD_Req(BITS32);
                else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
+                              case(decoded.funct3)
+                                 f3_LB  : "lb";
+                                 f3_LBU : "lbu";
+                                 f3_LH  : "lh";
+                                 f3_LHU : "lhu";
+                                 f3_LW  : "lw";
+                              endcase,
+                              regNameABI[decoded.rd],
+                              regNameABI[decoded.rs1],
+                              imm_s
+                  );
+               end
             endaction
          endfunction: fa_exec_LD_Req
 
