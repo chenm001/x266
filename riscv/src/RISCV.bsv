@@ -483,7 +483,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                            f3_XORI: "xori";
                            f3_ANDI: "andi";
                            f3_SLLI: "slli";
-                           f3_SRxI: ((decoded.imm12_I[11:5] == 7'b000_0000) ? "srli" : "srai");
+                           f3_SRxI: ((decoded.imm12_I[10] == 1'b0) ? "srli" : "srai");
                         endcase,
                         regNameABI[decoded.rd],
                         regNameABI[decoded.rs1],
@@ -499,16 +499,16 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
                else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
 
-               else if ((decoded.funct3 == f3_SLLI) && (decoded.imm12_I[11:5] == 7'b000_0000))
+               else if ((decoded.funct3 == f3_SLLI) && (decoded.imm12_I[10] == 1'b0))
                   fa_finish_with_Rd(decoded.rd, (v1 << shamt));
 
 
                // SRLI
-               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[11:5] == 7'b000_0000))
+               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[10] == 1'b0))
                   fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
 
                // SRAI
-               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[11:5] == 7'b010_0000))
+               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[10] == 1'b1))
                   fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
 
                else
