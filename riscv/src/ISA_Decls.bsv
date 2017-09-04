@@ -155,22 +155,27 @@ RegName x28 = 28;    RegName x29 = 29;    RegName x30 = 30;    RegName x31 = 31;
 
 RegName reg_ra = 1;
 
-RegName reg_s0 = 2;  RegName reg_s1 = 3;  RegName reg_s2  = 4;  RegName reg_s3  = 5;
-RegName reg_s4 = 6;  RegName reg_s5 = 7;  RegName reg_s6  = 8;  RegName reg_s7  = 9;
-RegName reg_s8 = 10; RegName reg_s9 = 11; RegName reg_s10 = 12; RegName reg_s11 = 13;
+RegName reg_s0 = 8;   RegName reg_s1 = 9;   RegName reg_s2  = 18; RegName reg_s3  = 19;
+RegName reg_s4 = 20;  RegName reg_s5 = 21;  RegName reg_s6  = 22; RegName reg_s7  = 23;
+RegName reg_s8 = 24;  RegName reg_s9 = 25;  RegName reg_s10 = 26; RegName reg_s11 = 27;
 
-RegName reg_sp = 14;
-RegName reg_tp = 15;
+RegName reg_sp = 2;
+RegName reg_tp = 4;
 
-RegName reg_v0 = 16;  RegName reg_v1 = 17;
+RegName reg_a0 = 10;  RegName reg_a1 = 11;  RegName reg_a2 = 12;  RegName reg_a3 = 13;
+RegName reg_a4 = 14;  RegName reg_a5 = 15;  RegName reg_a6 = 16;  RegName reg_a7 = 17;
 
-RegName reg_a0 = 18;  RegName reg_a1 = 19; RegName reg_a2 = 20; RegName reg_a3 = 21;
-RegName reg_a4 = 22;  RegName reg_a5 = 23; RegName reg_a6 = 24; RegName reg_a7 = 25;
+RegName reg_t0 = 5;   RegName reg_t1 = 6;   RegName reg_t2 = 7;   RegName reg_t3 = 28;
+RegName reg_t4 = 29;  RegName reg_t5 = 30;  RegName reg_t6 = 31; 
 
-RegName reg_t0 = 26;  RegName reg_t1 = 27; RegName reg_t2 = 28; RegName reg_t3 = 29;
-RegName reg_t4 = 30;
+RegName reg_gp = 3;
 
-RegName reg_gp = 31;
+String regNameABI[32] = {
+   "zero", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
+   "s0",   "s1", "a0",  "a1",  "a2", "a3", "a4", "a5",
+   "a6",   "a7", "s2",  "s3",  "s4", "s5", "s6", "s7",
+   "s8",   "s9", "s10", "s11", "t3", "t4", "t5", "t6"
+};
 
 // ================================================================
 // Data sizes for LOAD/STORE
