@@ -21,9 +21,7 @@ import BRAMCore :: *;
 // ----------------
 // IMem responses: either and exception or an instruction
 
-typedef union tagged {
-   Word      IMem_Resp_Ok;
-} IMem_Resp deriving(Bits, FShow);
+typedef Maybe#(Word) IMem_Resp;
 
 // ----------------
 // DMem request ops and sizes
@@ -69,7 +67,7 @@ module mkMemory(Memory_IFC);
    endmethod
 
    method ActionValue#(IMem_Resp) imem_resp;
-      return tagged IMem_Resp_Ok imem.read();
+      return tagged Valid imem.read();
    endmethod
 
    method Action dmem_req(DMem_Req req);
@@ -684,7 +682,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_exec(cpu_state == STATE_EXEC);
       let imem_resp <- memory.imem_resp;
 
-      if (imem_resp matches tagged IMem_Resp_Ok .instr) begin
+      if (imem_resp matches tagged Valid .instr) begin
          if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
          rg_instr <= instr;
 
