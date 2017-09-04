@@ -112,30 +112,30 @@ typedef struct {
    //Bit#(2)  aqrl;
 } Decoded_Instr deriving(FShow, Bits);
 
-function Decoded_Instr fv_decode (Instr instr);
+function Decoded_Instr fv_decode(Instr instr);
    return Decoded_Instr {
-          opcode:    instr_opcode   (instr),
-          rd:        instr_rd       (instr),
-          rs1:       instr_rs1      (instr),
-          rs2:       instr_rs2      (instr),
-          rs3:       instr_rs3      (instr),
-          csr:       instr_csr      (instr),
+            opcode:    instr_opcode   (instr),
+            rd:        instr_rd       (instr),
+            rs1:       instr_rs1      (instr),
+            rs2:       instr_rs2      (instr),
+            rs3:       instr_rs3      (instr),
+            csr:       instr_csr      (instr),
 
-          funct3:    instr_funct3   (instr),
-          funct5:    instr_funct5   (instr),
-          funct7:    instr_funct7   (instr),
-          funct10:   instr_funct10  (instr),
+            funct3:    instr_funct3   (instr),
+            funct5:    instr_funct5   (instr),
+            funct7:    instr_funct7   (instr),
+            funct10:   instr_funct10  (instr),
 
-          imm12_I:   instr_I_imm12  (instr),
-          imm12_S:   instr_S_imm12  (instr),
-          imm13_SB:  instr_SB_imm13 (instr),
-          imm20_U:   instr_U_imm20  (instr),
-          imm21_UJ:  instr_UJ_imm21 (instr)
+            imm12_I:   instr_I_imm12  (instr),
+            imm12_S:   instr_S_imm12  (instr),
+            imm13_SB:  instr_SB_imm13 (instr),
+            imm20_U:   instr_U_imm20  (instr),
+            imm21_UJ:  instr_UJ_imm21 (instr)
 
-          //pred:      instr_pred     (instr),
-          //succ:      instr_succ     (instr),
+            //pred:      instr_pred     (instr),
+            //succ:      instr_succ     (instr),
 
-          //aqrl:      instr_aqrl     (instr)
+            //aqrl:      instr_aqrl     (instr)
           };
 endfunction
 
@@ -184,7 +184,7 @@ typedef enum {
    BITS8,
    BITS16,
    BITS32
-} Mem_Data_Size deriving (Eq, Bits, FShow);
+} Mem_Data_Size deriving(Eq, Bits, FShow);
 
 Addr imemSt = 'h00000;
 Addr dmemSt = 'h10000;
@@ -377,9 +377,9 @@ Bit#(12) f12_WFI       = 12'b0001_0000_0010;
 // SFENCE.VM
 Bit#(12) f12_SFENCE_VM = 12'b0001_0000_0001;
 
-function Bool is_SYSTEM_PRIV (Instr instr);
-   return (   (instr_opcode (instr) == op_SYSTEM)
-           && (instr_funct3 (instr) == f3_PRIV));
+function Bool is_SYSTEM_PRIV(Instr instr);
+   return(   (instr_opcode(instr) == op_SYSTEM)
+          && (instr_funct3(instr) == f3_PRIV));
 endfunction
 
 
