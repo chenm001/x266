@@ -355,7 +355,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                let         value = pack(iv);
 
                fa_finish_with_Rd(decoded.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] PC = %h: LUI %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
             endaction
          endfunction: fa_exec_LUI
 
@@ -366,6 +366,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word    value = pack(pc_s + iv);
 
                fa_finish_with_Rd(decoded.rd, value);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
             endaction
          endfunction: fa_exec_AUIPC
 
@@ -473,7 +474,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] PC = %h: %s %s, %s, 0x%h", csr_cycle, decoded.pc,
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
                         case(decoded.funct3)
                            f3_ADDI: "addi";
                            f3_SLTI: "slti";
@@ -794,7 +795,7 @@ endmodule
 
 (* synthesize *)
 module mkRISCV(RISCV_IFC);
-   (* hide *) let _m <- _mkRISCV(0);
+   (* hide *) let _m <- _mkRISCV(3);
    return _m;
 endmodule
 
