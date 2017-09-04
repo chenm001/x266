@@ -110,32 +110,35 @@ typedef struct {
    //Bit#(4)  succ;
 
    //Bit#(2)  aqrl;
+
+   Addr     pc;
 } Decoded_Instr deriving(FShow, Bits);
 
-function Decoded_Instr fv_decode(Instr instr);
+function Decoded_Instr fv_decode(Addr _pc, Instr instr);
    return Decoded_Instr {
-            opcode:    instr_opcode   (instr),
-            rd:        instr_rd       (instr),
-            rs1:       instr_rs1      (instr),
-            rs2:       instr_rs2      (instr),
-            rs3:       instr_rs3      (instr),
-            csr:       instr_csr      (instr),
+            opcode:     instr_opcode   (instr),
+            rd:         instr_rd       (instr),
+            rs1:        instr_rs1      (instr),
+            rs2:        instr_rs2      (instr),
+            rs3:        instr_rs3      (instr),
+            csr:        instr_csr      (instr),
 
-            funct3:    instr_funct3   (instr),
-            funct5:    instr_funct5   (instr),
-            funct7:    instr_funct7   (instr),
-            funct10:   instr_funct10  (instr),
+            funct3:     instr_funct3   (instr),
+            funct5:     instr_funct5   (instr),
+            funct7:     instr_funct7   (instr),
+            funct10:    instr_funct10  (instr),
 
-            imm12_I:   instr_I_imm12  (instr),
-            imm12_S:   instr_S_imm12  (instr),
-            imm13_SB:  instr_SB_imm13 (instr),
-            imm20_U:   instr_U_imm20  (instr),
-            imm21_UJ:  instr_UJ_imm21 (instr)
+            imm12_I:    instr_I_imm12  (instr),
+            imm12_S:    instr_S_imm12  (instr),
+            imm13_SB:   instr_SB_imm13 (instr),
+            imm20_U:    instr_U_imm20  (instr),
+            imm21_UJ:   instr_UJ_imm21 (instr),
 
             //pred:      instr_pred     (instr),
             //succ:      instr_succ     (instr),
 
-            //aqrl:      instr_aqrl     (instr)
+            //aqrl:      instr_aqrl     (instr),
+            pc:         _pc
           };
 endfunction
 

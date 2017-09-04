@@ -355,7 +355,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                let         value = pack(iv);
 
                fa_finish_with_Rd(decoded.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] Inst: LUI %s, 0x%h", csr_cycle, regNameABI[decoded.rd], value[31:12]);
+               if (cfg_verbose > 2) $display("[%7d] PC = %h: LUI %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
             endaction
          endfunction: fa_exec_LUI
 
@@ -473,7 +473,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] Inst: %s %s, %s, 0x%h", csr_cycle,
+                  $display("[%7d] PC = %h: %s %s, %s, 0x%h", csr_cycle, decoded.pc,
                         case(decoded.funct3)
                            f3_ADDI: "addi";
                            f3_SLTI: "slti";
@@ -691,7 +691,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instruction decode
 
-         Decoded_Instr decoded = fv_decode(instr);
+         Decoded_Instr decoded = fv_decode(pc, instr);
          fa_exec(decoded);
       end
    endrule
@@ -701,7 +701,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_exec_LD_response(cpu_state == STATE_EXEC_LD_RESPONSE);
       if (cfg_verbose > 1) $display("[%7d] rl_exec_LD_response: ", csr_cycle);
 
-      Decoded_Instr decoded = fv_decode(rg_instr);
+      Decoded_Instr decoded = fv_decode(?, rg_instr);
 
       let resp <- memory.dmem_resp;
 
