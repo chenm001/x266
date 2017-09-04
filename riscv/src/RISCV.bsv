@@ -333,12 +333,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // This function encapsulates ALL the opcodes.
    // It has internal functions that group related sub-opcodes.
 
-   function Action fa_exec(Instr instr);
+   function Action fa_exec(Decoded_Instr decoded);
       action
-         // ----------------------------------------------------------------
-         // Instruction decode
-
-         Decoded_Instr decoded = fv_decode(instr);
 
          // Values of Rs1 and Rs2 fields of the instr, unsigned
          Word    v1   = ((decoded.rs1 == 0) ? 0: regfile.sub(decoded.rs1));
@@ -487,7 +483,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                            f3_XORI: "xori";
                            f3_ANDI: "andi";
                            f3_SLLI: "slli";
-                           f3_SRxI: ((instr[31:25] == 7'b000_0000) ? "srli" : "srai");
+                           f3_SRxI: ((decoded.imm12_I[11:5] == 7'b000_0000) ? "srli" : "srai");
                         endcase,
                         regNameABI[decoded.rd],
                         regNameABI[decoded.rs1],
@@ -503,16 +499,16 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
                else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
 
-               else if ((decoded.funct3 == f3_SLLI) && (instr[31:25] == 7'b000_0000))
+               else if ((decoded.funct3 == f3_SLLI) && (decoded.imm12_I[11:5] == 7'b000_0000))
                   fa_finish_with_Rd(decoded.rd, (v1 << shamt));
 
 
                // SRLI
-               else if ((decoded.funct3 == f3_SRxI) && (instr[31:25] == 7'b000_0000))
+               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[11:5] == 7'b000_0000))
                   fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
 
                // SRAI
-               else if ((decoded.funct3 == f3_SRxI) && (instr[31:25] == 7'b010_0000))
+               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[11:5] == 7'b010_0000))
                   fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
 
                else
@@ -553,9 +549,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                if (   (decoded.funct3 == f3_FENCE)
                    && (decoded.rd == 0)
                    && (decoded.rs1 == 0)
-                   && (instr [31:28] == 4'b0)) begin
-                                                  fa_finish_with_no_output;
-                                               end
+                   && (truncateLSB(decoded.imm12_I) == 4'b0)) begin   // same as instr[31:28] on Spec v 2.2
+                                                                 fa_finish_with_no_output;
+                                                              end
 
                // FENCE.I
                else if (   (decoded.funct3 == f3_FENCE_I)
@@ -651,8 +647,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
-
          if      (decoded.opcode == op_LUI)      fa_exec_LUI();
          else if (decoded.opcode == op_AUIPC)    fa_exec_AUIPC();
          else if (decoded.opcode == op_JAL)      fa_exec_JAL();
@@ -693,7 +687,14 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       if (imem_resp matches tagged IMem_Resp_Ok .instr) begin
          if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
          rg_instr <= instr;
-         fa_exec(instr);
+
+         if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
+
+         // ----------------------------------------------------------------
+         // Instruction decode
+
+         Decoded_Instr decoded = fv_decode(instr);
+         fa_exec(decoded);
       end
    endrule
 
