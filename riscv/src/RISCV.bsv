@@ -63,7 +63,7 @@ module mkMemory(Memory_IFC);
    method Action imem_req(Addr addr);
       let phyAddr = addr - imemSt;
       imem.put(False, truncate(phyAddr >> 2), ?);
-      //$display("[IMEM] Addr = 0x%08X", addr);
+      //$display("[IMEM] Addr = 0x%08h", addr);
    endmethod
 
    method ActionValue#(IMem_Resp) imem_resp;
@@ -116,7 +116,7 @@ module mkMemory(Memory_IFC);
       endcase
 
       dmem.a.put((req.mem_op == MEM_OP_STORE) ? mask : 0, truncate(phyAddr >> 2), val);
-      //$display("[DMEM] Addr = 0x%08X", req.addr);
+      //$display("[DMEM] Addr = 0x%08h", req.addr);
    endmethod
 
    method ActionValue#(DMem_Resp) dmem_resp;
@@ -273,7 +273,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_with_exception(Word epc, Exc_Code exc_code, Addr badaddr);
       action
          if ((cfg_verbose != 0) || (exc_code == exc_code_ILLEGAL_INSTRUCTION)) begin
-            $display("RISCV(fa_do_exception): epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", epc, exc_code, badaddr);
+            $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, epc, exc_code, badaddr);
          end
 
          csr_mepc     <= epc;
@@ -414,7 +414,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S  imm_s    = extend(unpack(decoded.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
 
-               if (cfg_verbose > 1) $display("[%7d] fa_exec_LD_Req: Addr = 0x%08X", csr_cycle, mem_addr);
+               if (cfg_verbose > 1) $display("[%7d] fa_exec_LD_Req: Addr = 0x%08h", csr_cycle, mem_addr);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
@@ -669,7 +669,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Issue instruction request
 
    rule rl_fetch(cpu_state == STATE_FETCH);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch: PC = 0x%08X", csr_cycle, pc);
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch: PC = 0x%08h", csr_cycle, pc);
 
       memory.imem_req(pc);
       cpu_state <= STATE_EXEC;
@@ -683,7 +683,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       let imem_resp <- memory.imem_resp;
 
       if (imem_resp matches tagged Valid .instr) begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
+         if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08h, instr = 0x%08h", csr_cycle, pc, instr);
          rg_instr <= instr;
 
          if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
@@ -739,7 +739,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                        end
                // Note: request has already checked that 'default' case is impossible
             endcase
-            if (cfg_verbose > 1) $display("RISCV_Spec.rl_exec_LD_response: %08X", u);
+            if (cfg_verbose > 1) $display("RISCV_Spec.rl_exec_LD_response: %08h", u);
          end
       endcase
    endrule
