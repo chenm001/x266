@@ -379,15 +379,17 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Addr   next_pc = pack(unpack(pc) + offset);
 
                fa_finish_jump(decoded.rd, fv_fall_through_pc(pc), next_pc);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], next_pc);
             endaction
          endfunction: fa_exec_JAL
 
          function Action fa_exec_JALR();
             action
-               Word_S offset  = extend(unpack (decoded.imm12_I));
-               Addr   next_pc = pack(s_v1 + offset);
+               Word_S offset  = extend(unpack(decoded.imm12_I));
+               Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
 
                fa_finish_jump(decoded.rd, fv_fall_through_pc(pc), next_pc);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[decoded.rd], regNameABI[decoded.rs1], offset);
             endaction
          endfunction: fa_exec_JALR
 
