@@ -22,7 +22,6 @@ import BRAMCore :: *;
 // IMem responses: either and exception or an instruction
 
 typedef union tagged {
-   Exc_Code  IMem_Resp_Exception;
    Word      IMem_Resp_Ok;
 } IMem_Resp deriving(Bits, FShow);
 
@@ -362,6 +361,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                let         value = pack(iv);
 
                fa_finish_with_Rd(decoded.rd, value);
+               if (cfg_verbose > 2) $display("[%7d] Inst: LUI %s, 0x%h", csr_cycle, regNameABI[decoded.rd], value[31:12]);
             endaction
          endfunction: fa_exec_LUI
 
@@ -478,12 +478,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S              s_v2  = signExtend(unpack(decoded.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
 
-               if      (decoded.funct3 == f3_ADDI)  fa_finish_with_Rd(decoded.rd, pack (s_v1 + s_v2));
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Inst: %s %s, %s, 0x%h", csr_cycle,
+                        case(decoded.funct3)
+                           f3_ADDI: "addi";
+                           f3_SLTI: "slti";
+                           f3_SLTIU: "sltiu";
+                           f3_XORI: "xori";
+                           f3_ANDI: "andi";
+                           f3_SLLI: "slli";
+                           f3_SRxI: ((instr[31:25] == 7'b000_0000) ? "srli" : "srai");
+                        endcase,
+                        regNameABI[decoded.rd],
+                        regNameABI[decoded.rs1],
+                        decoded.imm12_I
+                  );
+               end
+
+
+               if      (decoded.funct3 == f3_ADDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
                else if (decoded.funct3 == f3_SLTI)  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
                else if (decoded.funct3 == f3_SLTIU) fa_finish_with_Rd(decoded.rd, ((v1  < v2)  ? 1 : 0));
-               else if (decoded.funct3 == f3_XORI)  fa_finish_with_Rd(decoded.rd, pack (s_v1 ^ s_v2));
-               else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack (s_v1 | s_v2));
-               else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack (s_v1 & s_v2));
+               else if (decoded.funct3 == f3_XORI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
+               else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
+               else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
 
                else if ((decoded.funct3 == f3_SLLI) && (instr[31:25] == 7'b000_0000))
                   fa_finish_with_Rd(decoded.rd, (v1 << shamt));
@@ -672,21 +690,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_exec(cpu_state == STATE_EXEC);
       let imem_resp <- memory.imem_resp;
 
-      case (imem_resp) matches
-         // IMem response is an exception
-         tagged IMem_Resp_Exception .exc_code:
-            begin
-               fa_finish_with_exception(pc, exc_code, pc);
-            end
-
-         // IMem response is ok
-         tagged IMem_Resp_Ok  .instr:
-            begin
-               if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
-               rg_instr <= instr;
-               fa_exec(instr);
-            end
-      endcase
+      if (imem_resp matches tagged IMem_Resp_Ok .instr) begin
+         if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08X, instr = 0x%08X", csr_cycle, pc, instr);
+         rg_instr <= instr;
+         fa_exec(instr);
+      end
    endrule
 
    // ---------------- LD-responses from DMem
