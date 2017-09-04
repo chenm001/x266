@@ -110,7 +110,7 @@ typedef struct {
    //Bit#(4)  succ;
 
    //Bit#(2)  aqrl;
-} Decoded_Instr deriving (FShow, Bits);
+} Decoded_Instr deriving(FShow, Bits);
 
 function Decoded_Instr fv_decode (Instr instr);
    return Decoded_Instr {
