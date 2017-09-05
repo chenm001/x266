@@ -634,20 +634,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_SYSTEM();
             action
-               // SCALL/ECALL
-               if      (   (decoded.funct3 == f3_PRIV)
-                        && (decoded.imm12_I == f12_ECALL)
-                        && (decoded.rs1 == 0)
-                        && (decoded.rd == 0))
-                  fa_finish_with_exception(pc, exc_code_ECALL_FROM_U, ?);
-
-               // SBREAK/EBREAK
-               else if (   (decoded.funct3 == f3_PRIV)
-                        && (decoded.imm12_I == f12_EBREAK)
-                        && (decoded.rs1 == 0)
-                        && (decoded.rd == 0))
-                  fa_finish_with_exception(pc, exc_code_BREAKPOINT, ?);
-
                // CSRRW
                else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRW)) begin
                   fa_write_csr(decoded.csr, v1);
