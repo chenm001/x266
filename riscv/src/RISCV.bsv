@@ -869,7 +869,7 @@ endmodule
 
 (* synthesize *)
 module mkRISCV(RISCV_IFC);
-   (* hide *) let _m <- _mkRISCV(3);
+   (* hide *) let _m <- _mkRISCV(0);
    return _m;
 endmodule
 
