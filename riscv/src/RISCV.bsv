@@ -509,29 +509,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instructios for Register-Immediate alu ops
 
-         function Action fa_exec_OP_IMM ();
+         function Action fa_exec_OP_IMM();
             action
                Word                v2    = zeroExtend(decoded.imm12_I);
                Word_S              s_v2  = signExtend(unpack(decoded.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
-
-               if (cfg_verbose > 2) begin
-                  $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                        case(decoded.funct3)
-                           f3_ADDI: "addi";
-                           f3_SLTI: "slti";
-                           f3_SLTIU: "sltiu";
-                           f3_XORI: "xori";
-                           f3_ANDI: "andi";
-                           f3_SLLI: "slli";
-                           f3_SRxI: ((decoded.imm12_I[10] == 1'b0) ? "srli" : "srai");
-                        endcase,
-                        regNameABI[decoded.rd],
-                        regNameABI[decoded.rs1],
-                        decoded.imm12_I
-                  );
-               end
-
 
                if      (decoded.funct3 == f3_ADDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
                else if (decoded.funct3 == f3_SLTI)  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
@@ -554,6 +536,23 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                else
                   fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
+                        case(decoded.funct3)
+                           f3_ADDI  : "addi";
+                           f3_SLTI  : "slti";
+                           f3_SLTIU : "sltiu";
+                           f3_XORI  : "xori";
+                           f3_ANDI  : "andi";
+                           f3_SLLI  : "slli";
+                           f3_SRxI  : ((decoded.imm12_I[10] == 1'b0) ? "srli" : "srai");
+                        endcase,
+                        regNameABI[decoded.rd],
+                        regNameABI[decoded.rs1],
+                        decoded.imm12_I
+                  );
+               end
             endaction
          endfunction: fa_exec_OP_IMM
 
