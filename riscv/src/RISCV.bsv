@@ -635,7 +635,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          function Action fa_exec_SYSTEM();
             action
                // CSRRW
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRW)) begin
+               if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRW)) begin
                   fa_write_csr(decoded.csr, v1);
                   fa_finish_with_Rd(decoded.rd, csr_old_val);
                end
@@ -659,14 +659,14 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                end
 
                // CSRRWI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRW)) begin
+               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRWI)) begin
                   let v1 = zeroExtend (decoded.rs1);
                   fa_write_csr(decoded.csr, v1);
                   fa_finish_with_Rd(decoded.rd, csr_old_val);
                end
 
                // CSRRSI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRS)) begin
+               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRSI)) begin
                   Word v1 = zeroExtend (decoded.rs1);
                   if (v1 != 0) begin
                      Word csr_new_val = (csr_old_val | v1);
@@ -676,7 +676,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                end
 
                // CSRRCI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRC)) begin
+               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRCI)) begin
                   Word v1 = zeroExtend (decoded.rs1);
                   if (v1 != 0) begin
                      Word csr_new_val = (csr_old_val & (~ v1));
