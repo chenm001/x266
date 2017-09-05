@@ -576,6 +576,26 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                else
                   fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, %s", csr_cycle, decoded.pc,
+                        case(decoded.funct10)
+                           f10_ADD  : "add";
+                           f10_SUB  : "sub";
+                           f10_SLL  : "sll";
+                           f10_SLT  : "slt";
+                           f10_SLTU : "sltu";
+                           f10_XOR  : "xor";
+                           f10_SRL  : "srl";
+                           f10_SRA  : "sra";
+                           f10_OR   : "or";
+                           f10_AND  : "and";
+                        endcase,
+                        regNameABI[decoded.rd],
+                        regNameABI[decoded.rs1],
+                        regNameABI[decoded.rs2]
+                  );
+               end
             endaction
          endfunction: fa_exec_OP
 
