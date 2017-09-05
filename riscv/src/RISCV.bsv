@@ -688,6 +688,31 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else begin
                   fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
                end
+
+               if (cfg_verbose > 2) begin
+                  if ( (decoded.funct3 == f3_CSRRS) && (decoded.csr == csr_CYCLE) )
+                     $display("[%7d] Decoded: PC = %h, rdcycle %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
+                  else if ( (decoded.funct3 == f3_CSRRS) && (decoded.csr == csr_INSTRET) )
+                     $display("[%7d] Decoded: PC = %h, rdinstret %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
+                  else if ( (decoded.funct3 == f3_CSRRW) && (decoded.csr == csr_DCSR) )
+                     $display("[%7d] Decoded: PC = %h, csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[decoded.rs1]);
+                  else begin
+                     $display("[%7d] Decoded: PC = %h, %s %s, 0x%h, %s", csr_cycle, decoded.pc,
+                           case(decoded.funct3)
+                              f3_CSRRW : "csrrw";
+                              f3_CSRRS : "csrrs";
+                              f3_CSRRC : "csrrc";
+                              //f3_CSRRWI : "csrrwi";
+                              //f3_CSRRSI : "csrrsi";
+                              //f3_CSRRCI : "csrrci";
+                              default  : "Unsupport";
+                           endcase,
+                           regNameABI[decoded.rd],
+                           decoded.csr,
+                           regNameABI[decoded.rs1]
+                     );
+                  end
+               end
             endaction
          endfunction: fa_exec_SYSTEM
 
