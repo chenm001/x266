@@ -291,14 +291,6 @@ Bit#(3) f3_SRxI  = 3'b101; Bit#(3) f3_SRLI  = 3'b101; Bit#(3) f3_SRAI  = 3'b101;
 Bit#(3) f3_ORI   = 3'b110;
 Bit#(3) f3_ANDI  = 3'b111;
 
-// ================================================================
-// Integer Register-Immediate 32b Instructions for RV64
-
-Opcode op_OP_IMM_32 = 7'b00_110_11;
-
-Bit#(3) f3_ADDIW = 3'b000;
-Bit#(3) f3_SLLIW = 3'b001;
-Bit#(3) f3_SRxIW = 3'b101; Bit#(3) f3_SRLIW = 3'b101; Bit#(3) f3_SRAIW = 3'b101;
 
 // ================================================================
 // Integer Register-Register Instructions
