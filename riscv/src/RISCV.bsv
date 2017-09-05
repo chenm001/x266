@@ -491,6 +491,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_SH)      fa_ST_req(BITS16);
                else if (decoded.funct3 == f3_SW)      fa_ST_req(BITS32);
                else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
+                              case(decoded.funct3)
+                                 f3_SB  : "sb";
+                                 f3_SH  : "sh";
+                                 f3_SW  : "sw";
+                              endcase,
+                              regNameABI[decoded.rd],
+                              regNameABI[decoded.rs1],
+                              imm_s
+                  );
+               end
             endaction
          endfunction: fa_exec_ST_Req
 
