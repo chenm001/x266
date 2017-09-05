@@ -28,7 +28,7 @@ rv32ui_tests = \
 	sb sh \
 	sw \
 	sll slli \
-	slt slti \
+	slt slti sltiu \
 	sra srai \
 	srl srli \
 	sub \

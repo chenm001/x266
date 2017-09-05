@@ -19,7 +19,7 @@ asm_tests=(
 	or ori
 	sb sh sw
 	sll slli
-	slt slti
+	slt slti sltiu
 	sra srai
 	srl srli
 	sub

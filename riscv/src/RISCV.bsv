@@ -517,7 +517,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if      (decoded.funct3 == f3_ADDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
                else if (decoded.funct3 == f3_SLTI)  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
-               else if (decoded.funct3 == f3_SLTIU) fa_finish_with_Rd(decoded.rd, ((v1  < v2)  ? 1 : 0));
+               else if (decoded.funct3 == f3_SLTIU) fa_finish_with_Rd(decoded.rd, ((v1  < pack(s_v2))  ? 1 : 0));
                else if (decoded.funct3 == f3_XORI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
                else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
                else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
