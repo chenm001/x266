@@ -624,6 +624,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else begin
                   fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
                end
+
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, %s (ignore)", csr_cycle, decoded.pc, decoded.funct3 == f3_FENCE ? "fence" : "fence.i");
             endaction
          endfunction: fa_exec_MISC_MEM
 
