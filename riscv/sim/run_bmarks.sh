@@ -33,7 +33,7 @@ for test_name in ${bmarks_tests[@]}; do
 	# copy vmh file
 	mem_file=${vmh_dir}/${test_name}.riscv.vmh
 	if [ ! -f $mem_file ]; then
-		echo "ERROR: $mem_file does not exit, you need to first compile"
+		echo "ERROR: $mem_file does not exist, you need to first compile"
 		exit
 	fi
 	cp ${mem_file} mem.vmh

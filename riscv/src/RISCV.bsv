@@ -57,8 +57,8 @@ typedef union tagged {
 module mkMemory(Memory_IFC);
    BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, "mem.vmh", False);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
-   Reg#(Bit#(2))                          reg_shift <- mkRegU;
-   Reg#(Mem_Data_Size)                    reg_size  <- mkRegU;
+   Reg#(Bit#(2))                          rg_shift <- mkRegU;
+   Reg#(Mem_Data_Size)                    rg_size  <- mkRegU;
 
    method Action imem_req(Addr addr);
       let phyAddr = addr - imemSt;
@@ -77,8 +77,8 @@ module mkMemory(Memory_IFC);
       Bit#(Bytes_per_Word) mask = 4'b1111;
       Word pad = ?;
 
-      reg_shift <= shift;
-      reg_size <= req.mem_data_size;
+      rg_shift <= shift;
+      rg_size  <= req.mem_data_size;
 
       case(req.mem_data_size)
          BITS8: begin
@@ -122,7 +122,7 @@ module mkMemory(Memory_IFC);
    method ActionValue#(DMem_Resp) dmem_resp;
       Word v = dmem.a.read();
 
-      case(reg_shift)
+      case(rg_shift)
          0: v = v;
          1: v = {?, v[31: 8]};
          2: v = {?, v[31:16]};
