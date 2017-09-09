@@ -167,16 +167,14 @@ endinterface
 // It starts running when it is put into the FETCH state.
 // When running, it cycles through the following sequences of states:
 //
-//     FETCH -> EXEC ->                     FINISH    for most instructions
-//     FETCH -> EXEC -> EXEC_LD_RESPONSE -> FINISH    for LD instructions
-//     FETCH -> EXEC -> EXEC_ST_RESPONSE -> FINISH    for ST instructions
+//     FETCH -> EXEC -> WRITE_BACK -> FINISH    for most instructions
+//     FETCH -> EXEC ->            -> FINISH    for jump instructions
 //
 
 typedef enum {STATE_IDLE,
               STATE_FETCH,
               STATE_EXEC,
-              STATE_EXEC_LD_RESPONSE,
-              STATE_EXEC_ST_RESPONSE,
+              STATE_WRITE_BACK,
               STATE_FINISH,
               STATE_HALT
    } CPU_STATE
@@ -221,7 +219,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    Reg#(CPU_STATE)   cpu_state   <- mkReg(STATE_IDLE);
    Reg#(Addr)        rg_mem_addr <- mkRegU;    // Effective addr in LD/ST
-   Reg#(Word)        rg_instr    <- mkRegU;    // Current instruction
+   Reg#(Exec2Wb_t)   rg_e2w      <- mkRegU;    // Current instruction
 
    // ----------------------------------------------------------------
    // Read a CSR
@@ -289,19 +287,32 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_no_output();
       action
-         pc        <= fv_fall_through_pc (pc);
+         pc        <= fv_fall_through_pc(pc);
          cpu_state <= STATE_FINISH;
       endaction
    endfunction
 
    // ----------------
-   // Finish instr with Rd-write: write Rd, set PC, go to FETCH state
+   // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
 
    function Action fa_finish_with_Rd(RegName rd, Word rd_value);
       action
-         if (rd != 0) regfile.upd(rd, rd_value);
+         rg_e2w    <= Exec2Wb_t {rd        : rd,
+                                 rd_value  : tagged Value rd_value};
          pc        <= fv_fall_through_pc(pc);
-         cpu_state <= STATE_FINISH;
+         cpu_state <= STATE_WRITE_BACK;
+      endaction
+   endfunction
+
+   // ----------------
+   // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
+
+   function Action fa_finish_with_Ld(RegName rd, Bit#(3) funct3);
+      action
+         rg_e2w    <= Exec2Wb_t {rd        : rd,
+                                 rd_value  : tagged Funct3 funct3};
+         pc        <= fv_fall_through_pc(pc);
+         cpu_state <= STATE_WRITE_BACK;
       endaction
    endfunction
 
@@ -310,9 +321,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
       action
-         if (rd != 0) regfile.upd(rd, rd_value);
+         rg_e2w    <= Exec2Wb_t {rd        : rd,
+                                 rd_value  : tagged Value rd_value};
          pc        <= next_pc;
-         cpu_state <= STATE_FINISH;
+         cpu_state <= STATE_WRITE_BACK;
       endaction
    endfunction
 
@@ -440,7 +452,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          addr:          mem_addr,
                                          data:          ?};
                      memory.dmem_req(req);
-                     cpu_state <= STATE_EXEC_LD_RESPONSE;
+                     fa_finish_with_Ld(decoded.rd, decoded.funct3);
                   endaction
                endfunction
 
@@ -452,6 +464,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                else if (decoded.funct3 == f3_LHU)     fa_LD_Req(BITS16);
                else if (decoded.funct3 == f3_LW)      fa_LD_Req(BITS32);
                else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
                               case(decoded.funct3)
@@ -481,7 +494,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          addr:          mem_addr,
                                          data:          v2};
                      memory.dmem_req(req);
-                     cpu_state <= STATE_EXEC_ST_RESPONSE;
+                     fa_finish_with_no_output;
                   endaction
                endfunction
 
@@ -752,15 +765,12 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    // ---------------- EXECUTE
    // Receive instruction from IMem; handle exception if any, else execute it;
-   // for LD/ST, issue request and move to LD_RESPONSE/ST_RESPONSE state)
 
    rule rl_exec(cpu_state == STATE_EXEC);
       let imem_resp <- memory.imem_resp;
 
       if (imem_resp matches tagged Valid .instr) begin
          if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08h, instr = 0x%08h", csr_cycle, pc, instr);
-         rg_instr <= instr;
-
          if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
 
          // ----------------------------------------------------------------
@@ -771,66 +781,65 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       end
    endrule
 
-   // ---------------- LD-responses from DMem
+   // ---------------- RegFile & DMem Write Back
 
-   rule rl_exec_LD_response(cpu_state == STATE_EXEC_LD_RESPONSE);
-      if (cfg_verbose > 1) $display("[%7d] rl_exec_LD_response: ", csr_cycle);
+   rule rl_write_back(cpu_state == STATE_WRITE_BACK);
+      let x = rg_e2w;
+      let rd = x.rd;
+      let rd_value = ?;
 
-      Decoded_Instr decoded = fv_decode(?, rg_instr);
+      case(x.rd_value) matches
+         tagged Funct3 .funct3: begin
+            let resp <- memory.dmem_resp;
 
-      let resp <- memory.dmem_resp;
-
-      case (resp) matches
-         tagged DMem_Resp_Exception .exc_code: fa_finish_with_exception(pc, exc_code, rg_mem_addr);
-         tagged DMem_Resp_Ok .u: begin
-            case (decoded.funct3)
-               f3_LB:  begin
-                          Int#(8)   s8    = unpack(truncate(u));
-                          Word_S    s     = signExtend(s8);
-                          Word      value = pack(s);
-                          fa_finish_with_Rd(decoded.rd, value);
-                       end
-               f3_LBU: begin
-                          Bit#(8)   u8    = truncate(u);
-                          Word      value = zeroExtend(u8);
-                          fa_finish_with_Rd(decoded.rd, value);
-                       end
-               f3_LH:  begin
-                          Int#(16)  s16   = unpack(truncate(u));
-                          Word_S    s     = signExtend(s16);
-                          Word      value = pack(s);
-                          fa_finish_with_Rd(decoded.rd, value);
-                       end
-               f3_LHU: begin
-                          Bit#(16)  u16   = truncate(u);
-                          Word      value = zeroExtend(u16);
-                          fa_finish_with_Rd(decoded.rd, value);
-                       end
-               f3_LW:  begin
-                          Int#(32)  s32   = unpack(truncate(u));
-                          Word_S    s     = signExtend(s32);
-                          Word      value = pack(s);
-                          fa_finish_with_Rd(decoded.rd, value);
-                       end
-               // Note: request has already checked that 'default' case is impossible
+            case (resp) matches
+               tagged DMem_Resp_Exception .exc_code: fa_finish_with_exception('hFFFFFFFF, exc_code, rg_mem_addr);
+               tagged DMem_Resp_Ok .u: begin
+                  case (funct3)
+                     f3_LB:  begin
+                                 Int#(8)   s8    = unpack(truncate(u));
+                                 Word_S    s     = signExtend(s8);
+                                 Word      value = pack(s);
+                                 rd_value = value;
+                             end
+                     f3_LBU: begin
+                                 Bit#(8)   u8    = truncate(u);
+                                 Word      value = zeroExtend(u8);
+                                 rd_value = value;
+                             end
+                     f3_LH:  begin
+                                 Int#(16)  s16   = unpack(truncate(u));
+                                 Word_S    s     = signExtend(s16);
+                                 Word      value = pack(s);
+                                 rd_value = value;
+                             end
+                     f3_LHU: begin
+                                 Bit#(16)  u16   = truncate(u);
+                                 Word      value = zeroExtend(u16);
+                                 rd_value = value;
+                             end
+                     default: /*f3_LW:*/  begin
+                                 Int#(32)  s32   = unpack(truncate(u));
+                                 Word_S    s     = signExtend(s32);
+                                 Word      value = pack(s);
+                                 rd_value = value;
+                             end
+                  endcase
+               end
             endcase
-            if (cfg_verbose > 1) $display("RISCV_Spec.rl_exec_LD_response: %08h", u);
+         end
+         tagged Value .value: begin
+            rd_value = value;
          end
       endcase
+
+      if (cfg_verbose > 1) $display("[%7d] rl_write_back: %s = %h", csr_cycle, regNameABI[rd], rd_value);
+
+      // NOTE: DOES NOT check register x0 because set value to Zero when read
+      regfile.upd(rd, rd_value);
+      cpu_state <= STATE_FINISH;
    endrule
 
-   // ---------------- ST-responses from DMem
-
-   rule rl_exec_ST_response(cpu_state == STATE_EXEC_ST_RESPONSE);
-      if (cfg_verbose > 1) $display("[%7d] rl_exec_ST_response: ", csr_cycle);
-
-      DMem_Resp resp <- memory.dmem_resp;
-
-      case (resp) matches
-         tagged DMem_Resp_Exception .exc_code: fa_finish_with_exception(pc, exc_code, rg_mem_addr);
-         tagged DMem_Resp_Ok        .u:        fa_finish_with_no_output;
-      endcase
-   endrule
 
    // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
 

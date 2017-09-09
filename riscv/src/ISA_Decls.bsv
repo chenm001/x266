@@ -142,6 +142,19 @@ function Decoded_Instr fv_decode(Addr _pc, Instr instr);
           };
 endfunction
 
+// ----------------
+// Write Back Stage
+
+typedef union tagged {
+   Word     Value;
+   Bit#(3)  Funct3;
+} Exec2WbValue_t deriving(Bits);
+
+typedef struct {
+   RegName  rd;
+   Exec2WbValue_t rd_value;
+} Exec2Wb_t deriving(Bits);
+
 // ================================================================
 // Symbolic register names
 
