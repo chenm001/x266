@@ -175,7 +175,6 @@ typedef enum {STATE_IDLE,
               STATE_FETCH,
               STATE_EXEC,
               STATE_WRITE_BACK,
-              STATE_FINISH,
               STATE_HALT
    } CPU_STATE
 deriving(Eq, Bits, FShow);
@@ -288,7 +287,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_with_no_output();
       action
          pc        <= fv_fall_through_pc(pc);
-         cpu_state <= STATE_FINISH;
+         cpu_state <= STATE_FETCH;
       endaction
    endfunction
 
@@ -334,7 +333,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
       action
          pc        <= (condition_taken ? next_pc : fv_fall_through_pc(pc));
-         cpu_state <= STATE_FINISH;
+         cpu_state <= STATE_FETCH;
       endaction
    endfunction
 
@@ -778,6 +777,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          Decoded_Instr decoded = fv_decode(pc, instr);
          fa_exec(decoded);
+
+         // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
+         csr_instret <= csr_instret + 1;
       end
    endrule
 
@@ -837,18 +839,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
       regfile.upd(rd, rd_value);
-      cpu_state <= STATE_FINISH;
+      cpu_state <= STATE_FETCH;
    endrule
 
 
-   // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
-
-   rule rl_finish(cpu_state == STATE_FINISH);
-      if (cfg_verbose > 1) $display("[%7d] rl_finish: ", csr_cycle);
-
-      csr_instret <= csr_instret + 1;
-      cpu_state   <= STATE_FETCH;
-   endrule
 
    // ---------------- Increment csr_cycle according to external oracles
 
