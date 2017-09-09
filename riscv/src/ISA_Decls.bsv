@@ -67,7 +67,7 @@ function  Bit#(10)   instr_funct10(Instr x); return { x[31:25], x[14:12] }; endf
 function  RegName    instr_rd     (Instr x); return x[11:7]; endfunction
 function  RegName    instr_rs1    (Instr x); return x[19:15]; endfunction
 function  RegName    instr_rs2    (Instr x); return x[24:20]; endfunction
-function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction
+function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction     // {F,D} Extension
 function  CSR_Addr   instr_csr    (Instr x); return unpack(x[31:20]); endfunction
 
 function  Bit#(12)   instr_I_imm12 (Instr x); return x[31:20]; endfunction
