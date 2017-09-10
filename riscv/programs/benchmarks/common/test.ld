@@ -26,8 +26,8 @@ SECTIONS
 {
 
   /* text: test code section */
-  . = 0x100;
-  .text 0x100 : ONLY_IF_RO
+  . = 0x200;
+  .text 0x200 : ONLY_IF_RO
   {
     crt.o(.text)
     *(.text*)
