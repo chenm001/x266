@@ -292,10 +292,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_Rd(RegName rd, Word rd_value);
       action
-         rg_e2w    <= Exec2Wb_t {rd        : rd,
-                                 rd_value  : tagged Value rd_value};
-         pc        <= fv_fall_through_pc(pc);
-         cpu_state <= STATE_WRITE_BACK;
+         if (rd != x0) begin
+            rg_e2w    <= Exec2Wb_t {rd        : rd,
+                                    rd_value  : tagged Value rd_value};
+            pc        <= fv_fall_through_pc(pc);
+            cpu_state <= STATE_WRITE_BACK;
+      end
+      else begin
+         fa_finish_with_no_output;
+      end
       endaction
    endfunction
 
