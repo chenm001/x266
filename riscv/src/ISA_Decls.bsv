@@ -327,9 +327,6 @@ Bit#(3)   f3_CSRRCI     = 3'b111;
 // Wait for Interrupt
 Bit#(12) f12_WFI       = 12'b0001_0000_0010;
 
-// SFENCE.VM
-Bit#(12) f12_SFENCE_VM = 12'b0001_0000_0001;
-
 function Bool is_SYSTEM_PRIV(Instr instr);
    return(   (instr_opcode(instr) == op_SYSTEM)
           && (instr_funct3(instr) == f3_PRIV));
