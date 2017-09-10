@@ -324,11 +324,6 @@ Bit#(3)   f3_CSRRWI     = 3'b101;
 Bit#(3)   f3_CSRRSI     = 3'b110;
 Bit#(3)   f3_CSRRCI     = 3'b111;
 
-// Trap redirection (in {f5,rs2} a.k.a. I_imm12, call it f12
-Bit#(12) f12_MRTS      = 12'b0011_0000_0101;
-Bit#(12) f12_MRTH      = 12'b0011_0000_0110;
-Bit#(12) f12_HRTS      = 12'b0011_0000_0101;
-
 // Wait for Interrupt
 Bit#(12) f12_WFI       = 12'b0001_0000_0010;
 
