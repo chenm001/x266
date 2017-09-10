@@ -249,6 +249,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          else begin
             $display("ERROR: fa_write_csr: (csr_addr 0x%0h, csr_value 0x%0h): illegal csr_addr", csr_addr, csr_value);
+            $finish;
          end
       endaction
    endfunction: fa_write_csr
