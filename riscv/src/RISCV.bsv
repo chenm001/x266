@@ -243,17 +243,12 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_write_csr(CSR_Addr csr_addr, Word csr_value);
       action
-              if (csr_addr == csr_CYCLE)    csr_cycle   <= zeroExtend(csr_value);
-
-         else if (csr_addr == csr_CYCLEH)
-            csr_cycle <= { csr_value[31:0], truncate(csr_cycle) };
-
-         else if (csr_addr == csr_DCSR) begin
+         if (csr_addr == csr_DCSR) begin
             csr_dcsr <= tagged Valid csr_value;
          end
 
          else begin
-            $display("ERROR: RISCV_Spec.fa_write_csr (csr_addr 0x%0h, csr_value 0x%0h): illegal csr_addr", csr_addr, csr_value);
+            $display("ERROR: fa_write_csr: (csr_addr 0x%0h, csr_value 0x%0h): illegal csr_addr", csr_addr, csr_value);
          end
       endaction
    endfunction: fa_write_csr
@@ -664,33 +659,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                // CSRRC
                else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRC)) begin
                   if (decoded.rs1 != 0) begin
-                     Word csr_new_val = (csr_old_val & (~ v1));
-                     fa_write_csr(decoded.csr, csr_new_val);
-                  end
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
-
-               // CSRRWI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRWI)) begin
-                  let v1 = zeroExtend (decoded.rs1);
-                  fa_write_csr(decoded.csr, v1);
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
-
-               // CSRRSI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRSI)) begin
-                  Word v1 = zeroExtend (decoded.rs1);
-                  if (v1 != 0) begin
-                     Word csr_new_val = (csr_old_val | v1);
-                     fa_write_csr(decoded.csr, csr_new_val);
-                  end
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
-
-               // CSRRCI
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRCI)) begin
-                  Word v1 = zeroExtend (decoded.rs1);
-                  if (v1 != 0) begin
                      Word csr_new_val = (csr_old_val & (~ v1));
                      fa_write_csr(decoded.csr, csr_new_val);
                   end
