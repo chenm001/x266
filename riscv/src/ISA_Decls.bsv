@@ -352,54 +352,6 @@ CSR_Addr   csr_TIMEH    = 'hc81;    // Upper 32 bits of TIME (RV32I only)
 CSR_Addr   csr_INSTRETH = 'hc82;    // Upper 32 bits of INSTRET (RV32I only)
 
 // ----------------
-// Supervisor-level CSRs
-
-CSR_Addr   csr_SSTATUS  = 'h100;    // status
-CSR_Addr   csr_STVEC    = 'h101;    // trap handler base address
-CSR_Addr   csr_SIE      = 'h104;    // interrupt-enable
-CSR_Addr   csr_STIMECMP = 'h121;    // wall-clock timer compare value
-
-CSR_Addr   csr_STIME    = 'hD01;    // wall-clock timer compare value
-CSR_Addr   csr_STIMEH   = 'hD81;    // upper 32b of STIME (RV32I only)
-
-CSR_Addr   csr_SSCRATCH = 'h140;    // scratch reg for supervisor trap handlers
-CSR_Addr   csr_SEPC     = 'h141;    // exception program counter
-CSR_Addr   csr_SCAUSE   = 'hD42;    // trap cause
-CSR_Addr   csr_SBADADDR = 'hD43;    // bad address
-CSR_Addr   csr_SIP      = 'h144;    // interrupt pending
-
-CSR_Addr   csr_SPTBR    = 'h180;    // Page-table base register
-CSR_Addr   csr_SASID    = 'h181;    // Address-space ID
-
-CSR_Addr   csr_CYCLEW   = 'h900;    // CYCLE; writeable
-CSR_Addr   csr_TIMEW    = 'h901;    // TIME, writeable
-CSR_Addr   csr_INSTRETW = 'h902;    // INSTRET, writeable
-
-CSR_Addr   csr_CYCLEHW  = 'h980;    // CYCLEH, writeable
-CSR_Addr   csr_TIMEHW   = 'h981;    // TIMEH, writeable
-CSR_Addr   csr_INSTRETHW= 'h982;    // INSTRETH, writeable
-
-// ----------------
-// Hypervisor-level CSRs
-
-CSR_Addr   csr_HSTATUS  = 'h200;    // status
-CSR_Addr   csr_HTVEC    = 'h201;    // trap handler base address
-CSR_Addr   csr_HTDELEG  = 'h202;    // trap delegation
-CSR_Addr   csr_HIE      = 'h204;    // interrupt-enable
-CSR_Addr   csr_HTIMECMP = 'h221;    // wall-clock timer compare value
-
-CSR_Addr   csr_HTIME    = 'hE01;    // wall-clock timer compare value
-CSR_Addr   csr_HTIMEH   = 'hE81;    // upper 32b of HTIME (RV32I only)
-
-CSR_Addr   csr_HSCRATCH = 'h240;    // scratch reg for hypervisor trap handlers
-CSR_Addr   csr_HEPC     = 'h241;    // exception program counter
-CSR_Addr   csr_HCAUSE   = 'h242;    // trap cause
-CSR_Addr   csr_HBADADDR = 'h243;    // bad address
-
-CSR_Addr   csr_STIMEW   = 'hA01;    // STIME writeable
-CSR_Addr   csr_STIMEHW  = 'hA81;    // STIMEH, writeable
-
-// ----------------
 // Machine-level CSRs
 
 CSR_Addr   csr_MCPUID   = 'hF00;    // CPU description
@@ -411,25 +363,6 @@ CSR_Addr   csr_MTVEC    = 'h301;    // trap handler base address
 CSR_Addr   csr_MTDELEG  = 'h302;    // trap delegation
 CSR_Addr   csr_MIE      = 'h304;    // interrupt-enable
 CSR_Addr   csr_MTIMECMP = 'h321;    // wall-clock timer compare value
-
-CSR_Addr   csr_MTIME    = 'h701;    // wall-clock timer compare value
-CSR_Addr   csr_MTIMEH   = 'h741;    // upper 32b of HTIME (RV32I only)
-
-CSR_Addr   csr_MSCRATCH = 'h340;    // scratch reg for machine trap handlers
-CSR_Addr   csr_MEPC     = 'h341;    // exception program counter
-CSR_Addr   csr_MCAUSE   = 'h342;    // trap cause
-CSR_Addr   csr_MBADADDR = 'h343;    // bad address
-CSR_Addr   csr_MIP      = 'h344;    // interrupt pending
-
-CSR_Addr   csr_MBASE    = 'h380;    // base
-CSR_Addr   csr_MBOUND   = 'h381;    // bound
-CSR_Addr   csr_MIBASE   = 'h382;    // instruction base
-CSR_Addr   csr_MIBOUND  = 'h383;    // instruction bound
-CSR_Addr   csr_MDBASE   = 'h384;    // data base
-CSR_Addr   csr_MDBOUND  = 'h385;    // data bound
-
-CSR_Addr   csr_HTIMEW   = 'hB01;    // HTIME writeable
-CSR_Addr   csr_HTIMEHW  = 'hB81;    // HTIMEH, writeable
 
 CSR_Addr   csr_DCSR     = 'h7B0;    // Test input / output register
 
