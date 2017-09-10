@@ -313,10 +313,6 @@ Opcode op_JALR = 7'b11_001_11;
 // System Instructions
 Opcode op_SYSTEM = 7'b11_100_11;
 
-Bit#(12) f12_ECALL     = 12'b_0000_0000_0000;
-Bit#(12) f12_EBREAK    = 12'b_0000_0000_0001;
-Bit#(12) f12_ERET      = 12'b_0001_0000_0000;
-
 Instr break_instr = { f12_EBREAK, 5'b00000, 3'b000, 5'b00000, op_SYSTEM };
 
 // sub-opcodes: (in funct3 field)
