@@ -245,52 +245,6 @@ Bit#(3) f3_FENCE   = 3'b000;
 Bit#(3) f3_FENCE_I = 3'b001;
 
 // ================================================================
-// Atomic Memory Operation Instructions
-
-Opcode op_AMO = 7'b01_011_11;
-
-// NOTE: bit [4] for aq, and [3] for rl, are here set to zero
-
-Bit#(3) f3_AMO_W = 3'b010;
-Bit#(3) f3_AMO_D = 3'b011;
-
-Bit#(5) f5_LR        = 5'b00010;
-Bit#(5) f5_SC        = 5'b00011;
-Bit#(5) f5_AMOADD    = 5'b00000;
-Bit#(5) f5_AMOSWAP   = 5'b00001;
-Bit#(5) f5_AMOXOR    = 5'b00100;
-Bit#(5) f5_AMOAND    = 5'b01100;
-Bit#(5) f5_AMOOR     = 5'b01000;
-Bit#(5) f5_AMOMIN    = 5'b10000;
-Bit#(5) f5_AMOMAX    = 5'b10100;
-Bit#(5) f5_AMOMINU   = 5'b11000;
-Bit#(5) f5_AMOMAXU   = 5'b11100;
-
-Bit#(10) f10_LR_W       = 10'b00010_00_010;
-Bit#(10) f10_SC_W       = 10'b00011_00_010;
-Bit#(10) f10_AMOADD_W   = 10'b00000_00_010;
-Bit#(10) f10_AMOSWAP_W  = 10'b00001_00_010;
-Bit#(10) f10_AMOXOR_W   = 10'b00100_00_010;
-Bit#(10) f10_AMOAND_W   = 10'b01100_00_010;
-Bit#(10) f10_AMOOR_W    = 10'b01000_00_010;
-Bit#(10) f10_AMOMIN_W   = 10'b10000_00_010;
-Bit#(10) f10_AMOMAX_W   = 10'b10100_00_010;
-Bit#(10) f10_AMOMINU_W  = 10'b11000_00_010;
-Bit#(10) f10_AMOMAXU_W  = 10'b11100_00_010;
-
-Bit#(10) f10_LR_D       = 10'b00010_00_011;
-Bit#(10) f10_SC_D       = 10'b00011_00_011;
-Bit#(10) f10_AMOADD_D   = 10'b00000_00_011;
-Bit#(10) f10_AMOSWAP_D  = 10'b00001_00_011;
-Bit#(10) f10_AMOXOR_D   = 10'b00100_00_011;
-Bit#(10) f10_AMOAND_D   = 10'b01100_00_011;
-Bit#(10) f10_AMOOR_D    = 10'b01000_00_011;
-Bit#(10) f10_AMOMIN_D   = 10'b10000_00_011;
-Bit#(10) f10_AMOMAX_D   = 10'b10100_00_011;
-Bit#(10) f10_AMOMINU_D  = 10'b11000_00_011;
-Bit#(10) f10_AMOMAXU_D  = 10'b11100_00_011;
-
-// ================================================================
 // Integer Register-Immediate Instructions
 
 Opcode op_OP_IMM = 7'b00_100_11;
