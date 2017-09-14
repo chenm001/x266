@@ -425,53 +425,7 @@ Integer mcause_interrupt_index  = xlen - 1;
 Integer mcause_zero_index       = 4;
 Integer mcause_exc_code_hi      = 3;    Integer mcause_exc_code_lo   = 0;
 
-typedef Bit#(4) Exc_Code;
-
-// When Interrupt = 0 (trap)
-
-Exc_Code exc_code_MISALIGNED_FETCH     = 4'h0;
-Exc_Code exc_code_FAULT_FETCH          = 4'h1;
-Exc_Code exc_code_ILLEGAL_INSTRUCTION  = 4'h2;
-Exc_Code exc_code_BREAKPOINT           = 4'h3;
-
-Exc_Code exc_code_MISALIGNED_LOAD      = 4'h4;
-Exc_Code exc_code_FAULT_LOAD           = 4'h5;
-
-Exc_Code exc_code_MISALIGNED_STORE_AMO = 4'h6;
-Exc_Code exc_code_FAULT_STORE_AMO      = 4'h7;
-
-Exc_Code exc_code_ECALL_FROM_U         = 4'h8;
-Exc_Code exc_code_ECALL_FROM_S         = 4'h9;
-Exc_Code exc_code_ECALL_FROM_H         = 4'hA;
-Exc_Code exc_code_ECALL_FROM_M         = 4'hB;
-
-// When Interrupt = 1 (interrupt)
-
-Exc_Code exc_code_SW_INTERRUPT         = 4'h0;
-Exc_Code exc_code_TIMER_INTERRUPT      = 4'h1;
-
-Maybe#(Exc_Code) m_trap_none           = tagged Invalid;
-Maybe#(Exc_Code) m_trap_illegal_instr  = tagged Valid exc_code_ILLEGAL_INSTRUCTION;
-
-function Action show_Trap_Exc_Code (Exc_Code exc);
-   action
-      case (exc)
-         exc_code_MISALIGNED_FETCH:     $write("MISALIGNED_FETCH");
-         exc_code_FAULT_FETCH:          $write("FAULT_FETCH");
-         exc_code_ILLEGAL_INSTRUCTION:  $write("ILLEGAL_INSTRUCTION");
-         exc_code_BREAKPOINT:           $write("BREAKPOINT");
-         exc_code_MISALIGNED_LOAD:      $write("MISALIGNED_LOAD");
-         exc_code_FAULT_LOAD:           $write("FAULT_LOAD");
-         exc_code_MISALIGNED_STORE_AMO: $write("MISALIGNED_STORE_AMO");
-         exc_code_FAULT_STORE_AMO:      $write("FAULT_STORE_AMO");
-         exc_code_ECALL_FROM_U:         $write("ECALL_FROM_U");
-         exc_code_ECALL_FROM_S:         $write("ECALL_FROM_S");
-         exc_code_ECALL_FROM_H:         $write("ECALL_FROM_H");
-         exc_code_ECALL_FROM_M:         $write("ECALL_FROM_M");
-         default:                       $write("unknown Exc_Code 0x%0h", exc);
-      endcase
-   endaction
-endfunction
+Bit#(4) exc_code_ILLEGAL_INSTRUCTION  = 4'h2;
 
 // ----------------
 // Bit-fields of the CSR_SSTATUS register

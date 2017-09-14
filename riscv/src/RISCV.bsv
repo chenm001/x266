@@ -263,9 +263,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------
    // Finish exception: record exception cause info, go to ENV_CALL state
 
-   function Action fa_finish_with_exception(Word epc, Exc_Code exc_code, Addr badaddr);
+   function Action fa_finish_with_exception(Word epc, Bit#(4) exc_code, Addr badaddr);
       action
-         if ((cfg_verbose != 0) || (exc_code == exc_code_ILLEGAL_INSTRUCTION)) begin
+         if (cfg_verbose != 0) begin
             $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, epc, exc_code, badaddr);
          end
 
