@@ -17,6 +17,7 @@ import ISA_Decls :: *;    // Instruction encodings
 // ================================================================
 
 import BRAMCore :: *;
+import DReg     :: *;
 
 // ----------------
 // IMem responses: either and exception or an instruction
@@ -45,10 +46,7 @@ typedef struct {
 // DMem responses: either an exception or data
 // (data value is only relevant for LOADs, irrelevant for STOREs)
 
-typedef union tagged {
-   Exc_Code  DMem_Resp_Exception;
-   Word      DMem_Resp_Ok;
-} DMem_Resp deriving(Bits, FShow);
+typedef Maybe#(Word) DMem_Resp;
 
 
 // ----------------
@@ -57,6 +55,7 @@ typedef union tagged {
 module mkMemory(Memory_IFC);
    BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, "mem.vmh", False);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
+   Reg#(Bool)                             dmem_rd  <- mkDReg(False);
    Reg#(Bit#(2))                          rg_shift <- mkRegU;
    Reg#(Mem_Data_Size)                    rg_size  <- mkRegU;
 
@@ -116,6 +115,7 @@ module mkMemory(Memory_IFC);
       endcase
 
       dmem.a.put((req.mem_op == MEM_OP_STORE) ? mask : 0, truncate(phyAddr >> 2), val);
+      dmem_rd <= !(req.mem_op == MEM_OP_STORE);
       //$display("[DMEM] Addr = 0x%08h", req.addr);
    endmethod
 
@@ -129,7 +129,7 @@ module mkMemory(Memory_IFC);
          3: v = {?, v[31:24]};
       endcase
 
-      return tagged DMem_Resp_Ok v;
+      return dmem_rd ? tagged Valid v : tagged Invalid;
    endmethod
 endmodule
 
@@ -768,40 +768,42 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          tagged Funct3 .funct3: begin
             let resp <- memory.dmem_resp;
 
-            case (resp) matches
-               tagged DMem_Resp_Exception .exc_code: fa_finish_with_exception('hFFFFFFFF, exc_code, rg_mem_addr);
-               tagged DMem_Resp_Ok .u: begin
-                  case (funct3)
-                     f3_LB:  begin
-                                 Int#(8)   s8    = unpack(truncate(u));
-                                 Word_S    s     = signExtend(s8);
-                                 Word      value = pack(s);
-                                 rd_value = value;
-                             end
-                     f3_LBU: begin
-                                 Bit#(8)   u8    = truncate(u);
-                                 Word      value = zeroExtend(u8);
-                                 rd_value = value;
-                             end
-                     f3_LH:  begin
-                                 Int#(16)  s16   = unpack(truncate(u));
-                                 Word_S    s     = signExtend(s16);
-                                 Word      value = pack(s);
-                                 rd_value = value;
-                             end
-                     f3_LHU: begin
-                                 Bit#(16)  u16   = truncate(u);
-                                 Word      value = zeroExtend(u16);
-                                 rd_value = value;
-                             end
-                     default: /*f3_LW:*/  begin
-                                 Int#(32)  s32   = unpack(truncate(u));
-                                 Word_S    s     = signExtend(s32);
-                                 Word      value = pack(s);
-                                 rd_value = value;
-                             end
-                  endcase
-               end
+            if (cfg_verbose > 0 && !isValid(resp)) begin
+               $display("[%7d] rl_write_back: Memory read failed", csr_cycle);
+               $finish;
+            end
+
+            let u = fromMaybe(?, resp);
+
+            case (funct3)
+               f3_LB:  begin
+                           Int#(8)   s8    = unpack(truncate(u));
+                           Word_S    s     = signExtend(s8);
+                           Word      value = pack(s);
+                           rd_value = value;
+                       end
+               f3_LBU: begin
+                           Bit#(8)   u8    = truncate(u);
+                           Word      value = zeroExtend(u8);
+                           rd_value = value;
+                       end
+               f3_LH:  begin
+                           Int#(16)  s16   = unpack(truncate(u));
+                           Word_S    s     = signExtend(s16);
+                           Word      value = pack(s);
+                           rd_value = value;
+                       end
+               f3_LHU: begin
+                           Bit#(16)  u16   = truncate(u);
+                           Word      value = zeroExtend(u16);
+                           rd_value = value;
+                       end
+               default: /*f3_LW:*/  begin
+                           Int#(32)  s32   = unpack(truncate(u));
+                           Word_S    s     = signExtend(s32);
+                           Word      value = pack(s);
+                           rd_value = value;
+                       end
             endcase
          end
          tagged Value .value: begin
