@@ -27,7 +27,7 @@ import BuildVector  :: *;
 // ================================================================
 // BSV project imports
 
-// None
+import RegFile   :: *;    // For RISC-V GPRs
 
 // ================================================================
 
@@ -472,6 +472,9 @@ function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
 
 typedef struct {
    Instr_e  instr;
+   Word     v1;
+   Word     v2;
+
    Opcode   opcode;
 
    RegName  rd;
@@ -577,10 +580,17 @@ function Instr_e fv_decode_instr(Instr instr);
    endcase;
 endfunction
 
-function Decoded_Instr fv_decode(Addr _pc, Instr instr);
+function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) regfile);
+   // Values of Rs1 and Rs2 fields of the instr, unsigned
+   let   rs1   = instr_rs1(instr);
+   let   rs2   = instr_rs2(instr);
+   Word  v1    = ((rs1 == 0) ? 0: regfile.sub(rs1));
+   Word  v2    = ((rs2 == 0) ? 0: regfile.sub(rs2));
+
    return Decoded_Instr {
             instr:      fv_decode_instr(instr),
-
+            v1:         v1,
+            v2:         v2,
 
             opcode:     instr_opcode   (instr),
             rd:         instr_rd       (instr),
@@ -600,11 +610,7 @@ function Decoded_Instr fv_decode(Addr _pc, Instr instr);
             imm20_U:    instr_U_imm20  (instr),
             imm21_UJ:   instr_UJ_imm21 (instr),
 
-            //pred:      instr_pred     (instr),
-            //succ:      instr_succ     (instr),
-
-            //aqrl:      instr_aqrl     (instr),
-            pc:         _pc
+            pc:         pc
           };
 endfunction
 

@@ -347,8 +347,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       action
 
          // Values of Rs1 and Rs2 fields of the instr, unsigned
-         Word    v1   = ((decoded.rs1 == 0) ? 0: regfile.sub(decoded.rs1));
-         Word    v2   = ((decoded.rs2 == 0) ? 0: regfile.sub(decoded.rs2));
+         Word v1 = decoded.v1;
+         Word v2 = decoded.v2;
 
          // Values of Rs1 and Rs2 fields of the instr, signed versions
          Word_S  s_v1 = unpack(v1);
@@ -749,7 +749,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instruction decode
 
-         Decoded_Instr decoded = fv_decode(pc, instr);
+         Decoded_Instr decoded = fv_decode(pc, instr, regfile);
          fa_exec(decoded);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
