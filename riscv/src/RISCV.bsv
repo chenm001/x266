@@ -197,7 +197,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Word) pc <- mkRegU;
 
    // General Purpose Registers
-   RegFile#(RegName, Word) regfile  <- mkRegFileFull;
+   RegFile#(RegName, Word) gpr  <- mkRegFileFull;
 
    // CSRs
    Reg#(Bit #(64))   csr_cycle   <- mkConfigReg(0);
@@ -749,7 +749,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instruction decode
 
-         Decoded_Instr decoded = fv_decode(pc, instr, regfile);
+         Decoded_Instr decoded = fv_decode(pc, instr, gpr);
          fa_exec(decoded);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
@@ -814,7 +814,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       if (cfg_verbose > 1) $display("[%7d] rl_write_back: %s = %h", csr_cycle, regNameABI[rd], rd_value);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
-      regfile.upd(rd, rd_value);
+      gpr.upd(rd, rd_value);
       cpu_state <= STATE_FETCH;
    endrule
 

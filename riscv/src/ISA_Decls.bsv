@@ -580,12 +580,12 @@ function Instr_e fv_decode_instr(Instr instr);
    endcase;
 endfunction
 
-function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) regfile);
+function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) gpr);
    // Values of Rs1 and Rs2 fields of the instr, unsigned
    let   rs1   = instr_rs1(instr);
    let   rs2   = instr_rs2(instr);
-   Word  v1    = ((rs1 == 0) ? 0: regfile.sub(rs1));
-   Word  v2    = ((rs2 == 0) ? 0: regfile.sub(rs2));
+   Word  v1    = ((rs1 == 0) ? 0: gpr.sub(rs1));
+   Word  v2    = ((rs2 == 0) ? 0: gpr.sub(rs2));
 
    return Decoded_Instr {
             instr:      fv_decode_instr(instr),
