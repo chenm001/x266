@@ -410,23 +410,25 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S offset  = extend(unpack(decoded.imm13_SB));
                Word   next_pc = pack(unpack(pc) + offset);
 
-               if      (decoded.funct3 == f3_BEQ)  fa_finish_cond_branch(v1  == v2,    next_pc);
-               else if (decoded.funct3 == f3_BNE)  fa_finish_cond_branch(v1  != v2,    next_pc);
-               else if (decoded.funct3 == f3_BLT)  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
-               else if (decoded.funct3 == f3_BGE)  fa_finish_cond_branch(s_v1 >= s_v2, next_pc);
-               else if (decoded.funct3 == f3_BLTU) fa_finish_cond_branch(v1  <  v2,    next_pc);
-               else if (decoded.funct3 == f3_BGEU) fa_finish_cond_branch(v1  >= v2,    next_pc);
-               else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               case(decoded.instr)
+                  OP_BEQ   :  fa_finish_cond_branch(v1  == v2,    next_pc);
+                  OP_BNE   :  fa_finish_cond_branch(v1  != v2,    next_pc);
+                  OP_BLT   :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
+                  OP_BGE   :  fa_finish_cond_branch(s_v1 >= s_v2, next_pc);
+                  OP_BLTU  :  fa_finish_cond_branch(v1  <  v2,    next_pc);
+                  /* OP_BGEU */
+                  default  :  fa_finish_cond_branch(v1  >= v2,    next_pc);
+               endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                              case(decoded.funct3)
-                                 f3_BEQ  : "beq";
-                                 f3_BNE  : "bne";
-                                 f3_BLT  : "blt";
-                                 f3_BGE  : "bge";
-                                 f3_BLTU : "bltu";
-                                 f3_BGEU : "bgeu";
+                              case(decoded.instr)
+                                 OP_BEQ  : "beq";
+                                 OP_BNE  : "bne";
+                                 OP_BLT  : "blt";
+                                 OP_BGE  : "bge";
+                                 OP_BLTU : "bltu";
+                                 OP_BGEU : "bgeu";
                               endcase,
                               regNameABI[decoded.rs1],
                               regNameABI[decoded.rs2],
@@ -458,21 +460,23 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                rg_mem_addr <= mem_addr;
 
-               if      (decoded.funct3 == f3_LB)      fa_LD_Req(BITS8);
-               else if (decoded.funct3 == f3_LBU)     fa_LD_Req(BITS8);
-               else if (decoded.funct3 == f3_LH)      fa_LD_Req(BITS16);
-               else if (decoded.funct3 == f3_LHU)     fa_LD_Req(BITS16);
-               else if (decoded.funct3 == f3_LW)      fa_LD_Req(BITS32);
-               else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               case(decoded.instr)
+                  OP_LB    :  fa_LD_Req(BITS8);
+                  OP_LBU   :  fa_LD_Req(BITS8);
+                  OP_LH    :  fa_LD_Req(BITS16);
+                  OP_LHU   :  fa_LD_Req(BITS16);
+                  /*OP_LW*/
+                  default  :  fa_LD_Req(BITS32);
+               endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.funct3)
-                                 f3_LB  : "lb";
-                                 f3_LBU : "lbu";
-                                 f3_LH  : "lh";
-                                 f3_LHU : "lhu";
-                                 f3_LW  : "lw";
+                              case(decoded.instr)
+                                 OP_LB  : "lb";
+                                 OP_LBU : "lbu";
+                                 OP_LH  : "lh";
+                                 OP_LHU : "lhu";
+                                 OP_LW  : "lw";
                               endcase,
                               regNameABI[decoded.rd],
                               regNameABI[decoded.rs1],
@@ -500,16 +504,19 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                rg_mem_addr <= mem_addr;
 
-               if      (decoded.funct3 == f3_SB)      fa_ST_req(BITS8);
-               else if (decoded.funct3 == f3_SH)      fa_ST_req(BITS16);
-               else if (decoded.funct3 == f3_SW)      fa_ST_req(BITS32);
-               else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               case(decoded.instr)
+                  OP_SB    :  fa_ST_req(BITS8);
+                  OP_SH    :  fa_ST_req(BITS16);
+                  /*OP_SW*/
+                  default  :  fa_ST_req(BITS32);
+               endcase
+
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.funct3)
-                                 f3_SB  : "sb";
-                                 f3_SH  : "sh";
-                                 f3_SW  : "sw";
+                              case(decoded.instr)
+                                 OP_SB  : "sb";
+                                 OP_SH  : "sh";
+                                 OP_SW  : "sw";
                               endcase,
                               regNameABI[decoded.rd],
                               regNameABI[decoded.rs1],
@@ -528,38 +535,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S              s_v2  = signExtend(unpack(decoded.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
 
-               if      (decoded.funct3 == f3_ADDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
-               else if (decoded.funct3 == f3_SLTI)  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
-               else if (decoded.funct3 == f3_SLTIU) fa_finish_with_Rd(decoded.rd, ((v1  < pack(s_v2))  ? 1 : 0));
-               else if (decoded.funct3 == f3_XORI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
-               else if (decoded.funct3 == f3_ORI)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
-               else if (decoded.funct3 == f3_ANDI)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
-
-               else if ((decoded.funct3 == f3_SLLI) && (decoded.imm12_I[10] == 1'b0))
-                  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
-
-
-               // SRLI
-               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[10] == 1'b0))
-                  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
-
-               // SRAI
-               else if ((decoded.funct3 == f3_SRxI) && (decoded.imm12_I[10] == 1'b1))
-                  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
-
-               else
-                  fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               case(decoded.instr)
+                  OP_ADDI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
+                  OP_SLTI  :  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  OP_SLTIU :  fa_finish_with_Rd(decoded.rd, ((v1  < pack(s_v2))  ? 1 : 0));
+                  OP_XORI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
+                  OP_ORI   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
+                  OP_ANDI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
+                  OP_SLLI  :  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
+                  OP_SRLI  :  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
+                  /*OP_SRAI*/
+                  default  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
+               endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                        case(decoded.funct3)
-                           f3_ADDI  : "addi";
-                           f3_SLTI  : "slti";
-                           f3_SLTIU : "sltiu";
-                           f3_XORI  : "xori";
-                           f3_ANDI  : "andi";
-                           f3_SLLI  : "slli";
-                           f3_SRxI  : ((decoded.imm12_I[10] == 1'b0) ? "srli" : "srai");
+                        case(decoded.instr)
+                           OP_ADDI  : "addi";
+                           OP_SLTI  : "slti";
+                           OP_SLTIU : "sltiu";
+                           OP_XORI  : "xori";
+                           OP_ANDI  : "andi";
+                           OP_SLLI  : "slli";
+                           OP_SRLI  : "srli";
+                           OP_SRAI  : "srai";
                         endcase,
                         regNameABI[decoded.rd],
                         regNameABI[decoded.rs1],
@@ -576,33 +575,33 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             action
                Bit#(TLog#(XLEN)) shamt = truncate(v2);    // NOTE: upper bits are unspecified in spec
 
-               if      (decoded.funct10 == f10_ADD)  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
-               else if (decoded.funct10 == f10_SUB)  fa_finish_with_Rd(decoded.rd, pack(s_v1 - s_v2));
-               else if (decoded.funct10 == f10_SLL)  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
-               else if (decoded.funct10 == f10_SLT)  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
-               else if (decoded.funct10 == f10_SLTU) fa_finish_with_Rd(decoded.rd, ((v1  < v2)  ? 1 : 0));
-               else if (decoded.funct10 == f10_XOR)  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
-               else if (decoded.funct10 == f10_SRL)  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
-               else if (decoded.funct10 == f10_SRA)  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
-               else if (decoded.funct10 == f10_OR)   fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
-               else if (decoded.funct10 == f10_AND)  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
-
-               else
-                  fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+               case(decoded.instr)
+                  OP_ADD   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
+                  OP_SUB   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 - s_v2));
+                  OP_SLL   :  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
+                  OP_SLT   :  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  OP_SLTU  :  fa_finish_with_Rd(decoded.rd, ((v1  < v2)  ? 1 : 0));
+                  OP_XOR   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
+                  OP_SRL   :  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
+                  OP_SRA   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
+                  OP_OR    :  fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
+                  /*OP_AND*/
+                  default  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
+               endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %s", csr_cycle, decoded.pc,
-                        case(decoded.funct10)
-                           f10_ADD  : "add";
-                           f10_SUB  : "sub";
-                           f10_SLL  : "sll";
-                           f10_SLT  : "slt";
-                           f10_SLTU : "sltu";
-                           f10_XOR  : "xor";
-                           f10_SRL  : "srl";
-                           f10_SRA  : "sra";
-                           f10_OR   : "or";
-                           f10_AND  : "and";
+                        case(decoded.instr)
+                           OP_ADD  : "add";
+                           OP_SUB  : "sub";
+                           OP_SLL  : "sll";
+                           OP_SLT  : "slt";
+                           OP_SLTU : "sltu";
+                           OP_XOR  : "xor";
+                           OP_SRL  : "srl";
+                           OP_SRA  : "sra";
+                           OP_OR   : "or";
+                           OP_AND  : "and";
                         endcase,
                         regNameABI[decoded.rd],
                         regNameABI[decoded.rs1],
@@ -618,25 +617,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_MISC_MEM();
             action
-               // FENCE
-               if (   (decoded.funct3 == f3_FENCE)
-                   && (decoded.rd == 0)
-                   && (decoded.rs1 == 0)
-                   && (truncateLSB(decoded.imm12_I) == 4'b0)) begin   // same as instr[31:28] on Spec v 2.2
-                                                                 fa_finish_with_no_output;
-                                                              end
-
-               // FENCE.I
-               else if (   (decoded.funct3 == f3_FENCE_I)
-                        && (decoded.rd == 0)
-                        && (decoded.rs1 == 0)
-                        && (decoded.imm12_I == 12'b0)) begin
-                                                          fa_finish_with_no_output;
-                                                       end
-
-               else begin
-                  fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
-               end
+               case(decoded.instr)
+                  OP_FENCE :  fa_finish_with_no_output;
+                  /*OP_FENCE_I*/
+                  default  :  fa_finish_with_no_output;
+               endcase
 
                if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, %s (ignore)", csr_cycle, decoded.pc, decoded.funct3 == f3_FENCE ? "fence" : "fence.i");
             endaction
@@ -647,50 +632,48 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_SYSTEM();
             action
-               // CSRRW
-               if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRW)) begin
-                  fa_write_csr(decoded.csr, v1);
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
+               let csr_old_val = fromMaybe(?, m_v_csr);
 
-               // CSRRS
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRS)) begin
-                  if (decoded.rs1 != 0) begin
-                     Word csr_new_val = (csr_old_val | v1);
-                     fa_write_csr(decoded.csr, csr_new_val);
-                  end
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
+               case(decoded.instr)
+                  OP_CSRRW :  begin
+                                 fa_write_csr(decoded.csr, v1);
+                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                              end
 
-               // CSRRC
-               else if (m_v_csr matches tagged Valid .csr_old_val &&& (decoded.funct3 == f3_CSRRC)) begin
-                  if (decoded.rs1 != 0) begin
-                     Word csr_new_val = (csr_old_val & (~ v1));
-                     fa_write_csr(decoded.csr, csr_new_val);
-                  end
-                  fa_finish_with_Rd(decoded.rd, csr_old_val);
-               end
+                  OP_CSRRS :  begin
+                                 if (decoded.rs1 != 0) begin
+                                    Word csr_new_val = (csr_old_val | v1);
+                                    fa_write_csr(decoded.csr, csr_new_val);
+                                 end
+                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                              end
 
-               else begin
-                  fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
-               end
+                  /*OP_CSRRC*/
+                  default  :  begin
+                                 if (decoded.rs1 != 0) begin
+                                    Word csr_new_val = (csr_old_val & (~ v1));
+                                    fa_write_csr(decoded.csr, csr_new_val);
+                                 end
+                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                              end
+               endcase
 
                if (cfg_verbose > 2) begin
-                  if ( (decoded.funct3 == f3_CSRRS) && (decoded.csr == csr_CYCLE) )
+                  if ( (decoded.instr == OP_CSRRS) && (decoded.csr == csr_CYCLE) )
                      $display("[%7d] Decoded: PC = %h, rdcycle %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
-                  else if ( (decoded.funct3 == f3_CSRRS) && (decoded.csr == csr_INSTRET) )
+                  else if ( (decoded.instr == OP_CSRRS) && (decoded.csr == csr_INSTRET) )
                      $display("[%7d] Decoded: PC = %h, rdinstret %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
-                  else if ( (decoded.funct3 == f3_CSRRW) && (decoded.csr == csr_DCSR) )
+                  else if ( (decoded.instr == OP_CSRRW) && (decoded.csr == csr_DCSR) )
                      $display("[%7d] Decoded: PC = %h, csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[decoded.rs1]);
                   else begin
                      $display("[%7d] Decoded: PC = %h, %s %s, 0x%h, %s", csr_cycle, decoded.pc,
-                           case(decoded.funct3)
-                              f3_CSRRW : "csrrw";
-                              f3_CSRRS : "csrrs";
-                              f3_CSRRC : "csrrc";
-                              //f3_CSRRWI : "csrrwi";
-                              //f3_CSRRSI : "csrrsi";
-                              //f3_CSRRCI : "csrrci";
+                           case(decoded.instr)
+                              OP_CSRRW : "csrrw";
+                              OP_CSRRS : "csrrs";
+                              OP_CSRRC : "csrrc";
+                              //OP_CSRRWI : "csrrwi";
+                              //OP_CSRRSI : "csrrsi";
+                              //OP_CSRRCI : "csrrci";
                               default  : "Unsupport";
                            endcase,
                            regNameABI[decoded.rd],
@@ -706,18 +689,59 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         if      (decoded.opcode == op_LUI)      fa_exec_LUI();
-         else if (decoded.opcode == op_AUIPC)    fa_exec_AUIPC();
-         else if (decoded.opcode == op_JAL)      fa_exec_JAL();
-         else if (decoded.opcode == op_JALR)     fa_exec_JALR();
-         else if (decoded.opcode == op_BRANCH)   fa_exec_BRANCH();
-         else if (decoded.opcode == op_LOAD)     fa_exec_LD_Req();
-         else if (decoded.opcode == op_STORE)    fa_exec_ST_Req();
-         else if (decoded.opcode == op_OP_IMM)   fa_exec_OP_IMM();
-         else if (decoded.opcode == op_OP)       fa_exec_OP();
-         else if (decoded.opcode == op_MISC_MEM) fa_exec_MISC_MEM();
-         else if (decoded.opcode == op_SYSTEM)   fa_exec_SYSTEM();
-         else fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+         case(decoded.instr)
+            OP_LUI      :  fa_exec_LUI();
+            OP_AUIPC    :  fa_exec_AUIPC();
+            OP_JAL      :  fa_exec_JAL();
+            OP_JALR     :  fa_exec_JALR();
+
+            OP_BEQ      ,
+            OP_BNE      ,
+            OP_BLT      ,
+            OP_BGE      ,
+            OP_BLTU     ,
+            OP_BGEU     :  fa_exec_BRANCH();
+
+            OP_LB       ,
+            OP_LBU      ,
+            OP_LH       ,
+            OP_LHU      ,
+            OP_LW       :  fa_exec_LD_Req();
+
+            OP_SB       ,
+            OP_SH       ,
+            OP_SW       :  fa_exec_ST_Req();
+
+            OP_ADDI     ,
+            OP_SLTI     ,
+            OP_SLTIU    ,
+            OP_XORI     ,
+            OP_ORI      ,
+            OP_ANDI     ,
+            OP_SLLI     ,
+            OP_SRLI     ,
+            OP_SRAI     :  fa_exec_OP_IMM();
+
+            OP_ADD      ,
+            OP_SUB      ,
+            OP_SLL      ,
+            OP_SLT      ,
+            OP_SLTU     ,
+            OP_XOR      ,
+            OP_SRL      ,
+            OP_SRA      ,
+            OP_OR       ,
+            OP_AND      :  fa_exec_OP();
+
+            OP_FENCE    ,
+            OP_FENCE_I  :  fa_exec_MISC_MEM();
+
+            OP_CSRRW    ,
+            OP_CSRRS    ,
+            OP_CSRRC    :  fa_exec_SYSTEM();
+
+            default     :  fa_finish_with_exception(pc, exc_code_ILLEGAL_INSTRUCTION, ?);
+         endcase
       endaction
    endfunction: fa_exec
 
