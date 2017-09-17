@@ -48,100 +48,6 @@ typedef  Word        Addr;          // addresses/pointers
 typedef TDiv#(XLEN, Bits_per_Byte)  Bytes_per_Word;
 typedef TLog#(Bytes_per_Word)       Bits_per_Word_Byte_Index;
 
-// ================================================================
-// Instruction fields
-
-typedef  Bit#(32)    Instr;
-typedef  Bit#(7)     Opcode;
-typedef  Bit#(5)     RegName;       // 32 registers, 0..31
-typedef  32          NumRegs;
-Integer  numRegs = valueOf(NumRegs);
-
-function  Opcode     instr_opcode (Instr x); return x[6:0]; endfunction
-
-function  Bit#(3)    instr_funct3 (Instr x); return x[14:12]; endfunction
-function  Bit#(5)    instr_funct5 (Instr x); return x[31:27]; endfunction
-function  Bit#(7)    instr_funct7 (Instr x); return x[31:25]; endfunction
-function  Bit#(10)   instr_funct10(Instr x); return { x[31:25], x[14:12] }; endfunction
-
-function  RegName    instr_rd     (Instr x); return x[11:7]; endfunction
-function  RegName    instr_rs1    (Instr x); return x[19:15]; endfunction
-function  RegName    instr_rs2    (Instr x); return x[24:20]; endfunction
-function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction     // {F,D} Extension
-function  CSR_Addr   instr_csr    (Instr x); return unpack(x[31:20]); endfunction
-
-function  Bit#(12)   instr_I_imm12 (Instr x); return x[31:20]; endfunction
-function  Bit#(12)   instr_S_imm12 (Instr x); return { x[31:25], x[11:7] }; endfunction
-function  Bit#(13)   instr_SB_imm13(Instr x); return { x[31], x[7], x[30:25], x[11:8], 1'b0 }; endfunction
-function  Bit#(20)   instr_U_imm20 (Instr x); return x[31:12]; endfunction
-function  Bit#(21)   instr_UJ_imm21(Instr x); return { x[31], x[19:12], x[20], x[30:21], 1'b0 }; endfunction
-
-// For FENCE decode
-function  Bit#(4)   instr_pred(Instr x); return x[27:24]; endfunction
-function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
-
-// For AMO decode
-function  Bit#(2)   instr_aqrl(Instr x); return x[26:25]; endfunction
-
-// ----------------
-// Decoded instructions
-
-typedef struct {
-   Opcode   opcode;
-
-   RegName  rd;
-   RegName  rs1;
-   RegName  rs2;
-   RegName  rs3;
-   CSR_Addr csr;
-
-   Bit#(3)  funct3;
-   Bit#(5)  funct5;
-   Bit#(7)  funct7;
-   Bit#(10) funct10;
-
-   Bit#(12) imm12_I;
-   Bit#(12) imm12_S;
-   Bit#(13) imm13_SB;
-   Bit#(20) imm20_U;
-   Bit#(21) imm21_UJ;
-
-   //Bit#(4)  pred;
-   //Bit#(4)  succ;
-
-   //Bit#(2)  aqrl;
-
-   Addr     pc;
-} Decoded_Instr deriving(FShow, Bits);
-
-function Decoded_Instr fv_decode(Addr _pc, Instr instr);
-   return Decoded_Instr {
-            opcode:     instr_opcode   (instr),
-            rd:         instr_rd       (instr),
-            rs1:        instr_rs1      (instr),
-            rs2:        instr_rs2      (instr),
-            rs3:        instr_rs3      (instr),
-            csr:        instr_csr      (instr),
-
-            funct3:     instr_funct3   (instr),
-            funct5:     instr_funct5   (instr),
-            funct7:     instr_funct7   (instr),
-            funct10:    instr_funct10  (instr),
-
-            imm12_I:    instr_I_imm12  (instr),
-            imm12_S:    instr_S_imm12  (instr),
-            imm13_SB:   instr_SB_imm13 (instr),
-            imm20_U:    instr_U_imm20  (instr),
-            imm21_UJ:   instr_UJ_imm21 (instr),
-
-            //pred:      instr_pred     (instr),
-            //succ:      instr_succ     (instr),
-
-            //aqrl:      instr_aqrl     (instr),
-            pc:         _pc
-          };
-endfunction
-
 // ----------------
 // Write Back Stage
 
@@ -447,6 +353,261 @@ function bit                  sstatus_ie     (Word sstatus_val); return sstatus_
 function bit scause_interrupt(Word scause_val); return scause_val[xlen-1]; endfunction
 function Bit#(TSub#(XLEN,5)) scause_mbz_5(Word scause_val); return scause_val[xlen-2:4]; endfunction
 function Bit#(4) scause_exception_code(Word scause_val); return scause_val[3:0]; endfunction
+
+
+typedef enum {
+   // Load instructions
+   OP_LB, 
+   OP_LH, 
+   OP_LW, 
+   OP_LD,
+   OP_LBU,
+   OP_LHU,
+   OP_LWU,
+
+   // Store instructions
+   OP_SB,
+   OP_SH,
+   OP_SW,
+   //OP_SD,
+
+   // Memory Model
+   OP_FENCE,
+   OP_FENCE_I,
+
+   // Integer Register-Immediate Instructions
+   OP_ADDI,
+   OP_SLLI,
+   OP_SLTI,
+   OP_SLTIU,
+   OP_XORI,
+   OP_SRLI,
+   OP_SRAI,
+   OP_ORI,
+   OP_ANDI,
+
+   // Integer Register-Register Instructions
+   OP_ADD,
+   OP_SUB,
+   OP_SLL,
+   OP_SLT,
+   OP_SLTU,
+   OP_XOR,
+   OP_SRL,
+   OP_SRA,
+   OP_OR,
+   OP_AND,
+
+   // M Extension
+   //OP_MUL,
+   //OP_MULH,
+   //OP_MULHSU,
+   //OP_MULHU,
+   //OP_DIV,
+   //OP_DIVU,
+   //OP_REM,
+   //OP_REMU,
+
+
+   // LUI, AUIPC
+   OP_LUI,
+   OP_AUIPC,
+
+   // Control transfer
+   OP_BEQ,
+   OP_BNE,
+   OP_BLT,
+   OP_BGE,
+   OP_BLTU,
+   OP_BGEU,
+   OP_JAL,
+   OP_JALR,
+
+   // System Instructions
+   //OP_PRIV,
+   OP_CSRRW,
+   OP_CSRRS,
+   OP_CSRRC,
+   //OP_CSRRWI,
+   //OP_CSRRSI,
+   //OP_CSRRCI,
+
+   OP_ILLEGAL
+} Instr_e deriving(FShow, Bits, Eq);
+
+// ================================================================
+// Instruction fields
+
+typedef  Bit#(32)    Instr;
+typedef  Bit#(7)     Opcode;
+typedef  Bit#(5)     RegName;       // 32 registers, 0..31
+typedef  32          NumRegs;
+Integer  numRegs = valueOf(NumRegs);
+
+function  Opcode     instr_opcode (Instr x); return x[6:0]; endfunction
+
+function  Bit#(3)    instr_funct3 (Instr x); return x[14:12]; endfunction
+function  Bit#(5)    instr_funct5 (Instr x); return x[31:27]; endfunction
+function  Bit#(7)    instr_funct7 (Instr x); return x[31:25]; endfunction
+function  Bit#(10)   instr_funct10(Instr x); return { x[31:25], x[14:12] }; endfunction
+
+function  RegName    instr_rd     (Instr x); return x[11:7]; endfunction
+function  RegName    instr_rs1    (Instr x); return x[19:15]; endfunction
+function  RegName    instr_rs2    (Instr x); return x[24:20]; endfunction
+function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction     // {F,D} Extension
+function  CSR_Addr   instr_csr    (Instr x); return unpack(x[31:20]); endfunction
+
+function  Bit#(12)   instr_I_imm12 (Instr x); return x[31:20]; endfunction
+function  Bit#(12)   instr_S_imm12 (Instr x); return { x[31:25], x[11:7] }; endfunction
+function  Bit#(13)   instr_SB_imm13(Instr x); return { x[31], x[7], x[30:25], x[11:8], 1'b0 }; endfunction
+function  Bit#(20)   instr_U_imm20 (Instr x); return x[31:12]; endfunction
+function  Bit#(21)   instr_UJ_imm21(Instr x); return { x[31], x[19:12], x[20], x[30:21], 1'b0 }; endfunction
+
+// For FENCE decode
+function  Bit#(4)   instr_pred(Instr x); return x[27:24]; endfunction
+function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
+
+// ----------------
+// Decoded instructions
+
+typedef struct {
+   Instr_e  instr;
+   Opcode   opcode;
+
+   RegName  rd;
+   RegName  rs1;
+   RegName  rs2;
+   RegName  rs3;
+   CSR_Addr csr;
+
+   Bit#(3)  funct3;
+   Bit#(5)  funct5;
+   Bit#(7)  funct7;
+   Bit#(10) funct10;
+
+   Bit#(12) imm12_I;
+   Bit#(12) imm12_S;
+   Bit#(13) imm13_SB;
+   Bit#(20) imm20_U;
+   Bit#(21) imm21_UJ;
+
+   Addr     pc;
+} Decoded_Instr deriving(FShow, Bits);
+
+function Instr_e fv_decode_instr(Instr instr);
+   let opcode  = instr_opcode  (instr);
+   let rd      = instr_rd      (instr);
+   let rs1     = instr_rs1     (instr);
+   let rs2     = instr_rs2     (instr);
+   let rs3     = instr_rs3     (instr);
+   let csr     = instr_csr     (instr);
+   let funct3  = instr_funct3  (instr);
+   let funct5  = instr_funct5  (instr);
+   let funct7  = instr_funct7  (instr);
+   let funct10 = instr_funct10 (instr);
+   let imm12_I = instr_I_imm12 (instr);
+
+   return case(opcode)
+      op_LUI      :  OP_LUI;
+      op_AUIPC    :  OP_AUIPC;
+      op_JAL      :  OP_JAL;
+      op_JALR     :  OP_JALR;
+      op_BRANCH   :  case(funct3)
+                           f3_BEQ   :  OP_BEQ;
+                           f3_BNE   :  OP_BNE;
+                           f3_BLT   :  OP_BLT;
+                           f3_BGE   :  OP_BGE;
+                           f3_BLTU  :  OP_BLTU;
+                           f3_BGEU  :  OP_BGEU;
+                           default  :  OP_ILLEGAL;
+                     endcase
+      op_LOAD     :  case(funct3)
+                           f3_LB    :  OP_LB;
+                           f3_LBU   :  OP_LBU;
+                           f3_LH    :  OP_LH;
+                           f3_LHU   :  OP_LHU;
+                           f3_LW    :  OP_LW;
+                           default  :  OP_ILLEGAL;
+                     endcase
+      op_STORE    :  case(funct3)
+                           f3_SB    :  OP_SB;
+                           f3_SH    :  OP_SH;
+                           f3_SW    :  OP_SW;
+                           default  :  OP_ILLEGAL;
+                     endcase
+      op_OP_IMM   :  case(funct3)
+                           f3_ADDI  :  OP_ADDI;
+                           f3_SLTI  :  OP_SLTI;
+                           f3_SLTIU :  OP_SLTIU;
+                           f3_XORI  :  OP_XORI;
+                           f3_ORI   :  OP_ORI;
+                           f3_ANDI  :  OP_ANDI;
+                           f3_SLLI  :  (imm12_I[10] == 1'b0 ? OP_SLLI : OP_ILLEGAL);
+                           f3_SRxI  :  (imm12_I[10] == 1'b0 ? OP_SRLI : OP_SRAI);
+                           default  :  OP_ILLEGAL;
+                     endcase
+      op_OP       :  case(funct10)
+                           f10_ADD  :  OP_ADD;
+                           f10_SUB  :  OP_SUB;
+                           f10_SLL  :  OP_SLL;
+                           f10_SLT  :  OP_SLT;
+                           f10_SLTU :  OP_SLTU;
+                           f10_XOR  :  OP_XOR;
+                           f10_SRL  :  OP_SRL;
+                           f10_SRA  :  OP_SRA;
+                           f10_OR   :  OP_OR;
+                           f10_AND  :  OP_AND;
+                           default  :  OP_ILLEGAL;
+                     endcase
+      op_MISC_MEM :  case(funct3)
+                           f3_FENCE :  ( ( (rd == 0)
+                                        && (rs1 == 0)
+                                        && (truncateLSB(imm12_I) == 4'b0) ) ? OP_FENCE : OP_ILLEGAL);
+                           f3_FENCE_I: ( ( (rd == 0)
+                                        && (rs1 == 0)
+                                        && (imm12_I == 12'b0) ) ? OP_FENCE_I : OP_ILLEGAL);
+                           default:    OP_ILLEGAL;
+                     endcase
+      op_SYSTEM   :  case(funct3)
+                           f3_CSRRW :  OP_CSRRW;
+                           f3_CSRRS :  OP_CSRRS;
+                           f3_CSRRC :  OP_CSRRC;
+                           default  :  OP_ILLEGAL;
+                     endcase
+   endcase;
+endfunction
+
+function Decoded_Instr fv_decode(Addr _pc, Instr instr);
+   return Decoded_Instr {
+            instr:      fv_decode_instr(instr),
+
+
+            opcode:     instr_opcode   (instr),
+            rd:         instr_rd       (instr),
+            rs1:        instr_rs1      (instr),
+            rs2:        instr_rs2      (instr),
+            rs3:        instr_rs3      (instr),
+            csr:        instr_csr      (instr),
+
+            funct3:     instr_funct3   (instr),
+            funct5:     instr_funct5   (instr),
+            funct7:     instr_funct7   (instr),
+            funct10:    instr_funct10  (instr),
+
+            imm12_I:    instr_I_imm12  (instr),
+            imm12_S:    instr_S_imm12  (instr),
+            imm13_SB:   instr_SB_imm13 (instr),
+            imm20_U:    instr_U_imm20  (instr),
+            imm21_UJ:   instr_UJ_imm21 (instr),
+
+            //pred:      instr_pred     (instr),
+            //succ:      instr_succ     (instr),
+
+            //aqrl:      instr_aqrl     (instr),
+            pc:         _pc
+          };
+endfunction
+
 
 // ================================================================
 
