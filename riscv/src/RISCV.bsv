@@ -768,7 +768,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
       if (imem_resp matches tagged Valid .instr) begin
          if (cfg_verbose > 1) $display("[%7d] rl_exec: PC = 0x%08h, instr = 0x%08h", csr_cycle, pc, instr);
-         if (cfg_verbose != 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
+         if (cfg_verbose > 0) $display("[%7d] fa_exec: instr 0x%08h", csr_cycle, instr);
 
          // ----------------------------------------------------------------
          // Instruction decode
