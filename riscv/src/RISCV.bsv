@@ -343,7 +343,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // This function encapsulates ALL the opcodes.
    // It has internal functions that group related sub-opcodes.
 
-   function Action fa_exec(Decoded_Instr decoded);
+   function Action fa_exec(Decoded_Instr decoded, Decoded_Fields fields);
       action
 
          // Values of Rs1 and Rs2 fields of the instr, unsigned
@@ -355,30 +355,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          Word_S  s_v2 = unpack(v2);
 
          // Value of CSR field of instr (if a valid CSR address)
-         Maybe #(Word) m_v_csr = fv_read_csr(decoded.csr);
+         Maybe #(Word) m_v_csr = fv_read_csr(fields.csr);
 
          // ----------------------------------------------------------------
          // Instructions for Upper Immediate
 
          function Action fa_exec_LUI();
             action
-               Bit#(32)    v32   = { decoded.imm20_U, 12'h0 };
+               Bit#(32)    v32   = { fields.imm20_U, 12'h0 };
                Word_S      iv    = extend(unpack(v32));
                let         value = pack(iv);
 
-               fa_finish_with_Rd(decoded.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
+               fa_finish_with_Rd(fields.rd, value);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
             endaction
          endfunction: fa_exec_LUI
 
          function Action fa_exec_AUIPC();
             action
-               Word_S  iv    = extend(unpack({ decoded.imm20_U, 12'b0}));
+               Word_S  iv    = extend(unpack({ fields.imm20_U, 12'b0}));
                Word_S  pc_s  = unpack(pc);
                Word    value = pack(pc_s + iv);
 
-               fa_finish_with_Rd(decoded.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], value[31:12]);
+               fa_finish_with_Rd(fields.rd, value);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
             endaction
          endfunction: fa_exec_AUIPC
 
@@ -387,30 +387,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_JAL();
             action
-               Word_S offset  = extend(unpack(decoded.imm21_UJ));
+               Word_S offset  = extend(unpack(fields.imm21_UJ));
                Addr   next_pc = pack(unpack(pc) + offset);
 
-               fa_finish_jump(decoded.rd, fv_fall_through_pc(pc), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[decoded.rd], next_pc);
+               fa_finish_jump(fields.rd, fv_fall_through_pc(pc), next_pc);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], next_pc);
             endaction
          endfunction: fa_exec_JAL
 
          function Action fa_exec_JALR();
             action
-               Word_S offset  = extend(unpack(decoded.imm12_I));
+               Word_S offset  = extend(unpack(fields.imm12_I));
                Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
 
-               fa_finish_jump(decoded.rd, fv_fall_through_pc(pc), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[decoded.rd], regNameABI[decoded.rs1], offset);
+               fa_finish_jump(fields.rd, fv_fall_through_pc(pc), next_pc);
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[fields.rd], regNameABI[fields.rs1], offset);
             endaction
          endfunction: fa_exec_JALR
 
          function Action fa_exec_BRANCH();
             action
-               Word_S offset  = extend(unpack(decoded.imm13_SB));
+               Word_S offset  = extend(unpack(fields.imm13_SB));
                Word   next_pc = pack(unpack(pc) + offset);
 
-               case(decoded.instr)
+               case(decoded.opcode)
                   OP_BEQ   :  fa_finish_cond_branch(v1  == v2,    next_pc);
                   OP_BNE   :  fa_finish_cond_branch(v1  != v2,    next_pc);
                   OP_BLT   :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
@@ -422,7 +422,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                              case(decoded.instr)
+                              case(decoded.opcode)
                                  OP_BEQ  : "beq";
                                  OP_BNE  : "bne";
                                  OP_BLT  : "blt";
@@ -430,8 +430,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                  OP_BLTU : "bltu";
                                  OP_BGEU : "bgeu";
                               endcase,
-                              regNameABI[decoded.rs1],
-                              regNameABI[decoded.rs2],
+                              regNameABI[fields.rs1],
+                              regNameABI[fields.rs2],
                               next_pc
                   );
                end
@@ -444,7 +444,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_LD_Req();
             action
-               Word_S  imm_s    = extend(unpack(decoded.imm12_I));
+               Word_S  imm_s    = extend(unpack(fields.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
@@ -454,13 +454,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          addr:          mem_addr,
                                          data:          ?};
                      memory.dmem_req(req);
-                     fa_finish_with_Ld(decoded.rd, decoded.funct3);
+                     fa_finish_with_Ld(fields.rd, fields.funct3);
                   endaction
                endfunction
 
                rg_mem_addr <= mem_addr;
 
-               case(decoded.instr)
+               case(decoded.opcode)
                   OP_LB    :  fa_LD_Req(BITS8);
                   OP_LBU   :  fa_LD_Req(BITS8);
                   OP_LH    :  fa_LD_Req(BITS16);
@@ -471,15 +471,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.instr)
+                              case(decoded.opcode)
                                  OP_LB  : "lb";
                                  OP_LBU : "lbu";
                                  OP_LH  : "lh";
                                  OP_LHU : "lhu";
                                  OP_LW  : "lw";
                               endcase,
-                              regNameABI[decoded.rd],
-                              regNameABI[decoded.rs1],
+                              regNameABI[fields.rd],
+                              regNameABI[fields.rs1],
                               imm_s
                   );
                end
@@ -488,7 +488,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_ST_Req();
             action
-               Word_S  imm_s    = extend(unpack(decoded.imm12_S));
+               Word_S  imm_s    = extend(unpack(fields.imm12_S));
                Word    mem_addr = pack(s_v1 + imm_s);
 
                function Action fa_ST_req(Mem_Data_Size sz);
@@ -504,7 +504,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                rg_mem_addr <= mem_addr;
 
-               case(decoded.instr)
+               case(decoded.opcode)
                   OP_SB    :  fa_ST_req(BITS8);
                   OP_SH    :  fa_ST_req(BITS16);
                   /*OP_SW*/
@@ -513,13 +513,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.instr)
+                              case(decoded.opcode)
                                  OP_SB  : "sb";
                                  OP_SH  : "sh";
                                  OP_SW  : "sw";
                               endcase,
-                              regNameABI[decoded.rd],
-                              regNameABI[decoded.rs1],
+                              regNameABI[fields.rd],
+                              regNameABI[fields.rs1],
                               imm_s
                   );
                end
@@ -531,26 +531,26 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_OP_IMM();
             action
-               Word                v2    = zeroExtend(decoded.imm12_I);
-               Word_S              s_v2  = signExtend(unpack(decoded.imm12_I));
-               Bit#(TLog#(XLEN))   shamt = truncate(decoded.imm12_I);
+               Word                v2    = zeroExtend(fields.imm12_I);
+               Word_S              s_v2  = signExtend(unpack(fields.imm12_I));
+               Bit#(TLog#(XLEN))   shamt = truncate(fields.imm12_I);
 
-               case(decoded.instr)
-                  OP_ADDI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
-                  OP_SLTI  :  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
-                  OP_SLTIU :  fa_finish_with_Rd(decoded.rd, ((v1  < pack(s_v2))  ? 1 : 0));
-                  OP_XORI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
-                  OP_ORI   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
-                  OP_ANDI  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
-                  OP_SLLI  :  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
-                  OP_SRLI  :  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
+               case(decoded.opcode)
+                  OP_ADDI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
+                  OP_SLTI  :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  OP_SLTIU :  fa_finish_with_Rd(fields.rd, ((v1  < pack(s_v2))  ? 1 : 0));
+                  OP_XORI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
+                  OP_ORI   :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
+                  OP_ANDI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
+                  OP_SLLI  :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
+                  OP_SRLI  :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
                   /*OP_SRAI*/
-                  default  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
+                  default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
                endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                        case(decoded.instr)
+                        case(decoded.opcode)
                            OP_ADDI  : "addi";
                            OP_SLTI  : "slti";
                            OP_SLTIU : "sltiu";
@@ -560,9 +560,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                            OP_SRLI  : "srli";
                            OP_SRAI  : "srai";
                         endcase,
-                        regNameABI[decoded.rd],
-                        regNameABI[decoded.rs1],
-                        decoded.imm12_I
+                        regNameABI[fields.rd],
+                        regNameABI[fields.rs1],
+                        fields.imm12_I
                   );
                end
             endaction
@@ -575,23 +575,23 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             action
                Bit#(TLog#(XLEN)) shamt = truncate(v2);    // NOTE: upper bits are unspecified in spec
 
-               case(decoded.instr)
-                  OP_ADD   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 + s_v2));
-                  OP_SUB   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 - s_v2));
-                  OP_SLL   :  fa_finish_with_Rd(decoded.rd, (v1 << shamt));
-                  OP_SLT   :  fa_finish_with_Rd(decoded.rd, ((s_v1 < s_v2) ? 1 : 0));
-                  OP_SLTU  :  fa_finish_with_Rd(decoded.rd, ((v1  < v2)  ? 1 : 0));
-                  OP_XOR   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 ^ s_v2));
-                  OP_SRL   :  fa_finish_with_Rd(decoded.rd, (v1 >> shamt));
-                  OP_SRA   :  fa_finish_with_Rd(decoded.rd, pack(s_v1 >> shamt));
-                  OP_OR    :  fa_finish_with_Rd(decoded.rd, pack(s_v1 | s_v2));
+               case(decoded.opcode)
+                  OP_ADD   :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
+                  OP_SUB   :  fa_finish_with_Rd(fields.rd, pack(s_v1 - s_v2));
+                  OP_SLL   :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
+                  OP_SLT   :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  OP_SLTU  :  fa_finish_with_Rd(fields.rd, ((v1  < v2)  ? 1 : 0));
+                  OP_XOR   :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
+                  OP_SRL   :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
+                  OP_SRA   :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
+                  OP_OR    :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
                   /*OP_AND*/
-                  default  :  fa_finish_with_Rd(decoded.rd, pack(s_v1 & s_v2));
+                  default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
                endcase
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] Decoded: PC = %h, %s %s, %s, %s", csr_cycle, decoded.pc,
-                        case(decoded.instr)
+                        case(decoded.opcode)
                            OP_ADD  : "add";
                            OP_SUB  : "sub";
                            OP_SLL  : "sll";
@@ -603,9 +603,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                            OP_OR   : "or";
                            OP_AND  : "and";
                         endcase,
-                        regNameABI[decoded.rd],
-                        regNameABI[decoded.rs1],
-                        regNameABI[decoded.rs2]
+                        regNameABI[fields.rd],
+                        regNameABI[fields.rs1],
+                        regNameABI[fields.rs2]
                   );
                end
             endaction
@@ -617,13 +617,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_MISC_MEM();
             action
-               case(decoded.instr)
+               case(decoded.opcode)
                   OP_FENCE :  fa_finish_with_no_output;
                   /*OP_FENCE_I*/
                   default  :  fa_finish_with_no_output;
                endcase
 
-               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, %s (ignore)", csr_cycle, decoded.pc, decoded.funct3 == f3_FENCE ? "fence" : "fence.i");
+               if (cfg_verbose > 2) $display("[%7d] Decoded: PC = %h, %s (ignore)", csr_cycle, decoded.pc, decoded.opcode == OP_FENCE ? "fence" : "fence.i");
             endaction
          endfunction: fa_exec_MISC_MEM
 
@@ -634,40 +634,40 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             action
                let csr_old_val = fromMaybe(?, m_v_csr);
 
-               case(decoded.instr)
+               case(decoded.opcode)
                   OP_CSRRW :  begin
-                                 fa_write_csr(decoded.csr, v1);
-                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                                 fa_write_csr(fields.csr, v1);
+                                 fa_finish_with_Rd(fields.rd, csr_old_val);
                               end
 
                   OP_CSRRS :  begin
-                                 if (decoded.rs1 != 0) begin
+                                 if (fields.rs1 != 0) begin
                                     Word csr_new_val = (csr_old_val | v1);
-                                    fa_write_csr(decoded.csr, csr_new_val);
+                                    fa_write_csr(fields.csr, csr_new_val);
                                  end
-                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                                 fa_finish_with_Rd(fields.rd, csr_old_val);
                               end
 
                   /*OP_CSRRC*/
                   default  :  begin
-                                 if (decoded.rs1 != 0) begin
+                                 if (fields.rs1 != 0) begin
                                     Word csr_new_val = (csr_old_val & (~ v1));
-                                    fa_write_csr(decoded.csr, csr_new_val);
+                                    fa_write_csr(fields.csr, csr_new_val);
                                  end
-                                 fa_finish_with_Rd(decoded.rd, csr_old_val);
+                                 fa_finish_with_Rd(fields.rd, csr_old_val);
                               end
                endcase
 
                if (cfg_verbose > 2) begin
-                  if ( (decoded.instr == OP_CSRRS) && (decoded.csr == csr_CYCLE) )
-                     $display("[%7d] Decoded: PC = %h, rdcycle %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
-                  else if ( (decoded.instr == OP_CSRRS) && (decoded.csr == csr_INSTRET) )
-                     $display("[%7d] Decoded: PC = %h, rdinstret %s", csr_cycle, decoded.pc, regNameABI[decoded.rd]);
-                  else if ( (decoded.instr == OP_CSRRW) && (decoded.csr == csr_DCSR) )
-                     $display("[%7d] Decoded: PC = %h, csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[decoded.rs1]);
+                  if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_CYCLE) )
+                     $display("[%7d] Decoded: PC = %h, rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
+                  else if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_INSTRET) )
+                     $display("[%7d] Decoded: PC = %h, rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
+                  else if ( (decoded.opcode == OP_CSRRW) && (fields.csr == csr_DCSR) )
+                     $display("[%7d] Decoded: PC = %h, csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
                   else begin
                      $display("[%7d] Decoded: PC = %h, %s %s, 0x%h, %s", csr_cycle, decoded.pc,
-                           case(decoded.instr)
+                           case(decoded.opcode)
                               OP_CSRRW : "csrrw";
                               OP_CSRRS : "csrrs";
                               OP_CSRRC : "csrrc";
@@ -676,9 +676,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                               //OP_CSRRCI : "csrrci";
                               default  : "Unsupport";
                            endcase,
-                           regNameABI[decoded.rd],
-                           decoded.csr,
-                           regNameABI[decoded.rs1]
+                           regNameABI[fields.rd],
+                           fields.csr,
+                           regNameABI[fields.rs1]
                      );
                   end
                end
@@ -689,7 +689,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         case(decoded.instr)
+         case(decoded.opcode)
             OP_LUI      :  fa_exec_LUI();
             OP_AUIPC    :  fa_exec_AUIPC();
             OP_JAL      :  fa_exec_JAL();
@@ -773,8 +773,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instruction decode
 
-         Decoded_Instr decoded = fv_decode(pc, instr, gpr);
-         fa_exec(decoded);
+         Decoded_Instr  decoded  = fv_decode(pc, instr, gpr);
+         Decoded_Fields fields   = fv_decode_fields(instr);
+         fa_exec(decoded, fields);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
          csr_instret <= csr_instret + 1;

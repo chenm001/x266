@@ -232,8 +232,8 @@ Bit#(3)   f3_CSRRCI     = 3'b111;
 Bit#(12) f12_WFI       = 12'b0001_0000_0010;
 
 function Bool is_SYSTEM_PRIV(Instr instr);
-   return(   (instr_opcode(instr) == op_SYSTEM)
-          && (instr_funct3(instr) == f3_PRIV));
+   return(   (instr_opcode7(instr) == op_SYSTEM)
+          && (instr_funct3 (instr) == f3_PRIV));
 endfunction
 
 
@@ -444,7 +444,7 @@ typedef  Bit#(5)     RegName;       // 32 registers, 0..31
 typedef  32          NumRegs;
 Integer  numRegs = valueOf(NumRegs);
 
-function  Opcode     instr_opcode (Instr x); return x[6:0]; endfunction
+function  Opcode     instr_opcode7(Instr x); return x[6:0]; endfunction
 
 function  Bit#(3)    instr_funct3 (Instr x); return x[14:12]; endfunction
 function  Bit#(5)    instr_funct5 (Instr x); return x[31:27]; endfunction
@@ -471,11 +471,15 @@ function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
 // Decoded instructions
 
 typedef struct {
-   Instr_e  instr;
+   Instr    instr;
+   Instr_e  opcode;
    Word     v1;
    Word     v2;
+   Addr     pc;
+} Decoded_Instr deriving(Bits);
 
-   Opcode   opcode;
+typedef struct {
+   Opcode   opcode7;
 
    RegName  rd;
    RegName  rs1;
@@ -493,24 +497,18 @@ typedef struct {
    Bit#(13) imm13_SB;
    Bit#(20) imm20_U;
    Bit#(21) imm21_UJ;
-
-   Addr     pc;
-} Decoded_Instr deriving(FShow, Bits);
+} Decoded_Fields deriving(Bits);
 
 function Instr_e fv_decode_instr(Instr instr);
-   let opcode  = instr_opcode  (instr);
+   let opcode7 = instr_opcode7 (instr);
    let rd      = instr_rd      (instr);
    let rs1     = instr_rs1     (instr);
-   let rs2     = instr_rs2     (instr);
-   let rs3     = instr_rs3     (instr);
    let csr     = instr_csr     (instr);
    let funct3  = instr_funct3  (instr);
-   let funct5  = instr_funct5  (instr);
-   let funct7  = instr_funct7  (instr);
    let funct10 = instr_funct10 (instr);
    let imm12_I = instr_I_imm12 (instr);
 
-   return case(opcode)
+   return case(opcode7)
       op_LUI      :  OP_LUI;
       op_AUIPC    :  OP_AUIPC;
       op_JAL      :  OP_JAL;
@@ -580,6 +578,28 @@ function Instr_e fv_decode_instr(Instr instr);
    endcase;
 endfunction
 
+function Decoded_Fields fv_decode_fields(Instr instr);
+   return Decoded_Fields {
+            opcode7  :  instr_opcode7  (instr),
+            rd       :  instr_rd       (instr),
+            rs1      :  instr_rs1      (instr),
+            rs2      :  instr_rs2      (instr),
+            rs3      :  instr_rs3      (instr),
+            csr      :  instr_csr      (instr),
+
+            funct3   :  instr_funct3   (instr),
+            funct5   :  instr_funct5   (instr),
+            funct7   :  instr_funct7   (instr),
+            funct10  :  instr_funct10  (instr),
+
+            imm12_I  :  instr_I_imm12  (instr),
+            imm12_S  :  instr_S_imm12  (instr),
+            imm13_SB :  instr_SB_imm13 (instr),
+            imm20_U  :  instr_U_imm20  (instr),
+            imm21_UJ :  instr_UJ_imm21 (instr)
+          };
+endfunction
+
 function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) gpr);
    // Values of Rs1 and Rs2 fields of the instr, unsigned
    let   rs1   = instr_rs1(instr);
@@ -588,29 +608,11 @@ function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) g
    Word  v2    = ((rs2 == 0) ? 0: gpr.sub(rs2));
 
    return Decoded_Instr {
-            instr:      fv_decode_instr(instr),
-            v1:         v1,
-            v2:         v2,
-
-            opcode:     instr_opcode   (instr),
-            rd:         instr_rd       (instr),
-            rs1:        instr_rs1      (instr),
-            rs2:        instr_rs2      (instr),
-            rs3:        instr_rs3      (instr),
-            csr:        instr_csr      (instr),
-
-            funct3:     instr_funct3   (instr),
-            funct5:     instr_funct5   (instr),
-            funct7:     instr_funct7   (instr),
-            funct10:    instr_funct10  (instr),
-
-            imm12_I:    instr_I_imm12  (instr),
-            imm12_S:    instr_S_imm12  (instr),
-            imm13_SB:   instr_SB_imm13 (instr),
-            imm20_U:    instr_U_imm20  (instr),
-            imm21_UJ:   instr_UJ_imm21 (instr),
-
-            pc:         pc
+            instr    :  instr,
+            opcode   :  fv_decode_instr(instr),
+            v1       :  v1,
+            v2       :  v2,
+            pc       :  pc
           };
 endfunction
 
