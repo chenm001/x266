@@ -34,28 +34,16 @@ extends-target:             dut
 build-for:                  rtl
 create-workstation-project: true
 
-[onestage]
+[riscv]
 extends-target:           bsim_dut
-bsv-define:               PROC_FILE=OneStage SIM
-workstation-project-file: onestage.bspec
-exe-file:                 onestage_dut
+bsv-define:               PROC_FILE=RiscV SIM
+workstation-project-file: riscv.bspec
+exe-file:                 riscv_dut
 
-[rtl_onestage]
+[rtl_riscv]
 extends-target:           rtl_dut
-bsv-define:               PROC_FILE=OneStage SIM
-workstation-project-file: rtl_onestage.bspec
-
-[twostage]
-extends-target:           bsim_dut
-bsv-define:               PROC_FILE=TwoStage SIM
-workstation-project-file: twostage.bspec
-exe-file:                 twostage_dut
-
-[fivestage]
-extends-target:           bsim_dut
-bsv-define:               PROC_FILE=FiveStage SIM
-workstation-project-file: fivestage.bspec
-exe-file:                 fivestage_dut
+bsv-define:               PROC_FILE=RiscV SIM
+workstation-project-file: rtl_riscv.bspec
 
 [tb]
 extends-target:       common
