@@ -23,11 +23,11 @@ Building
 Performance
 ========
 
-|  Ver  |  FPGA / ASIC   |   LUT / Area  |   MHz  |
-| :---: |     :---:      |       ---:    |   ---: |
-|  0.2  |     XC7Z030    |      1,789    |  131.9 |
-|  0.2  |     XCZU9EG    |      1,784    |  241.1 |
-|  0.2  |     130 nm     |               |        |
+|   Ver   |  FPGA / ASIC   |   LUT / Area  |   MHz  |
+| :-----: |     :---:      |       ---:    |   ---: |
+|  0.2.1  |     XC7Z030    |      2,559    |  203.2 |
+|  0.2.1  |     XCZU9EG    |      2,544    |  307.3 |
+|  0.2.1  |     130 nm     |               |        |
 
 
 Prebuilt
