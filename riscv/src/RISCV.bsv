@@ -224,9 +224,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    // ----------------------------------------------------------------
    // Scoreboard map
-   Reg#(Bool)  rg_scoreGPRs[numRegs][2];
+   Reg#(Bool)  rg_scoreGPRs[numRegs];
    for(Integer i = 0; i < numRegs; i = i + 1)
-      rg_scoreGPRs[i] <- mkCReg(2, False);
+      rg_scoreGPRs[i] <- mkConfigReg(False);
 
    // ----------------------------------------------------------------
    // Read a CSR
@@ -345,8 +345,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       action
 
          // Values of Rs1 and Rs2 fields of the instr, unsigned
-         Word v1 = decoded.v1;
-         Word v2 = decoded.v2;
+         //Word v1 = decoded.v1;
+         //Word v2 = decoded.v2;
+         Word  v1  = ((fields.rs1 == 0) ? 0: rf_GPRs.sub(fields.rs1));
+         Word  v2  = ((fields.rs2 == 0) ? 0: rf_GPRs.sub(fields.rs2));
 
          // Values of Rs1 and Rs2 fields of the instr, signed versions
          Word_S  s_v1 = unpack(v1);
@@ -796,41 +798,43 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             score2 = False;
          end
          op_JALR, op_LOAD, op_OP_IMM, op_SYSTEM : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][1] : False;
+            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1] : False;
             score2 = False;
          end
          default/*op_BRANCH, op_OP, op_STORE*/ : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][1] : False;
-            score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2][1] : False;
+            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1] : False;
+            score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2] : False;
          end
       endcase
 
       let score_conflict = score1 || score2;
 
-      if (cfg_verbose > 1) $display("[%7d] rl_exec  : PC = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
+      if (cfg_verbose > 1) $display("[%7d] rl_exec  : Prepare pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
+      if (cfg_verbose > 2) begin
+         $write("[%7d] rl_exec  : Scoreboard = [", csr_cycle);
+         for(Integer i = 0; i < numRegs; i = i + 1) begin
+            $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
+         end
+         $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
+      end
+
       if (!score_conflict && decoded.pc == pcEpoch) begin
          if (cfg_verbose > 0) $display("[%7d] fa_exec  : PC = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
 
          // Update dependency flag for $rd
          if (  fields.opcode7 != op_BRANCH
             && fields.opcode7 != op_STORE) begin
-               rg_scoreGPRs[fields.rd][1] <= True;
+               rg_scoreGPRs[fields.rd] <= True;
          end
 
-         if (cfg_verbose > 2) begin
-            $write("[%7d] rl_exec: Scoreboard = [", csr_cycle);
-            for(Integer i = 0; i < numRegs; i = i + 1) begin
-               $write("%1d, ", rg_scoreGPRs[i][1] ? 1 : 0);
-            end
-            $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
-         end
-
-         fa_exec(decoded, fields);
+          fa_exec(decoded, fields);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
          csr_instret <= csr_instret + 1;
       end
       else begin
+         if (score_conflict)
+            rw_pc.wset(pcEpoch);
          if (cfg_verbose > 1) $display("[%7d] rl_exec  : Bypass PC = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
    endrule
@@ -847,7 +851,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             let resp <- memory.dmem_resp;
 
             if (cfg_verbose > 0 && !isValid(resp)) begin
-               $display("[%7d] rl_write_back: Memory read failed", csr_cycle);
+               $display("[%7d] rl_write : Memory read failed", csr_cycle);
                $finish;
             end
 
@@ -889,11 +893,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          end
       endcase
 
-      if (cfg_verbose > 1) $display("[%7d] rl_write_back: %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd][0] ? 1 : 0);
+      if (cfg_verbose > 1) $display("[%7d] rl_write : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
       rf_GPRs.upd(rd, rd_value);
-      rg_scoreGPRs[rd][0] <= False;
+      rg_scoreGPRs[rd] <= False;
    endrule
 
 
@@ -921,7 +925,7 @@ endmodule
 
 (* synthesize *)
 module mkRISCV(RISCV_IFC);
-   (* hide *) let _m <- _mkRISCV(3);
+   (* hide *) let _m <- _mkRISCV(0);
    return _m;
 endmodule
 

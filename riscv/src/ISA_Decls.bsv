@@ -602,16 +602,14 @@ endfunction
 
 function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) gpr);
    // Values of Rs1 and Rs2 fields of the instr, unsigned
-   let   rs1   = instr_rs1(instr);
-   let   rs2   = instr_rs2(instr);
-   Word  v1    = ((rs1 == 0) ? 0: gpr.sub(rs1));
-   Word  v2    = ((rs2 == 0) ? 0: gpr.sub(rs2));
+   //let   rs1   = instr_rs1(instr);
+   //let   rs2   = instr_rs2(instr);
 
    return Decoded_Instr {
             instr    :  instr,
             opcode   :  fv_decode_instr(instr),
-            v1       :  v1,
-            v2       :  v2,
+            //v1       :  v1,
+            //v2       :  v2,
             pc       :  pc
           };
 endfunction
