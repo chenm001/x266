@@ -13,6 +13,7 @@ import SpecialFIFOs  :: *;
 // BSV project imports
 
 import ISA_Decls :: *;    // Instruction encodings
+import Ehr       :: *;
 
 // ================================================================
 // Memory interface for CPU
@@ -57,7 +58,7 @@ typedef Maybe#(Word) DMem_Resp;
 // ----------------
 // Memory interface reference design
 
-module mkMemory(Memory_IFC);
+module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
    BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, "mem.vmh", False);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
    Reg#(Maybe#(Addr))                     imem_rd  <- mkDReg(tagged Invalid);
@@ -69,10 +70,13 @@ module mkMemory(Memory_IFC);
       let phyAddr = addr - imemSt;
       imem.put(False, truncate(phyAddr >> 2), ?);
       imem_rd  <= tagged Valid addr;
-      //$display("[IMEM] Addr = 0x%08h", addr);
+      $display("[%7d] [IMEM] ReqAddr = 0x%08h", cycles, addr);
    endmethod
 
-   method IMem_Resp imem_resp();
+   method ActionValue#(IMem_Resp) imem_resp();
+      //$display("imem [0x%h] = 0x%h", fromMaybe(?, imem_rd), imem.read());
+      //$display("Unaligned memory access on 16-bits bound");
+      $display("[%7d] [IMEM] Addr = 0x%08h", cycles, fromMaybe(?, imem_rd));
       if (isValid(imem_rd)) begin
          let addr = fromMaybe(?, imem_rd);
          let instr = imem.read();
@@ -155,7 +159,7 @@ endmodule
 
 interface Memory_IFC;
    method Action                  imem_req(Addr addr);
-   method IMem_Resp               imem_resp;
+   method ActionValue#(IMem_Resp)               imem_resp;
 
    method Action                  dmem_req(DMem_Req req);
    method ActionValue#(DMem_Resp) dmem_resp;
@@ -187,22 +191,23 @@ endfunction: fv_fall_through_pc
 
 module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
-   // internal components
-   Memory_IFC           memory   <- mkMemory;
-
    // CPU state
    Reg#(Bool)  cpu_enabled <- mkReg(False);
 
    // Program counter
-   Reg#(Word)  pc[2]       <- mkCRegU(2);
+   //Reg#(Word)  pc[4]       <- mkCRegU(4);
+   Ehr#(4, Word)  pc       <- mkEhrU;
    Reg#(Word)  pcEpoch     <- mkConfigRegU;
 
    // General Purpose Registers
    RegFile#(RegName, Word) rf_GPRs  <- mkRegFileWCF(0, ~0);
 
    // CSRs
-   Reg#(Bit #(64))   csr_cycle   <- mkConfigReg(0);
-   Reg#(Bit #(64))   csr_instret <- mkConfigReg(0);
+   Reg#(Bit#(64))    csr_cycle   <- mkConfigReg(0);
+   Reg#(Bit#(64))    csr_instret <- mkConfigReg(0);
+
+   // internal components
+   Memory_IFC           memory   <- mkMemory(csr_cycle);
 
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
@@ -217,14 +222,16 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------------------------------------------------------
    // Non-architectural state, for this model
 
-   FIFOF#(Decoded_Instr)   fifo_f2e    <- mkPipelineFIFOF;
-   FIFOF#(Exec2Wb_t)       fifo_e2w    <- mkPipelineFIFOF;
+   //FIFOF#(Decoded_Instr)   fifo_f2e    <- mkPipelineFIFOF;
+   //FIFOF#(Exec2Wb_t)       fifo_e2w    <- mkPipelineFIFOF;
+   Reg#(Maybe#(Decoded_Instr)) rg_f2e  <- mkDReg(tagged Invalid);
+   Reg#(Maybe#(Exec2Wb_t))     rg_e2w  <- mkDReg(tagged Invalid);
 
    // ----------------------------------------------------------------
    // Scoreboard map
-   Reg#(Bool)  rg_scoreGPRs[numRegs][2];
+   Ehr#(2, Bool)  rg_scoreGPRs[numRegs];
    for(Integer i = 0; i < numRegs; i = i + 1)
-      rg_scoreGPRs[i] <- mkCReg(2, False);
+      rg_scoreGPRs[i] <- mkEhr(False);
 
    // ----------------------------------------------------------------
    // Read a CSR
@@ -288,7 +295,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_no_output();
       action
-         pc[0]       <= fv_fall_through_pc(pcEpoch);
+         //pc[1]       <= fv_fall_through_pc(pcEpoch);
          pcEpoch     <= fv_fall_through_pc(pcEpoch);
       endaction
    endfunction
@@ -298,7 +305,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_Rd(RegName rd, Word rd_value);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
+         //fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
+         rg_e2w <= tagged Valid (Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value});
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -308,7 +316,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_Ld(RegName rd, Bit#(3) funct3);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Funct3 funct3} );
+         //fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Funct3 funct3} );
+         rg_e2w <= tagged Valid (Exec2Wb_t {rd: rd, rd_value: tagged Funct3 funct3});
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -318,8 +327,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
-         pc[0]    <= next_pc;
+         //fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
+         rg_e2w <= tagged Valid (Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value});
+         pc[1]    <= next_pc;
          pcEpoch  <= next_pc;
       endaction
    endfunction
@@ -329,7 +339,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
       action
-         pc[0]    <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
+         pc[1]    <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
          pcEpoch  <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
       endaction
    endfunction
@@ -749,19 +759,25 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction fetch
    //(* conflict_free="rl_fetch, rl_exec, rl_write_back" *)
    rule rl_fetch(cpu_enabled);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction PC = 0x%08h", csr_cycle, pc[0]);
-      memory.imem_req(pc[0]);
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction PC = 0x%08h", csr_cycle, pc[2]);
+      memory.imem_req(pc[2]);
    endrule
 
    // ----------------------------------------------------------------
    // Instruction decode
-   rule rl_decode(memory.imem_resp matches tagged Resp .resp);
+   rule rl_decode;
+      let x <- memory.imem_resp;
+      if (x matches tagged Resp .resp) begin
       let xPC = resp.pc;
       let instr = resp.instr;
 
+      pc[1] <= xPC + 4;
+
       if (cfg_verbose > 1) $display("[%7d] rl_decode: PC = 0x%08h, instr = %h", csr_cycle, xPC, instr);
       Decoded_Instr decoded = fv_decode(xPC, instr, rf_GPRs);
-      fifo_f2e.enq( decoded );
+      //fifo_f2e.enq( decoded );
+      rg_f2e <= tagged Valid decoded;
+   end
    endrule
 
 
@@ -769,9 +785,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Receive instruction from IMem; handle exception if any, else execute it;
 
    //(* no_implicit_conditions *)
-   rule rl_exec(fifo_f2e.notEmpty);
-      let decoded = fifo_f2e.first;
-      fifo_f2e.deq;
+   rule rl_exec(rg_f2e matches tagged Valid .decoded)/*(fifo_f2e.notEmpty && fifo_e2w.notFull)*/;
+      //let decoded = fifo_f2e.first;
+      //fifo_f2e.deq;
 
       // ----------------------------------------------------------------
       // Instruction fields decode
@@ -791,7 +807,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][1] : False;
             score2 = False;
          end
-         op_BRANCH, op_OP, op_STORE : begin
+         default/*op_BRANCH, op_OP, op_STORE*/ : begin
             score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][1] : False;
             score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2][1] : False;
          end
@@ -803,18 +819,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       if (!score_conflict && decoded.pc == pcEpoch) begin
          if (cfg_verbose > 0) $display("[%7d] fa_exec  : PC = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
 
-         if (cfg_verbose > 2) begin
-            $write("[%7d] rl_exec: Scoreboard = [", csr_cycle);
-            for(Integer i = 0; i < numRegs; i = i + 1) begin
-               $write("%d, ", rg_scoreGPRs[i][0] ? 1 : 0);
-            end
-            $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
-         end
-
          // Update dependency flag for $rd
          if (  fields.opcode7 != op_BRANCH
             && fields.opcode7 != op_STORE) begin
                rg_scoreGPRs[fields.rd][1] <= True;
+         end
+
+         if (cfg_verbose > 2) begin
+            $write("[%7d] rl_exec: Scoreboard = [", csr_cycle);
+            for(Integer i = 0; i < numRegs; i = i + 1) begin
+               $write("%1d, ", rg_scoreGPRs[i][1] ? 1 : 0);
+            end
+            $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
          end
 
          fa_exec(decoded, fields);
@@ -828,9 +844,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    endrule
 
    // ---------------- RegFile & DMem Write Back
-   rule rl_write_back(fifo_e2w.notEmpty);
-      let x = fifo_e2w.first;
-      fifo_e2w.deq;
+   rule rl_write_back(rg_e2w matches tagged Valid .x);//(fifo_e2w.notEmpty);
+      //let x = fifo_e2w.first;
+      //fifo_e2w.deq;
       let rd = x.rd;
       let rd_value = ?;
 
@@ -899,7 +915,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // INTERFACE
 
    method Action start(Addr initial_pc) if (!cpu_enabled);
-      pc[1]       <= initial_pc;
+      pc[3]       <= initial_pc;
       pcEpoch     <= initial_pc;
       cpu_enabled <= True;
    endmethod
@@ -913,7 +929,7 @@ endmodule
 
 (* synthesize *)
 module mkRISCV(RISCV_IFC);
-   (* hide *) let _m <- _mkRISCV(0);
+   (* hide *) let _m <- _mkRISCV(3);
    return _m;
 endmodule
 
