@@ -748,7 +748,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          pc[0] <= fv_fall_through_pc(xPC);
       end
       else begin
-         if (cfg_verbose > 1) $display("[%7d] rl_decode: Replay pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
+         if (cfg_verbose > 1) $display("[%7d] rl_decode: STALL register score conflict replay pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
       end
    endrule
 
@@ -780,7 +780,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          csr_instret <= csr_instret + 1;
       end
       else begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : Ignore pc = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] rl_exec  : STALL Ignore pc = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
    endrule
 
