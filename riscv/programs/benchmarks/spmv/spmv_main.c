@@ -40,15 +40,15 @@ int main( int argc, char* argv[] )
 {
     float y[R];
 
-	uint32_t cycle = getCycle();
-	uint32_t insts = getInsts();
+    uint32_t cycle = getCycle();
+    uint32_t insts = getInsts();
 
     spmv(R, val, idx, x, ptr, y);
 
-	cycle = getCycle() - cycle;
-	insts = getInsts() - insts;
-	printStr("Cycles = "); printInt(cycle); printChar('\n');
-	printStr("Insts  = "); printInt(insts); printChar('\n');
+    cycle = getCycle() - cycle;
+    insts = getInsts() - insts;
+    printStr("Cycles = "); printInt(cycle); printChar('\n');
+    printStr("Insts  = "); printInt(insts); printChar('\n');
 
     // Check the results
     int ret = verifyFloat( R, y, verify_data );
