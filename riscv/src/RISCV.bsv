@@ -192,8 +192,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bool)  cpu_enabled <- mkReg(False);
 
    // Program counter
-   Reg#(Word)     pc       <- mkRegU;
-   RWire#(Word)   rw_pc    <- mkRWire;
+   Reg#(Word)     pc[3]    <- mkCRegU(3);
    Reg#(Word)     pcEpoch  <- mkConfigRegU;
 
    // General Purpose Registers
@@ -321,7 +320,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
       action
          fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
-         rw_pc.wset(next_pc);
+         pc[1]    <= next_pc;
          pcEpoch  <= next_pc;
       endaction
    endfunction
@@ -331,7 +330,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
       action
-         rw_pc.wset(condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
+         pc[1]    <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
          pcEpoch  <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
       endaction
    endfunction
@@ -753,11 +752,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction fetch
    //(* conflict_free="rl_fetch, rl_exec, rl_write_back" *)
    rule rl_fetch(cpu_enabled);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction PC = 0x%08h", csr_cycle, pc);
-      memory.imem_req(pc);
-
-      let next_pc = fromMaybe(pc + 4, rw_pc.wget);
-      pc <= next_pc;
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction PC = 0x%08h", csr_cycle, pc[2]);
+      memory.imem_req(pc[2]);
    endrule
 
    // ----------------------------------------------------------------
@@ -765,13 +761,14 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_decode;
       let x <- memory.imem_resp;
       if (x matches tagged Resp .resp) begin
-      let xPC = resp.pc;
-      let instr = resp.instr;
+         let xPC = resp.pc;
+         let instr = resp.instr;
 
-      if (cfg_verbose > 1) $display("[%7d] rl_decode: PC = 0x%08h, instr = %h", csr_cycle, xPC, instr);
-      Decoded_Instr decoded = fv_decode(xPC, instr, rf_GPRs);
-      fifo_f2e.enq( decoded );
-   end
+         if (cfg_verbose > 1) $display("[%7d] rl_decode: PC = 0x%08h, instr = %h", csr_cycle, xPC, instr);
+         Decoded_Instr decoded = fv_decode(xPC, instr, rf_GPRs);
+         fifo_f2e.enq( decoded );
+         pc[0] <= xPC + 4;
+      end
    endrule
 
 
@@ -833,8 +830,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          csr_instret <= csr_instret + 1;
       end
       else begin
-         if (score_conflict)
-            rw_pc.wset(pcEpoch);
          if (cfg_verbose > 1) $display("[%7d] rl_exec  : Bypass PC = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
    endrule
@@ -911,7 +906,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // INTERFACE
 
    method Action start(Addr initial_pc) if (!cpu_enabled);
-      pc          <= initial_pc;
+      pc[2]       <= initial_pc;
       pcEpoch     <= initial_pc;
       cpu_enabled <= True;
    endmethod
