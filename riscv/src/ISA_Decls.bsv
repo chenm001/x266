@@ -467,14 +467,18 @@ function  Bit#(21)   instr_UJ_imm21(Instr x); return { x[31], x[19:12], x[20], x
 function  Bit#(4)   instr_pred(Instr x); return x[27:24]; endfunction
 function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
 
+typedef struct {
+   Instr_e opcode;
+   Maybe#(RegName) rs1;
+   Maybe#(RegName) rs2;
+} Instr_s deriving(Bits, Eq);
+
 // ----------------
 // Decoded instructions
 
 typedef struct {
    Instr    instr;
-   Instr_e  opcode;
-   Word     v1;
-   Word     v2;
+   Instr_s  op;
    Addr     pc;
 } Decoded_Instr deriving(Bits);
 
@@ -499,82 +503,83 @@ typedef struct {
    Bit#(21) imm21_UJ;
 } Decoded_Fields deriving(Bits);
 
-function Instr_e fv_decode_instr(Instr instr);
+function Instr_s fv_decode_instr(Instr instr);
    let opcode7 = instr_opcode7 (instr);
    let rd      = instr_rd      (instr);
    let rs1     = instr_rs1     (instr);
+   let rs2     = instr_rs2     (instr);
    let csr     = instr_csr     (instr);
    let funct3  = instr_funct3  (instr);
    let funct10 = instr_funct10 (instr);
    let imm12_I = instr_I_imm12 (instr);
 
    return case(opcode7)
-      op_LUI      :  OP_LUI;
-      op_AUIPC    :  OP_AUIPC;
-      op_JAL      :  OP_JAL;
-      op_JALR     :  OP_JALR;
-      op_BRANCH   :  case(funct3)
-                           f3_BEQ   :  OP_BEQ;
-                           f3_BNE   :  OP_BNE;
-                           f3_BLT   :  OP_BLT;
-                           f3_BGE   :  OP_BGE;
-                           f3_BLTU  :  OP_BLTU;
-                           f3_BGEU  :  OP_BGEU;
-                           default  :  OP_ILLEGAL;
-                     endcase
-      op_LOAD     :  case(funct3)
-                           f3_LB    :  OP_LB;
-                           f3_LBU   :  OP_LBU;
-                           f3_LH    :  OP_LH;
-                           f3_LHU   :  OP_LHU;
-                           f3_LW    :  OP_LW;
-                           default  :  OP_ILLEGAL;
-                     endcase
-      op_STORE    :  case(funct3)
-                           f3_SB    :  OP_SB;
-                           f3_SH    :  OP_SH;
-                           f3_SW    :  OP_SW;
-                           default  :  OP_ILLEGAL;
-                     endcase
-      op_OP_IMM   :  case(funct3)
-                           f3_ADDI  :  OP_ADDI;
-                           f3_SLTI  :  OP_SLTI;
-                           f3_SLTIU :  OP_SLTIU;
-                           f3_XORI  :  OP_XORI;
-                           f3_ORI   :  OP_ORI;
-                           f3_ANDI  :  OP_ANDI;
-                           f3_SLLI  :  (imm12_I[10] == 1'b0 ? OP_SLLI : OP_ILLEGAL);
-                           f3_SRxI  :  (imm12_I[10] == 1'b0 ? OP_SRLI : OP_SRAI);
-                           default  :  OP_ILLEGAL;
-                     endcase
-      op_OP       :  case(funct10)
-                           f10_ADD  :  OP_ADD;
-                           f10_SUB  :  OP_SUB;
-                           f10_SLL  :  OP_SLL;
-                           f10_SLT  :  OP_SLT;
-                           f10_SLTU :  OP_SLTU;
-                           f10_XOR  :  OP_XOR;
-                           f10_SRL  :  OP_SRL;
-                           f10_SRA  :  OP_SRA;
-                           f10_OR   :  OP_OR;
-                           f10_AND  :  OP_AND;
-                           default  :  OP_ILLEGAL;
-                     endcase
-      op_MISC_MEM :  case(funct3)
-                           f3_FENCE :  ( ( (rd == 0)
-                                        && (rs1 == 0)
-                                        && (truncateLSB(imm12_I) == 4'b0) ) ? OP_FENCE : OP_ILLEGAL);
-                           f3_FENCE_I: ( ( (rd == 0)
-                                        && (rs1 == 0)
-                                        && (imm12_I == 12'b0) ) ? OP_FENCE_I : OP_ILLEGAL);
-                           default:    OP_ILLEGAL;
-                     endcase
-      op_SYSTEM   :  case(funct3)
-                           f3_CSRRW :  OP_CSRRW;
-                           f3_CSRRS :  OP_CSRRS;
-                           f3_CSRRC :  OP_CSRRC;
-                           default  :  OP_ILLEGAL;
-                     endcase
+      op_LUI      :  Instr_s {opcode: OP_LUI,   rs1: tagged Invalid,    rs2: tagged Invalid};
+      op_AUIPC    :  Instr_s {opcode: OP_AUIPC, rs1: tagged Invalid,    rs2: tagged Invalid};
+      op_JAL      :  Instr_s {opcode: OP_JAL,   rs1: tagged Invalid,    rs2: tagged Invalid};
+      op_JALR     :  Instr_s {opcode: OP_JALR,  rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      op_BRANCH   :  Instr_s {opcode: case(funct3)
+                                       f3_BEQ   :  OP_BEQ;
+                                       f3_BNE   :  OP_BNE;
+                                       f3_BLT   :  OP_BLT;
+                                       f3_BGE   :  OP_BGE;
+                                       f3_BLTU  :  OP_BLTU;
+                                       f3_BGEU  :  OP_BGEU;
+                                       default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      op_LOAD     :  Instr_s {opcode: case(funct3)
+                                       f3_LB    :  OP_LB;
+                                       f3_LBU   :  OP_LBU;
+                                       f3_LH    :  OP_LH;
+                                       f3_LHU   :  OP_LHU;
+                                       f3_LW    :  OP_LW;
+                                       default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      op_STORE    :  Instr_s {opcode: case(funct3)
+                                       f3_SB    :  OP_SB;
+                                       f3_SH    :  OP_SH;
+                                       f3_SW    :  OP_SW;
+                                       default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      op_OP_IMM   :  Instr_s {opcode: case(funct3)
+                                       f3_ADDI  :  OP_ADDI;
+                                       f3_SLTI  :  OP_SLTI;
+                                       f3_SLTIU :  OP_SLTIU;
+                                       f3_XORI  :  OP_XORI;
+                                       f3_ORI   :  OP_ORI;
+                                       f3_ANDI  :  OP_ANDI;
+                                       f3_SLLI  :  (imm12_I[10] == 1'b0 ? OP_SLLI : OP_ILLEGAL);
+                                       f3_SRxI  :  (imm12_I[10] == 1'b0 ? OP_SRLI : OP_SRAI);
+                                       default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      op_OP       :  Instr_s {opcode: case(funct10)
+                                       f10_ADD  :  OP_ADD;
+                                       f10_SUB  :  OP_SUB;
+                                       f10_SLL  :  OP_SLL;
+                                       f10_SLT  :  OP_SLT;
+                                       f10_SLTU :  OP_SLTU;
+                                       f10_XOR  :  OP_XOR;
+                                       f10_SRL  :  OP_SRL;
+                                       f10_SRA  :  OP_SRA;
+                                       f10_OR   :  OP_OR;
+                                       f10_AND  :  OP_AND;
+                                       default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      op_MISC_MEM :  Instr_s {opcode: case(funct3)
+                                          f3_FENCE :  ( ( (rd == 0)
+                                                       && (rs1 == 0)
+                                                       && (truncateLSB(imm12_I) == 4'b0) ) ? OP_FENCE : OP_ILLEGAL);
+                                          f3_FENCE_I: ( ( (rd == 0)
+                                                       && (rs1 == 0)
+                                                       && (imm12_I == 12'b0) ) ? OP_FENCE_I : OP_ILLEGAL);
+                                          default:    OP_ILLEGAL;
+                                    endcase,    rs1: tagged Invalid,    rs2: tagged Invalid};
+      op_SYSTEM   :  Instr_s {opcode: case(funct3)
+                                          f3_CSRRW :  OP_CSRRW;
+                                          f3_CSRRS :  OP_CSRRS;
+                                          f3_CSRRC :  OP_CSRRC;
+                                          default  :  OP_ILLEGAL;
+                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
    endcase;
 endfunction
 
@@ -601,15 +606,9 @@ function Decoded_Fields fv_decode_fields(Instr instr);
 endfunction
 
 function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) gpr);
-   // Values of Rs1 and Rs2 fields of the instr, unsigned
-   //let   rs1   = instr_rs1(instr);
-   //let   rs2   = instr_rs2(instr);
-
    return Decoded_Instr {
             instr    :  instr,
-            opcode   :  fv_decode_instr(instr),
-            //v1       :  v1,
-            //v2       :  v2,
+            op       :  fv_decode_instr(instr),
             pc       :  pc
           };
 endfunction

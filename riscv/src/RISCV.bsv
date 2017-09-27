@@ -399,7 +399,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S offset  = extend(unpack(fields.imm13_SB));
                Word   next_pc = pack(unpack(pcEpoch) + offset);
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_BEQ   :  fa_finish_cond_branch(v1  == v2,    next_pc);
                   OP_BNE   :  fa_finish_cond_branch(v1  != v2,    next_pc);
                   OP_BLT   :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
@@ -411,7 +411,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                              case(decoded.opcode)
+                              case(decoded.op.opcode)
                                  OP_BEQ  : "beq";
                                  OP_BNE  : "bne";
                                  OP_BLT  : "blt";
@@ -447,7 +447,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                   endaction
                endfunction
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_LB    :  fa_LD_Req(BITS8);
                   OP_LBU   :  fa_LD_Req(BITS8);
                   OP_LH    :  fa_LD_Req(BITS16);
@@ -458,7 +458,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.opcode)
+                              case(decoded.op.opcode)
                                  OP_LB  : "lb";
                                  OP_LBU : "lbu";
                                  OP_LH  : "lh";
@@ -489,7 +489,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                   endaction
                endfunction
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_SB    :  fa_ST_req(BITS8);
                   OP_SH    :  fa_ST_req(BITS16);
                   /*OP_SW*/
@@ -498,7 +498,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.opcode)
+                              case(decoded.op.opcode)
                                  OP_SB  : "sb";
                                  OP_SH  : "sh";
                                  OP_SW  : "sw";
@@ -520,7 +520,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word_S              s_v2  = signExtend(unpack(fields.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(fields.imm12_I);
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_ADDI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
                   OP_SLTI  :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
                   OP_SLTIU :  fa_finish_with_Rd(fields.rd, ((v1  < pack(s_v2))  ? 1 : 0));
@@ -535,7 +535,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                        case(decoded.opcode)
+                        case(decoded.op.opcode)
                            OP_ADDI  : "addi";
                            OP_SLTI  : "slti";
                            OP_SLTIU : "sltiu";
@@ -560,7 +560,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             action
                Bit#(TLog#(XLEN)) shamt = truncate(v2);    // NOTE: upper bits are unspecified in spec
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_ADD   :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
                   OP_SUB   :  fa_finish_with_Rd(fields.rd, pack(s_v1 - s_v2));
                   OP_SLL   :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
@@ -576,7 +576,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %s", csr_cycle, decoded.pc,
-                        case(decoded.opcode)
+                        case(decoded.op.opcode)
                            OP_ADD  : "add";
                            OP_SUB  : "sub";
                            OP_SLL  : "sll";
@@ -602,13 +602,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          function Action fa_exec_MISC_MEM();
             action
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_FENCE :  fa_finish_with_no_output;
                   /*OP_FENCE_I*/
                   default  :  fa_finish_with_no_output;
                endcase
 
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** %s (ignore)", csr_cycle, decoded.pc, decoded.opcode == OP_FENCE ? "fence" : "fence.i");
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** %s (ignore)", csr_cycle, decoded.pc, decoded.op.opcode == OP_FENCE ? "fence" : "fence.i");
             endaction
          endfunction: fa_exec_MISC_MEM
 
@@ -619,7 +619,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             action
                let csr_old_val = fromMaybe(?, m_v_csr);
 
-               case(decoded.opcode)
+               case(decoded.op.opcode)
                   OP_CSRRW :  begin
                                  fa_write_csr(fields.csr, v1);
                                  fa_finish_with_Rd(fields.rd, csr_old_val);
@@ -644,15 +644,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_CYCLE) )
+                  if ( (decoded.op.opcode == OP_CSRRS) && (fields.csr == csr_CYCLE) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_INSTRET) )
+                  else if ( (decoded.op.opcode == OP_CSRRS) && (fields.csr == csr_INSTRET) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (decoded.opcode == OP_CSRRW) && (fields.csr == csr_DCSR) )
+                  else if ( (decoded.op.opcode == OP_CSRRW) && (fields.csr == csr_DCSR) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
                   else begin
                      $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, 0x%h, %s", csr_cycle, decoded.pc,
-                           case(decoded.opcode)
+                           case(decoded.op.opcode)
                               OP_CSRRW : "csrrw";
                               OP_CSRRS : "csrrs";
                               OP_CSRRC : "csrrc";
@@ -674,7 +674,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         case(decoded.opcode)
+         case(decoded.op.opcode)
             OP_LUI      :  fa_exec_LUI();
             OP_AUIPC    :  fa_exec_AUIPC();
             OP_JAL      :  fa_exec_JAL();
@@ -758,23 +758,14 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       Decoded_Fields fields  = fv_decode_fields(decoded.instr);
 
       // Calculate dependency register
-      let score1 = ?;
-      let score2 = ?;
+      let score1 = False;
+      let score2 = False;
    
-      case(fields.opcode7)
-         op_LUI, op_AUIPC, op_JAL, op_MISC_MEM  : begin
-            score1 = False;
-            score2 = False;
-         end
-         op_JALR, op_LOAD, op_OP_IMM, op_SYSTEM : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][2] : False;
-            score2 = False;
-         end
-         default/*op_BRANCH, op_OP, op_STORE*/ : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][2] : False;
-            score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2][2] : False;
-         end
-      endcase
+      if (decoded.op.rs1 matches tagged Valid .x &&& x != 0)
+         score1 = rg_scoreGPRs[x][2];
+   
+      if (decoded.op.rs2 matches tagged Valid .x &&& x != 0)
+         score2 = rg_scoreGPRs[x][2];
 
       let score_conflict = score1 || score2;
 
