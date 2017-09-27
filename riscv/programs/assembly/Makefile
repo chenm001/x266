@@ -15,7 +15,7 @@ default: all
 # Sources
 #--------------------------------------------------------------------
 rv32ui_tests = \
-	simple \
+	simple conflict\
 	add addi \
 	and andi \
 	auipc \
@@ -51,7 +51,7 @@ RISCV_LINK_OPTS := -T$(asmdir)/link.ld
 # objdump
 RISCV_OBJDUMP := $(RISCV_PREFIX)-objdump --disassemble --disassemble-zeroes --section=.text --section=.text.startup --section=.data
 # convert to VMH: 64KB memory
-RISCV_ELF2HEX := $(RISCV_TOOL_DIR)/elf2hex
+RISCV_ELF2HEX := elf2hex
 VMH_WIDTH := 4
 VMH_DEPTH_I := 16384
 VMH_DEPTH_D := 32768

@@ -13,6 +13,7 @@ import SpecialFIFOs  :: *;
 // BSV project imports
 
 import ISA_Decls :: *;    // Instruction encodings
+import Ehr       ::*;
 
 // ================================================================
 // Memory interface for CPU
@@ -24,10 +25,7 @@ import DReg     :: *;
 // ----------------
 // IMem responses: either and exception or an instruction
 
-typedef union tagged {
-   struct { Word instr;  Addr pc; } Resp;
-   void                             Invalid;
-} IMem_Resp deriving(Bits);
+typedef Word IMem_Resp;
 
 // ----------------
 // DMem request ops and sizes
@@ -60,7 +58,6 @@ typedef Maybe#(Word) DMem_Resp;
 module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
    BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, "mem.vmh", False);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
-   Reg#(Maybe#(Addr))                     imem_rd  <- mkDReg(tagged Invalid);
    Reg#(Bool)                             dmem_rd  <- mkDReg(False);
    Reg#(Bit#(2))                          rg_shift <- mkRegU;
    Reg#(Mem_Data_Size)                    rg_size  <- mkRegU;
@@ -68,20 +65,12 @@ module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
    method Action imem_req(Addr addr);
       let phyAddr = addr - imemSt;
       imem.put(False, truncate(phyAddr >> 2), ?);
-      imem_rd  <= tagged Valid addr;
       //$display("[%7d] [IMEM] ReqAddr = 0x%08h", cycles, addr);
    endmethod
 
    method ActionValue#(IMem_Resp) imem_resp();
-      //$display("[%7d] [IMEM] Addr = 0x%08h", cycles, fromMaybe(?, imem_rd));
-      if (isValid(imem_rd)) begin
-         let addr = fromMaybe(?, imem_rd);
-         let instr = imem.read();
-         return tagged Resp {instr:instr, pc:addr};
-      end
-      else begin
-         return tagged Invalid;
-      end
+      let instr = imem.read();
+      return instr;
    endmethod
 
    method Action dmem_req(DMem_Req req);
@@ -156,7 +145,7 @@ endmodule
 
 interface Memory_IFC;
    method Action                  imem_req(Addr addr);
-   method ActionValue#(IMem_Resp)               imem_resp;
+   method ActionValue#(IMem_Resp) imem_resp;
 
    method Action                  dmem_req(DMem_Req req);
    method ActionValue#(DMem_Resp) dmem_resp;
@@ -192,7 +181,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bool)  cpu_enabled <- mkReg(False);
 
    // Program counter
-   Reg#(Word)     pc[3]    <- mkCRegU(3);
+   Ehr#(3, Word)  pc       <- mkEhrU();
    Reg#(Word)     pcEpoch  <- mkConfigRegU;
 
    // General Purpose Registers
@@ -218,14 +207,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------------------------------------------------------
    // Non-architectural state, for this model
 
-   FIFOF#(Decoded_Instr)   fifo_f2e    <- mkPipelineFIFOF;
+   Reg#(Maybe#(Addr))      rg_f2d      <- mkDReg(tagged Invalid);
+   FIFOF#(Decoded_Instr)   fifo_d2e    <- mkPipelineFIFOF;
    FIFOF#(Exec2Wb_t)       fifo_e2w    <- mkPipelineFIFOF;
 
    // ----------------------------------------------------------------
    // Scoreboard map
-   Reg#(Bool)  rg_scoreGPRs[numRegs];
+   Ehr#(3, Bool)  rg_scoreGPRs[numRegs];
    for(Integer i = 0; i < numRegs; i = i + 1)
-      rg_scoreGPRs[i] <- mkConfigReg(False);
+      rg_scoreGPRs[i] <- mkEhr(False);
 
    // ----------------------------------------------------------------
    // Read a CSR
@@ -366,7 +356,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                let         value = pack(iv);
 
                fa_finish_with_Rd(fields.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : PC = 0x%h, *** lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
             endaction
          endfunction: fa_exec_LUI
 
@@ -377,7 +367,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Word    value = pack(pc_s + iv);
 
                fa_finish_with_Rd(fields.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : PC = 0x%h, *** auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
             endaction
          endfunction: fa_exec_AUIPC
 
@@ -390,7 +380,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Addr   next_pc = pack(unpack(pcEpoch) + offset);
 
                fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : PC = 0x%h, *** jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], next_pc);
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], next_pc);
             endaction
          endfunction: fa_exec_JAL
 
@@ -400,7 +390,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
 
                fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : PC = 0x%h, *** jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[fields.rd], regNameABI[fields.rs1], offset);
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[fields.rd], regNameABI[fields.rs1], offset);
             endaction
          endfunction: fa_exec_JALR
 
@@ -420,7 +410,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
+                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
                               case(decoded.opcode)
                                  OP_BEQ  : "beq";
                                  OP_BNE  : "bne";
@@ -467,7 +457,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
+                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
                               case(decoded.opcode)
                                  OP_LB  : "lb";
                                  OP_LBU : "lbu";
@@ -507,7 +497,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
+                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
                               case(decoded.opcode)
                                  OP_SB  : "sb";
                                  OP_SH  : "sh";
@@ -544,7 +534,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
+                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
                         case(decoded.opcode)
                            OP_ADDI  : "addi";
                            OP_SLTI  : "slti";
@@ -585,7 +575,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, %s, %s", csr_cycle, decoded.pc,
+                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %s", csr_cycle, decoded.pc,
                         case(decoded.opcode)
                            OP_ADD  : "add";
                            OP_SUB  : "sub";
@@ -618,7 +608,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                   default  :  fa_finish_with_no_output;
                endcase
 
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : PC = 0x%h, *** %s (ignore)", csr_cycle, decoded.pc, decoded.opcode == OP_FENCE ? "fence" : "fence.i");
+               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** %s (ignore)", csr_cycle, decoded.pc, decoded.opcode == OP_FENCE ? "fence" : "fence.i");
             endaction
          endfunction: fa_exec_MISC_MEM
 
@@ -655,13 +645,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                if (cfg_verbose > 2) begin
                   if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_CYCLE) )
-                     $display("[%7d] fa_exec  : PC = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
+                     $display("[%7d] fa_exec  : pc = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
                   else if ( (decoded.opcode == OP_CSRRS) && (fields.csr == csr_INSTRET) )
-                     $display("[%7d] fa_exec  : PC = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
+                     $display("[%7d] fa_exec  : pc = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
                   else if ( (decoded.opcode == OP_CSRRW) && (fields.csr == csr_DCSR) )
-                     $display("[%7d] fa_exec  : PC = 0x%h, *** csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
+                     $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
                   else begin
-                     $display("[%7d] fa_exec  : PC = 0x%h, *** %s %s, 0x%h, %s", csr_cycle, decoded.pc,
+                     $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, 0x%h, %s", csr_cycle, decoded.pc,
                            case(decoded.opcode)
                               OP_CSRRW : "csrrw";
                               OP_CSRRS : "csrrs";
@@ -752,22 +742,56 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction fetch
    //(* conflict_free="rl_fetch, rl_exec, rl_write_back" *)
    rule rl_fetch(cpu_enabled);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction PC = 0x%08h", csr_cycle, pc[2]);
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction pc = 0x%08h", csr_cycle, pc[2]);
       memory.imem_req(pc[2]);
+      rg_f2d <= tagged Valid pc[2];
    endrule
 
    // ----------------------------------------------------------------
    // Instruction decode
-   rule rl_decode;
-      let x <- memory.imem_resp;
-      if (x matches tagged Resp .resp) begin
-         let xPC = resp.pc;
-         let instr = resp.instr;
+   (* conflict_free="rl_decode, rl_exec" *)
+   rule rl_decode(rg_f2d matches tagged Valid .xPC);
+      let instr <- memory.imem_resp;
 
-         if (cfg_verbose > 1) $display("[%7d] rl_decode: PC = 0x%08h, instr = %h", csr_cycle, xPC, instr);
-         Decoded_Instr decoded = fv_decode(xPC, instr, rf_GPRs);
-         fifo_f2e.enq( decoded );
-         pc[0] <= xPC + 4;
+      if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
+      Decoded_Instr  decoded = fv_decode(xPC, instr, rf_GPRs);
+      Decoded_Fields fields  = fv_decode_fields(decoded.instr);
+
+      // Calculate dependency register
+      let score1 = ?;
+      let score2 = ?;
+   
+      case(fields.opcode7)
+         op_LUI, op_AUIPC, op_JAL, op_MISC_MEM  : begin
+            score1 = False;
+            score2 = False;
+         end
+         op_JALR, op_LOAD, op_OP_IMM, op_SYSTEM : begin
+            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][2] : False;
+            score2 = False;
+         end
+         default/*op_BRANCH, op_OP, op_STORE*/ : begin
+            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1][2] : False;
+            score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2][2] : False;
+         end
+      endcase
+
+      let score_conflict = score1 || score2;
+
+      if (cfg_verbose > 2) begin
+         $write("[%7d] rl_decode: Scoreboard = [", csr_cycle);
+         for(Integer i = 0; i < numRegs; i = i + 1) begin
+            $write("%1d, ", rg_scoreGPRs[i][2] ? 1 : 0);
+         end
+         $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
+      end
+
+      if (!score_conflict) begin
+         fifo_d2e.enq( decoded );
+         pc[0] <= fv_fall_through_pc(xPC);
+      end
+      else begin
+         if (cfg_verbose > 1) $display("[%7d] rl_decode: Replay pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
       end
    endrule
 
@@ -776,61 +800,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Receive instruction from IMem; handle exception if any, else execute it;
 
    //(* no_implicit_conditions *)
-   rule rl_exec(fifo_f2e.notEmpty && fifo_e2w.notFull);
-      let decoded = fifo_f2e.first;
-      fifo_f2e.deq;
+   rule rl_exec(fifo_d2e.notEmpty && fifo_e2w.notFull);
+      let decoded = fifo_d2e.first;
+      fifo_d2e.deq;
 
       // ----------------------------------------------------------------
       // Instruction fields decode
       Decoded_Fields fields   = fv_decode_fields(decoded.instr);
 
-
-      // Calculate dependency register
-      let score1 = ?;
-      let score2 = ?;
-      
-      case(fields.opcode7)
-         op_LUI, op_AUIPC, op_JAL, op_MISC_MEM  : begin
-            score1 = False;
-            score2 = False;
-         end
-         op_JALR, op_LOAD, op_OP_IMM, op_SYSTEM : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1] : False;
-            score2 = False;
-         end
-         default/*op_BRANCH, op_OP, op_STORE*/ : begin
-            score1 = fields.rs1 != 0 ? rg_scoreGPRs[fields.rs1] : False;
-            score2 = fields.rs2 != 0 ? rg_scoreGPRs[fields.rs2] : False;
-         end
-      endcase
-
-      let score_conflict = score1 || score2;
-
-      if (cfg_verbose > 1) $display("[%7d] rl_exec  : Prepare pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
-      if (cfg_verbose > 2) begin
-         $write("[%7d] rl_exec  : Scoreboard = [", csr_cycle);
-         for(Integer i = 0; i < numRegs; i = i + 1) begin
-            $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
-         end
-         $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
-      end
-
-      if (!score_conflict && decoded.pc == pcEpoch) begin
-         if (cfg_verbose > 0) $display("[%7d] fa_exec  : PC = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
+      if (decoded.pc == pcEpoch) begin
+         if (cfg_verbose > 1) $display("[%7d] rl_exec  : pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
 
          // Update dependency flag for $rd
          if (  fields.opcode7 != op_BRANCH
             && fields.opcode7 != op_STORE) begin
-               rg_scoreGPRs[fields.rd] <= True;
+               rg_scoreGPRs[fields.rd][1] <= True;
          end
 
-          fa_exec(decoded, fields);
+         fa_exec(decoded, fields);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
          csr_instret <= csr_instret + 1;
       end
       else begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : Bypass PC = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] rl_exec  : Ignore pc = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
    endrule
 
@@ -888,11 +881,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          end
       endcase
 
-      if (cfg_verbose > 1) $display("[%7d] rl_write : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
+      if (cfg_verbose > 1) $display("[%7d] rl_write : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd][0] ? 1 : 0);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
       rf_GPRs.upd(rd, rd_value);
-      rg_scoreGPRs[rd] <= False;
+      rg_scoreGPRs[rd][0] <= False;
    endrule
 
 
