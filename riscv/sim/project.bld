@@ -45,6 +45,19 @@ extends-target:           rtl_dut
 bsv-define:               PROC_FILE=RiscV SIM
 workstation-project-file: rtl_riscv.bspec
 
+[riscv2]
+extends-target:           bsim_dut
+top-file:                 ../src/Proc.bsv
+bsv-define:               PROC_FILE=RiscV SIM
+workstation-project-file: riscv2.bspec
+exe-file:                 riscv2_dut
+
+[rtl_riscv2]
+extends-target:           rtl_dut
+top-file:                 ../src/Proc.bsv
+bsv-define:               PROC_FILE=RiscV SIM
+workstation-project-file: rtl_riscv2.bspec
+
 [tb]
 extends-target:       common
 scemi-tb
