@@ -39,11 +39,11 @@ typedef enum {
 // DMem requests
 
 typedef struct {
-   Mem_Op         mem_op;
-   Mem_Data_Size  mem_data_size;
-   Addr           addr;
-   Word           data;          // Only relevant if mem_op == MEM_OP_STORE
-} DMem_Req deriving(Bits, FShow);
+   Mem_Op               mem_op;
+   Addr                 addr;
+   Word                 data;          // Only relevant if mem_op == MEM_OP_STORE
+   Bit#(Bytes_per_Word) written;
+} DMem_Req deriving(Bits);
 
 // ----------------
 // DMem responses: either an exception or data
@@ -60,7 +60,6 @@ module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
    Reg#(Bool)                             dmem_rd  <- mkDReg(False);
    Reg#(Bit#(2))                          rg_shift <- mkRegU;
-   Reg#(Mem_Data_Size)                    rg_size  <- mkRegU;
 
    method Action imem_req(Addr addr);
       let phyAddr = addr - imemSt;
@@ -75,50 +74,14 @@ module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
 
    method Action dmem_req(DMem_Req req);
       let phyAddr = (req.addr - dmemSt);
-      Word val = req.data;
       Bit#(Bits_per_Word_Byte_Index) shift = truncate(req.addr);
-      Bit#(Bytes_per_Word) mask = 4'b1111;
-      Word pad = ?;
 
-      rg_shift <= shift;
-      rg_size  <= req.mem_data_size;
+      if (shift != 0) begin
+         $display("Memory alignment check failed at addr 0x%h", req.addr);
+         $finish;
+      end
 
-      case(req.mem_data_size)
-         BITS8: begin
-            case(shift)
-               0: begin
-                  mask = 4'b0001;
-               end
-               2'd1: begin
-                  mask = 4'b0010;
-                  val = {pad[15:0], val[7:0], ?};
-               end
-               2: begin
-                  mask = 4'b0100;
-                  val = {pad[7:0], val[7:0], ?};
-               end
-               3: begin
-                  mask = 4'b1000;
-                  val = {val[7:0], ?};
-               end
-            endcase
-         end
-         BITS16: begin
-            if (shift[0] != 0) begin
-               $display("Unaligned memory access on 16-bits bound");
-               $finish;
-            end
-            if (shift[1] == 0) begin
-               mask = 4'b0011;
-            end
-            else begin
-               mask = 4'b1100;
-               val = {val[15:0], ?};
-            end
-         end
-      endcase
-
-      dmem.a.put((req.mem_op == MEM_OP_STORE) ? mask : 0, truncate(phyAddr >> 2), val);
+      dmem.a.put(req.written, truncate(phyAddr >> 2), req.data);
       dmem_rd <= !(req.mem_op == MEM_OP_STORE);
       //$display("[DMEM] Addr = 0x%08h", req.addr);
    endmethod
@@ -126,13 +89,7 @@ module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
    method ActionValue#(DMem_Resp) dmem_resp;
       Word v = dmem.a.read();
 
-      case(rg_shift)
-         0: v = v;
-         1: v = {?, v[31: 8]};
-         2: v = {?, v[31:16]};
-         3: v = {?, v[31:24]};
-      endcase
-
+      //$display("[DMEM] Data = 0x%08h", v);
       return dmem_rd ? tagged Valid v : tagged Invalid;
    endmethod
 endmodule
@@ -297,9 +254,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------
    // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
 
-   function Action fa_finish_with_Ld(RegName rd, Bit#(3) funct3);
+   function Action fa_finish_with_Ld(RegName rd, Bit#(3) funct3, Bit#(Bits_per_Word_Byte_Index) align);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Funct3 funct3} );
+         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {funct3: funct3, align: align})} );
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -438,12 +395,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
-                     let req = DMem_Req {mem_op:        MEM_OP_LOAD,
-                                         mem_data_size: sz,
-                                         addr:          mem_addr,
-                                         data:          ?};
+                     Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
+                     let req = DMem_Req {mem_op:      MEM_OP_LOAD,
+                                         addr:        {mem_addr[xlen-1:2], 2'b00},
+                                         written:     0,
+                                         data:        ?};
                      memory.dmem_req(req);
-                     fa_finish_with_Ld(fields.rd, fields.funct3);
+                     fa_finish_with_Ld(fields.rd, fields.funct3, align);
                   endaction
                endfunction
 
@@ -480,10 +438,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
                function Action fa_ST_req(Mem_Data_Size sz);
                   action
-                     let req = DMem_Req {mem_op:        MEM_OP_STORE,
-                                         mem_data_size: sz,
-                                         addr:          mem_addr,
-                                         data:          v2};
+                     Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
+                     Word aligned_data = v2 << {align, 3'b0};
+                     Bit#(Bytes_per_Word) write_en = (case(sz)
+                                                         BITS8:  ('b0001 << align);
+                                                         BITS16: ('b0011 << align);
+                                                         default/*BITS32*/: ('b1111);
+                                                      endcase);
+
+                     let req = DMem_Req {mem_op:      MEM_OP_STORE,
+                                         addr:        {mem_addr[xlen-1:2], 2'b00},
+                                         data:        aligned_data,
+                                         written:     write_en};
                      memory.dmem_req(req);
                      fa_finish_with_no_output;
                   endaction
@@ -826,7 +792,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       let rd_value = ?;
 
       case(x.rd_value) matches
-         tagged Funct3 .funct3: begin
+         tagged MemOp .op: begin
+            let funct3 = op.funct3;
+            let align = op.align;
             let resp <- memory.dmem_resp;
 
             if (cfg_verbose > 0 && !isValid(resp)) begin
@@ -835,37 +803,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             end
 
             let u = fromMaybe(?, resp);
-
-            case (funct3)
-               f3_LB:  begin
-                           Int#(8)   s8    = unpack(truncate(u));
-                           Word_S    s     = signExtend(s8);
-                           Word      value = pack(s);
-                           rd_value = value;
-                       end
-               f3_LBU: begin
-                           Bit#(8)   u8    = truncate(u);
-                           Word      value = zeroExtend(u8);
-                           rd_value = value;
-                       end
-               f3_LH:  begin
-                           Int#(16)  s16   = unpack(truncate(u));
-                           Word_S    s     = signExtend(s16);
-                           Word      value = pack(s);
-                           rd_value = value;
-                       end
-               f3_LHU: begin
-                           Bit#(16)  u16   = truncate(u);
-                           Word      value = zeroExtend(u16);
-                           rd_value = value;
-                       end
-               default: /*f3_LW:*/  begin
-                           Int#(32)  s32   = unpack(truncate(u));
-                           Word_S    s     = signExtend(s32);
-                           Word      value = pack(s);
-                           rd_value = value;
-                       end
-            endcase
+            let data = u >> {align, 3'b0};
+            let extendFunc = (funct3 == f3_LBU || funct3 == f3_LHU) ? zeroExtend : signExtend;
+            rd_value = (case (funct3)
+                    f3_LB, f3_LBU: extendFunc(data[7:0]);
+                    f3_LH, f3_LHU: extendFunc(data[15:0]);
+                    default: extendFunc(data[31:0]);
+                  endcase);
          end
          tagged Value .value: begin
             rd_value = value;

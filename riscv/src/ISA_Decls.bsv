@@ -52,8 +52,12 @@ typedef TLog#(Bytes_per_Word)       Bits_per_Word_Byte_Index;
 // Write Back Stage
 
 typedef union tagged {
-   Word     Value;
-   Bit#(3)  Funct3;
+   Word        Value;
+
+   struct {
+      Bit#(3)                          funct3;
+      Bit#(Bits_per_Word_Byte_Index)   align;
+   }           MemOp;
 } Exec2WbValue_t deriving(Bits);
 
 typedef struct {
