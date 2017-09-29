@@ -56,8 +56,8 @@ typedef Maybe#(Word) DMem_Resp;
 // Memory interface reference design
 
 module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
-   BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, "mem.vmh", False);
-   BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, "mem.vmh.D", False);
+   BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
+   BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
    Reg#(Bool)                             dmem_rd  <- mkDReg(False);
    Reg#(Bit#(2))                          rg_shift <- mkRegU;
 
