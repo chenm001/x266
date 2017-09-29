@@ -13,7 +13,6 @@ import SpecialFIFOs  :: *;
 // BSV project imports
 
 import ISA_Decls :: *;    // Instruction encodings
-import Ehr       ::*;
 
 // ================================================================
 // Memory interface for CPU
@@ -138,7 +137,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bool)  cpu_enabled <- mkReg(False);
 
    // Program counter
-   Ehr#(3, Word)  pc       <- mkEhrU();
+   Reg#(Addr)     pc       <- mkRegU;
+   RWire#(Addr)   rw_nxtPC <- mkRWire;
+   RWire#(Addr)   rw_jmpPC <- mkUnsafeRWire;
    Reg#(Word)     pcEpoch  <- mkConfigRegU;
 
    // General Purpose Registers
@@ -238,8 +239,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_no_output();
       action
-         //pc[1]       <= fv_fall_through_pc(pcEpoch);
-         pcEpoch     <= fv_fall_through_pc(pcEpoch);
       endaction
    endfunction
 
@@ -269,8 +268,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
       action
          fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
-         pc[1]    <= next_pc;
-         pcEpoch  <= next_pc;
+         rw_jmpPC.wset(next_pc);
       endaction
    endfunction
 
@@ -280,9 +278,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
       action
          if (condition_taken) begin
-            pc[1] <= next_pc;
+            rw_jmpPC.wset(next_pc);
          end
-         pcEpoch  <= (condition_taken ? next_pc : fv_fall_through_pc(pcEpoch));
       endaction
    endfunction
 
@@ -705,6 +702,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ================================================================
    // The CPU's top-level logic
 
+   // Update CPU internal status in every cycle
    (* fire_when_enabled, no_implicit_conditions *)
    rule update_score;
       let x = fromMaybe(0, rw_scoreGPRsSet.wget);
@@ -723,9 +721,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction fetch
    (* fire_when_enabled *)
    rule rl_fetch(cpu_enabled);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction pc = 0x%08h", csr_cycle, pc[2]);
-      memory.imem_req(pc[2]);
-      rg_f2d <= tagged Valid pc[2];
+      let next_pc = fromMaybe(fromMaybe(pc, rw_nxtPC.wget), rw_jmpPC.wget);
+      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction pc = 0x%08h", csr_cycle, next_pc);
+      memory.imem_req(next_pc);
+      rg_f2d <= tagged Valid next_pc;
+      pc <= next_pc;
    endrule
 
    // ----------------------------------------------------------------
@@ -738,8 +738,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       Decoded_Instr  decoded = fv_decode(xPC, instr, rf_GPRs);
 
       fifo_d2e.enq( decoded );
-
-      pc[0] <= fv_fall_through_pc(xPC);
+      rw_nxtPC.wset(fv_fall_through_pc(xPC));
    endrule
 
    // ---------------- EXECUTE
@@ -778,10 +777,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          fifo_d2e.deq;
       end
       else if (score_conflict) begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : STALL Conflict pc = 0x%08h, instr = 0x%h, Epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] rl_exec  : STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
       else begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : pc = 0x%08h, instr = 0x%08h", csr_cycle, decoded.pc, decoded.instr);
+         if (cfg_verbose > 1) $display("[%7d] rl_exec  : pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
 
          // Update dependency flag for $rd
          if (  fields.opcode7 != op_BRANCH
@@ -791,6 +790,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          fa_exec(decoded, fields);
          fifo_d2e.deq;
+
+         // Update pcEpoch
+         pcEpoch <= fromMaybe(fv_fall_through_pc(pcEpoch), rw_jmpPC.wget);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
          csr_instret <= csr_instret + 1;
@@ -847,7 +849,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // INTERFACE
 
    method Action start(Addr initial_pc) if (!cpu_enabled);
-      pc[2]       <= initial_pc;
+      pc          <= initial_pc;
       pcEpoch     <= initial_pc;
       cpu_enabled <= True;
    endmethod
