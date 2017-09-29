@@ -364,10 +364,9 @@ typedef enum {
    OP_LB, 
    OP_LH, 
    OP_LW, 
-   OP_LD,
    OP_LBU,
    OP_LHU,
-   OP_LWU,
+   //OP_LD,
 
    // Store instructions
    OP_SB,
