@@ -29,6 +29,19 @@ RVTEST_CODE_BEGIN
       addi  x1, x1, 1; \
     )
 
+    TEST_CASE( 2, x1, 1, \
+      li  x1, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+      addi  x1, x0, 1; \
+    )
   TEST_PASSFAIL
 
 RVTEST_CODE_END
