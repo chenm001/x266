@@ -14,11 +14,11 @@ Building
 
 - RISC-V<br>
     * Build:<br>
-      * build onestage<br>
-      * build rtl_onestage<br>
+      * build risv<br>
+      * build rtl_risv<br>
     * Verify:<br>
-      * ./run_asm.sh onestage<br>
-      * ./run_bmark.sh onestage<br>
+      * ./run_asm.sh risv<br>
+      * ./run_bmark.sh risv<br>
 
 Performance
 ========
