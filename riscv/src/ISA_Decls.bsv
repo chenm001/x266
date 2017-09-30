@@ -608,7 +608,7 @@ function Decoded_Fields fv_decode_fields(Instr instr);
           };
 endfunction
 
-function Decoded_Instr fv_decode(Addr pc, Instr instr, RegFile#(RegName, Word) gpr);
+function Decoded_Instr fv_decode(Addr pc, Instr instr);
    return Decoded_Instr {
             instr    :  instr,
             op       :  fv_decode_instr(instr),

@@ -622,7 +622,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       let instr <- memory.imem_resp;
 
       if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
-      Decoded_Instr  decoded = fv_decode(xPC, instr, rf_GPRs);
+      Decoded_Instr  decoded = fv_decode(xPC, instr);
 
       fifo_d2e.enq( decoded );
       rw_nxtPC.wset(fv_fall_through_pc(xPC));
