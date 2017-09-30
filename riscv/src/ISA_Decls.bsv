@@ -358,86 +358,6 @@ function bit scause_interrupt(Word scause_val); return scause_val[xlen-1]; endfu
 function Bit#(TSub#(XLEN,5)) scause_mbz_5(Word scause_val); return scause_val[xlen-2:4]; endfunction
 function Bit#(4) scause_exception_code(Word scause_val); return scause_val[3:0]; endfunction
 
-
-typedef enum {
-   // Load instructions
-   OP_LB, 
-   OP_LH, 
-   OP_LW, 
-   OP_LBU,
-   OP_LHU,
-   //OP_LD,
-
-   // Store instructions
-   OP_SB,
-   OP_SH,
-   OP_SW,
-   //OP_SD,
-
-   // Memory Model
-   OP_FENCE,
-   OP_FENCE_I,
-
-   // Integer Register-Immediate Instructions
-   OP_ADDI,
-   OP_SLLI,
-   OP_SLTI,
-   OP_SLTIU,
-   OP_XORI,
-   OP_SRLI,
-   OP_SRAI,
-   OP_ORI,
-   OP_ANDI,
-
-   // Integer Register-Register Instructions
-   OP_ADD,
-   OP_SUB,
-   OP_SLL,
-   OP_SLT,
-   OP_SLTU,
-   OP_XOR,
-   OP_SRL,
-   OP_SRA,
-   OP_OR,
-   OP_AND,
-
-   // M Extension
-   //OP_MUL,
-   //OP_MULH,
-   //OP_MULHSU,
-   //OP_MULHU,
-   //OP_DIV,
-   //OP_DIVU,
-   //OP_REM,
-   //OP_REMU,
-
-
-   // LUI, AUIPC
-   OP_LUI,
-   OP_AUIPC,
-
-   // Control transfer
-   OP_BEQ,
-   OP_BNE,
-   OP_BLT,
-   OP_BGE,
-   OP_BLTU,
-   OP_BGEU,
-   OP_JAL,
-   OP_JALR,
-
-   // System Instructions
-   //OP_PRIV,
-   OP_CSRRW,
-   OP_CSRRS,
-   OP_CSRRC,
-   //OP_CSRRWI,
-   //OP_CSRRSI,
-   //OP_CSRRCI,
-
-   OP_ILLEGAL
-} Instr_e deriving(FShow, Bits, Eq);
-
 // ================================================================
 // Instruction fields
 
@@ -471,13 +391,99 @@ function  Bit#(4)   instr_pred(Instr x); return x[27:24]; endfunction
 function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
 
 typedef struct {
-   Instr_e opcode;
    Maybe#(RegName) rs1;
    Maybe#(RegName) rs2;
+
+   union tagged {
+      LdFunc      Ld;
+      StFunc      St;
+      BrFunc      Br;
+      AluFunc     Alu;
+      AluFunc     Alui;
+      SysFunc     Sys;
+      void        Auipc;
+      void        Lui;
+      void        Jal;
+      void        Jalr;
+      void        Illegal;
+   } opcode;
 } Instr_s deriving(Bits, Eq);
 
 // ----------------
 // Decoded instructions
+
+typedef enum {
+   Lb    = 3'b000,
+   Lh    = 3'b001,
+   Lw    = 3'b010,
+   Lbu   = 3'b100,
+   Lhu   = 3'b101
+} LdFunc deriving(Bits, Eq, FShow);
+
+typedef enum {
+   Sb    = 3'b000,
+   Sh    = 3'b001,
+   Sw    = 3'b010
+} StFunc deriving(Bits, Eq, FShow);
+
+// These enumeration values match the bit values for funct3
+typedef enum {
+    Eq   = 3'b000,
+    Neq  = 3'b001,
+    Jal  = 3'b010,
+    Jalr = 3'b011,
+    Lt   = 3'b100,
+    Ge   = 3'b101,
+    Ltu  = 3'b110,
+    Geu  = 3'b111
+} BrFunc deriving(Bits, Eq, FShow);
+
+// This encoding tries to match {inst[30], funct3}
+typedef enum {
+    Add  = 4'b0000,
+    Sll  = 4'b0001,
+    Slt  = 4'b0010,
+    Sltu = 4'b0011,
+    Xor  = 4'b0100,
+    Srl  = 4'b0101,
+    Or   = 4'b0110,
+    And  = 4'b0111,
+    Sub  = 4'b1000,
+    Sra  = 4'b1101
+} AluFunc deriving(Bits, Eq, FShow);
+
+typedef enum {
+    CSRRW   = 3'b001,
+    CSRRS   = 3'b010,
+    CSRRC   = 3'b011,
+    CSRR,   // read-only CSR operation
+    CSRW    // write-only CSR operation
+} SysFunc deriving (Bits, Eq, FShow);
+
+
+typedef enum {
+    Load    = 7'b00000_11,
+    LoadFp  = 7'b00001_11,
+    MiscMem = 7'b00011_11,
+    OpImm   = 7'b00100_11,
+    Auipc   = 7'b00101_11,
+    OpImm32 = 7'b00110_11,
+    Store   = 7'b01000_11,
+    StoreFp = 7'b01001_11,
+    Amo     = 7'b01011_11,
+    Op      = 7'b01100_11,
+    Lui     = 7'b01101_11,
+    Op32    = 7'b01110_11,
+    Fmadd   = 7'b10000_11,
+    Fmsub   = 7'b10001_11,
+    Fnmsub  = 7'b10010_11,
+    Fnmadd  = 7'b10011_11,
+    OpFp    = 7'b10100_11,
+    Branch  = 7'b11000_11,
+    Jalr    = 7'b11001_11,
+    Jal     = 7'b11011_11,
+    System  = 7'b11100_11
+} OpKind deriving(Bits, Eq, FShow);
 
 typedef struct {
    Instr    instr;
@@ -516,73 +522,67 @@ function Instr_s fv_decode_instr(Instr instr);
    let funct10 = instr_funct10 (instr);
    let imm12_I = instr_I_imm12 (instr);
 
-   return case(opcode7)
-      op_LUI      :  Instr_s {opcode: OP_LUI,   rs1: tagged Invalid,    rs2: tagged Invalid};
-      op_AUIPC    :  Instr_s {opcode: OP_AUIPC, rs1: tagged Invalid,    rs2: tagged Invalid};
-      op_JAL      :  Instr_s {opcode: OP_JAL,   rs1: tagged Invalid,    rs2: tagged Invalid};
-      op_JALR     :  Instr_s {opcode: OP_JALR,  rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      op_BRANCH   :  Instr_s {opcode: case(funct3)
-                                       f3_BEQ   :  OP_BEQ;
-                                       f3_BNE   :  OP_BNE;
-                                       f3_BLT   :  OP_BLT;
-                                       f3_BGE   :  OP_BGE;
-                                       f3_BLTU  :  OP_BLTU;
-                                       f3_BGEU  :  OP_BGEU;
-                                       default  :  OP_ILLEGAL;
+   OpKind kind   = unpack(opcode7);
+
+   return case(kind)
+      Lui      :  Instr_s {opcode: tagged Lui,   rs1: tagged Invalid,    rs2: tagged Invalid};
+      Auipc    :  Instr_s {opcode: tagged Auipc, rs1: tagged Invalid,    rs2: tagged Invalid};
+      Jal      :  Instr_s {opcode: tagged Jal,   rs1: tagged Invalid,    rs2: tagged Invalid};
+      Jalr     :  Instr_s {opcode: tagged Jalr,  rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Branch   :  Instr_s {opcode: case(funct3)
+                                       f3_BEQ   :  tagged Br Eq;
+                                       f3_BNE   :  tagged Br Neq;
+                                       f3_BLT   :  tagged Br Lt;
+                                       f3_BGE   :  tagged Br Ge;
+                                       f3_BLTU  :  tagged Br Ltu;
+                                       f3_BGEU  :  tagged Br Geu;
+                                       default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      op_LOAD     :  Instr_s {opcode: case(funct3)
-                                       f3_LB    :  OP_LB;
-                                       f3_LBU   :  OP_LBU;
-                                       f3_LH    :  OP_LH;
-                                       f3_LHU   :  OP_LHU;
-                                       f3_LW    :  OP_LW;
-                                       default  :  OP_ILLEGAL;
+      Load     :  Instr_s {opcode: case(funct3)
+                                       f3_LB    :  tagged Ld Lb;
+                                       f3_LBU   :  tagged Ld Lbu;
+                                       f3_LH    :  tagged Ld Lh;
+                                       f3_LHU   :  tagged Ld Lhu;
+                                       f3_LW    :  tagged Ld Lw;
+                                       default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      op_STORE    :  Instr_s {opcode: case(funct3)
-                                       f3_SB    :  OP_SB;
-                                       f3_SH    :  OP_SH;
-                                       f3_SW    :  OP_SW;
-                                       default  :  OP_ILLEGAL;
+      Store    :  Instr_s {opcode: case(funct3)
+                                       f3_SB    :  tagged St Sb;
+                                       f3_SH    :  tagged St Sh;
+                                       f3_SW    :  tagged St Sw;
+                                       default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      op_OP_IMM   :  Instr_s {opcode: case(funct3)
-                                       f3_ADDI  :  OP_ADDI;
-                                       f3_SLTI  :  OP_SLTI;
-                                       f3_SLTIU :  OP_SLTIU;
-                                       f3_XORI  :  OP_XORI;
-                                       f3_ORI   :  OP_ORI;
-                                       f3_ANDI  :  OP_ANDI;
-                                       f3_SLLI  :  (imm12_I[10] == 1'b0 ? OP_SLLI : OP_ILLEGAL);
-                                       f3_SRxI  :  (imm12_I[10] == 1'b0 ? OP_SRLI : OP_SRAI);
-                                       default  :  OP_ILLEGAL;
+      OpImm    :  Instr_s {opcode: case(funct3)
+                                       f3_ADDI  :  tagged Alui Add;
+                                       f3_SLTI  :  tagged Alui Slt;
+                                       f3_SLTIU :  tagged Alui Sltu;
+                                       f3_XORI  :  tagged Alui Xor;
+                                       f3_ORI   :  tagged Alui Or;
+                                       f3_ANDI  :  tagged Alui And;
+                                       f3_SLLI  :  (imm12_I[10] == 1'b0 ? tagged Alui Sll : tagged Illegal);
+                                       f3_SRxI  :  tagged Alui (imm12_I[10] == 1'b0 ? Srl : Sra);
+                                       default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      op_OP       :  Instr_s {opcode: case(funct10)
-                                       f10_ADD  :  OP_ADD;
-                                       f10_SUB  :  OP_SUB;
-                                       f10_SLL  :  OP_SLL;
-                                       f10_SLT  :  OP_SLT;
-                                       f10_SLTU :  OP_SLTU;
-                                       f10_XOR  :  OP_XOR;
-                                       f10_SRL  :  OP_SRL;
-                                       f10_SRA  :  OP_SRA;
-                                       f10_OR   :  OP_OR;
-                                       f10_AND  :  OP_AND;
-                                       default  :  OP_ILLEGAL;
+      Op       :  Instr_s {opcode: case(funct10)
+                                       f10_ADD  :  tagged Alu Add;
+                                       f10_SUB  :  tagged Alu Sub;
+                                       f10_SLL  :  tagged Alu Sll;
+                                       f10_SLT  :  tagged Alu Slt;
+                                       f10_SLTU :  tagged Alu Sltu;
+                                       f10_XOR  :  tagged Alu Xor;
+                                       f10_SRL  :  tagged Alu Srl;
+                                       f10_SRA  :  tagged Alu Sra;
+                                       f10_OR   :  tagged Alu Or;
+                                       f10_AND  :  tagged Alu And;
+                                       default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      op_MISC_MEM :  Instr_s {opcode: case(funct3)
-                                          f3_FENCE :  ( ( (rd == 0)
-                                                       && (rs1 == 0)
-                                                       && (truncateLSB(imm12_I) == 4'b0) ) ? OP_FENCE : OP_ILLEGAL);
-                                          f3_FENCE_I: ( ( (rd == 0)
-                                                       && (rs1 == 0)
-                                                       && (imm12_I == 12'b0) ) ? OP_FENCE_I : OP_ILLEGAL);
-                                          default:    OP_ILLEGAL;
-                                    endcase,    rs1: tagged Invalid,    rs2: tagged Invalid};
-      op_SYSTEM   :  Instr_s {opcode: case(funct3)
-                                          f3_CSRRW :  OP_CSRRW;
-                                          f3_CSRRS :  OP_CSRRS;
-                                          f3_CSRRC :  OP_CSRRC;
-                                          default  :  OP_ILLEGAL;
+      System   :  Instr_s {opcode: case(funct3)
+                                          f3_CSRRW :  tagged Sys CSRRW;
+                                          f3_CSRRS :  tagged Sys CSRRS;
+                                          f3_CSRRC :  tagged Sys CSRRC;
+                                          default  :  tagged Illegal;
                                     endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      default  :  Instr_s {opcode: Illegal, rs1: ?, rs2: ?};
    endcase;
 endfunction
 

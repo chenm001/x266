@@ -306,7 +306,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          // ----------------------------------------------------------------
          // Instructions for Upper Immediate
-
          function Action fa_exec_LUI();
             action
                Bit#(32)    v32   = { fields.imm20_U, 12'h0 };
@@ -352,35 +351,26 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             endaction
          endfunction: fa_exec_JALR
 
-         function Action fa_exec_BRANCH();
+         function Action fa_exec_BRANCH(BrFunc op);
             action
                Word_S offset  = extend(unpack(fields.imm13_SB));
                Word   next_pc = pack(unpack(pcEpoch) + offset);
 
-               case(decoded.op.opcode)
-                  OP_BEQ   :  fa_finish_cond_branch(v1  == v2,    next_pc);
-                  OP_BNE   :  fa_finish_cond_branch(v1  != v2,    next_pc);
-                  OP_BLT   :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
-                  OP_BGE   :  fa_finish_cond_branch(s_v1 >= s_v2, next_pc);
-                  OP_BLTU  :  fa_finish_cond_branch(v1  <  v2,    next_pc);
-                  /* OP_BGEU */
-                  default  :  fa_finish_cond_branch(v1  >= v2,    next_pc);
+               case(op)
+                  Eq    :  fa_finish_cond_branch(v1  == v2,    next_pc);
+                  Neq   :  fa_finish_cond_branch(v1  != v2,    next_pc);
+                  Lt    :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
+                  Ge    :  fa_finish_cond_branch(s_v1 >= s_v2, next_pc);
+                  Ltu   :  fa_finish_cond_branch(v1  <  v2,    next_pc);
+                  /* Geu */
+               default  :  fa_finish_cond_branch(v1  >= v2,    next_pc);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                              case(decoded.op.opcode)
-                                 OP_BEQ  : "beq";
-                                 OP_BNE  : "bne";
-                                 OP_BLT  : "blt";
-                                 OP_BGE  : "bge";
-                                 OP_BLTU : "bltu";
-                                 OP_BGEU : "bgeu";
-                              endcase,
-                              regNameABI[fields.rs1],
-                              regNameABI[fields.rs2],
-                              next_pc
-                  );
+                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** B", csr_cycle, decoded.pc)
+                           + fshow(op)
+                           + $format(" %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], next_pc);
+                  $display(msg);
                end
             endaction
          endfunction: fa_exec_BRANCH
@@ -389,7 +379,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // LD and ST instructions.
          // Issue request here; will be completed in STATE_EXEC_LD/ST_RESPONSE
 
-         function Action fa_exec_LD_Req();
+         function Action fa_exec_LD_Req(LdFunc op);
             action
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
@@ -406,33 +396,25 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                   endaction
                endfunction
 
-               case(decoded.op.opcode)
-                  OP_LB    :  fa_LD_Req(BITS8);
-                  OP_LBU   :  fa_LD_Req(BITS8);
-                  OP_LH    :  fa_LD_Req(BITS16);
-                  OP_LHU   :  fa_LD_Req(BITS16);
-                  /*OP_LW*/
-                  default  :  fa_LD_Req(BITS32);
+               case(op)
+                  Lb    :  fa_LD_Req(BITS8);
+                  Lbu   :  fa_LD_Req(BITS8);
+                  Lh    :  fa_LD_Req(BITS16);
+                  Lhu   :  fa_LD_Req(BITS16);
+                  /*Lw*/
+               default  :  fa_LD_Req(BITS32);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.op.opcode)
-                                 OP_LB  : "lb";
-                                 OP_LBU : "lbu";
-                                 OP_LH  : "lh";
-                                 OP_LHU : "lhu";
-                                 OP_LW  : "lw";
-                              endcase,
-                              regNameABI[fields.rd],
-                              regNameABI[fields.rs1],
-                              imm_s
-                  );
+                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
+                           + fshow(op)
+                           + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+                  $display(msg);
                end
             endaction
          endfunction: fa_exec_LD_Req
 
-         function Action fa_exec_ST_Req();
+         function Action fa_exec_ST_Req(StFunc op);
             action
                Word_S  imm_s    = extend(unpack(fields.imm12_S));
                Word    mem_addr = pack(s_v1 + imm_s);
@@ -456,24 +438,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                   endaction
                endfunction
 
-               case(decoded.op.opcode)
-                  OP_SB    :  fa_ST_req(BITS8);
-                  OP_SH    :  fa_ST_req(BITS16);
-                  /*OP_SW*/
-                  default  :  fa_ST_req(BITS32);
+               case(op)
+                  Sb    :  fa_ST_req(BITS8);
+                  Sh    :  fa_ST_req(BITS16);
+                  /*Sw*/
+               default  :  fa_ST_req(BITS32);
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %1d", csr_cycle, decoded.pc,
-                              case(decoded.op.opcode)
-                                 OP_SB  : "sb";
-                                 OP_SH  : "sh";
-                                 OP_SW  : "sw";
-                              endcase,
-                              regNameABI[fields.rd],
-                              regNameABI[fields.rs1],
-                              imm_s
-                  );
+                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
+                           + fshow(op)
+                           + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+                  $display(msg);
                end
             endaction
          endfunction: fa_exec_ST_Req
@@ -481,41 +457,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instructios for Register-Immediate alu ops
 
-         function Action fa_exec_OP_IMM();
+         function Action fa_exec_OP_IMM(AluFunc op);
             action
                Word                v2    = zeroExtend(fields.imm12_I);
                Word_S              s_v2  = signExtend(unpack(fields.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(fields.imm12_I);
 
-               case(decoded.op.opcode)
-                  OP_ADDI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
-                  OP_SLTI  :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
-                  OP_SLTIU :  fa_finish_with_Rd(fields.rd, ((v1  < pack(s_v2))  ? 1 : 0));
-                  OP_XORI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
-                  OP_ORI   :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
-                  OP_ANDI  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
-                  OP_SLLI  :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
-                  OP_SRLI  :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
-                  /*OP_SRAI*/
-                  default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
+               case(op)
+                  Add   :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
+                  Slt   :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  Sltu  :  fa_finish_with_Rd(fields.rd, ((v1  < pack(s_v2))  ? 1 : 0));
+                  Xor   :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
+                  Or    :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
+                  And   :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
+                  Sll   :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
+                  Srl   :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
+                  /*Sra*/
+               default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, 0x%h", csr_cycle, decoded.pc,
-                        case(decoded.op.opcode)
-                           OP_ADDI  : "addi";
-                           OP_SLTI  : "slti";
-                           OP_SLTIU : "sltiu";
-                           OP_XORI  : "xori";
-                           OP_ANDI  : "andi";
-                           OP_SLLI  : "slli";
-                           OP_SRLI  : "srli";
-                           OP_SRAI  : "srai";
-                        endcase,
-                        regNameABI[fields.rd],
-                        regNameABI[fields.rs1],
-                        fields.imm12_I
-                  );
+                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
+                           + fshow(op)
+                           + $format("i %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], fields.imm12_I);
+                  $display(msg);
                end
             endaction
          endfunction: fa_exec_OP_IMM
@@ -523,76 +488,48 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // ----------------------------------------------------------------
          // Instructios for Register-Register alu ops
 
-         function Action fa_exec_OP();
+         function Action fa_exec_OP(AluFunc op);
             action
                Bit#(TLog#(XLEN)) shamt = truncate(v2);    // NOTE: upper bits are unspecified in spec
 
-               case(decoded.op.opcode)
-                  OP_ADD   :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
-                  OP_SUB   :  fa_finish_with_Rd(fields.rd, pack(s_v1 - s_v2));
-                  OP_SLL   :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
-                  OP_SLT   :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
-                  OP_SLTU  :  fa_finish_with_Rd(fields.rd, ((v1  < v2)  ? 1 : 0));
-                  OP_XOR   :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
-                  OP_SRL   :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
-                  OP_SRA   :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
-                  OP_OR    :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
-                  /*OP_AND*/
-                  default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
+               case(op)
+                  Add   :  fa_finish_with_Rd(fields.rd, pack(s_v1 + s_v2));
+                  Sub   :  fa_finish_with_Rd(fields.rd, pack(s_v1 - s_v2));
+                  Sll   :  fa_finish_with_Rd(fields.rd, (v1 << shamt));
+                  Slt   :  fa_finish_with_Rd(fields.rd, ((s_v1 < s_v2) ? 1 : 0));
+                  Sltu  :  fa_finish_with_Rd(fields.rd, ((v1  < v2)  ? 1 : 0));
+                  Xor   :  fa_finish_with_Rd(fields.rd, pack(s_v1 ^ s_v2));
+                  Srl   :  fa_finish_with_Rd(fields.rd, (v1 >> shamt));
+                  Sra   :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
+                  Or    :  fa_finish_with_Rd(fields.rd, pack(s_v1 | s_v2));
+                  /*And*/
+               default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
                endcase
 
                if (cfg_verbose > 2) begin
-                  $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, %s, %s", csr_cycle, decoded.pc,
-                        case(decoded.op.opcode)
-                           OP_ADD  : "add";
-                           OP_SUB  : "sub";
-                           OP_SLL  : "sll";
-                           OP_SLT  : "slt";
-                           OP_SLTU : "sltu";
-                           OP_XOR  : "xor";
-                           OP_SRL  : "srl";
-                           OP_SRA  : "sra";
-                           OP_OR   : "or";
-                           OP_AND  : "and";
-                        endcase,
-                        regNameABI[fields.rd],
-                        regNameABI[fields.rs1],
-                        regNameABI[fields.rs2]
-                  );
+                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
+                           + fshow(op)
+                           + $format(" %s, %s, %s", regNameABI[fields.rd], regNameABI[fields.rs1], regNameABI[fields.rs2]);
+                  $display(msg);
                end
             endaction
          endfunction: fa_exec_OP
 
-         // ----------------------------------------------------------------
-         // Instructions for MISC-MEM
-         // Currently implemented as no-ops (todo: fix)
-
-         function Action fa_exec_MISC_MEM();
-            action
-               case(decoded.op.opcode)
-                  OP_FENCE :  fa_finish_with_no_output;
-                  /*OP_FENCE_I*/
-                  default  :  fa_finish_with_no_output;
-               endcase
-
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** %s (ignore)", csr_cycle, decoded.pc, decoded.op.opcode == OP_FENCE ? "fence" : "fence.i");
-            endaction
-         endfunction: fa_exec_MISC_MEM
 
          // ----------------------------------------------------------------
          // Instrucions for System-level ops
 
-         function Action fa_exec_SYSTEM();
+         function Action fa_exec_SYSTEM(SysFunc op);
             action
                let csr_old_val = fromMaybe(?, m_v_csr);
 
-               case(decoded.op.opcode)
-                  OP_CSRRW :  begin
+               case(op)
+                  CSRRW :  begin
                                  fa_write_csr(fields.csr, v1);
                                  fa_finish_with_Rd(fields.rd, csr_old_val);
                               end
 
-                  OP_CSRRS :  begin
+                  CSRRS :  begin
                                  if (fields.rs1 != 0) begin
                                     Word csr_new_val = (csr_old_val | v1);
                                     fa_write_csr(fields.csr, csr_new_val);
@@ -600,8 +537,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                  fa_finish_with_Rd(fields.rd, csr_old_val);
                               end
 
-                  /*OP_CSRRC*/
-                  default  :  begin
+                  /*CSRRC*/
+               default  :  begin
                                  if (fields.rs1 != 0) begin
                                     Word csr_new_val = (csr_old_val & (~ v1));
                                     fa_write_csr(fields.csr, csr_new_val);
@@ -611,27 +548,17 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endcase
 
                if (cfg_verbose > 2) begin
-                  if ( (decoded.op.opcode == OP_CSRRS) && (fields.csr == csr_CYCLE) )
+                  if ( (op == CSRRS) && (fields.csr == csr_CYCLE) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (decoded.op.opcode == OP_CSRRS) && (fields.csr == csr_INSTRET) )
+                  else if ( (op == CSRRS) && (fields.csr == csr_INSTRET) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (decoded.op.opcode == OP_CSRRW) && (fields.csr == csr_DCSR) )
+                  else if ( (op == CSRRW) && (fields.csr == csr_DCSR) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
                   else begin
-                     $display("[%7d] fa_exec  : pc = 0x%h, *** %s %s, 0x%h, %s", csr_cycle, decoded.pc,
-                           case(decoded.op.opcode)
-                              OP_CSRRW : "csrrw";
-                              OP_CSRRS : "csrrs";
-                              OP_CSRRC : "csrrc";
-                              //OP_CSRRWI : "csrrwi";
-                              //OP_CSRRSI : "csrrsi";
-                              //OP_CSRRCI : "csrrci";
-                              default  : "Unsupport";
-                           endcase,
-                           regNameABI[fields.rd],
-                           fields.csr,
-                           regNameABI[fields.rs1]
-                     );
+                     let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
+                              + fshow(op)
+                              + $format(" %s, 0x%h, %s", regNameABI[fields.rd], fields.csr, regNameABI[fields.rs1]);
+                     $display(msg);
                   end
                end
             endaction
@@ -641,58 +568,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
-         case(decoded.op.opcode)
-            OP_LUI      :  fa_exec_LUI();
-            OP_AUIPC    :  fa_exec_AUIPC();
-            OP_JAL      :  fa_exec_JAL();
-            OP_JALR     :  fa_exec_JALR();
-
-            OP_BEQ      ,
-            OP_BNE      ,
-            OP_BLT      ,
-            OP_BGE      ,
-            OP_BLTU     ,
-            OP_BGEU     :  fa_exec_BRANCH();
-
-            OP_LB       ,
-            OP_LBU      ,
-            OP_LH       ,
-            OP_LHU      ,
-            OP_LW       :  fa_exec_LD_Req();
-
-            OP_SB       ,
-            OP_SH       ,
-            OP_SW       :  fa_exec_ST_Req();
-
-            OP_ADDI     ,
-            OP_SLTI     ,
-            OP_SLTIU    ,
-            OP_XORI     ,
-            OP_ORI      ,
-            OP_ANDI     ,
-            OP_SLLI     ,
-            OP_SRLI     ,
-            OP_SRAI     :  fa_exec_OP_IMM();
-
-            OP_ADD      ,
-            OP_SUB      ,
-            OP_SLL      ,
-            OP_SLT      ,
-            OP_SLTU     ,
-            OP_XOR      ,
-            OP_SRL      ,
-            OP_SRA      ,
-            OP_OR       ,
-            OP_AND      :  fa_exec_OP();
-
-            OP_FENCE    ,
-            OP_FENCE_I  :  fa_exec_MISC_MEM();
-
-            OP_CSRRW    ,
-            OP_CSRRS    ,
-            OP_CSRRC    :  fa_exec_SYSTEM();
-
-            default     :  fa_finish_with_exception(exc_code_ILLEGAL_INSTRUCTION, ?);
+         case(decoded.op.opcode) matches
+            tagged Lui        :  fa_exec_LUI();
+            tagged Auipc      :  fa_exec_AUIPC();
+            tagged Jal        :  fa_exec_JAL();
+            tagged Jalr       :  fa_exec_JALR();
+            tagged Br   .op   :  fa_exec_BRANCH(op);
+            tagged Ld   .op   :  fa_exec_LD_Req(op);
+            tagged St   .op   :  fa_exec_ST_Req(op);
+            tagged Alui .op   :  fa_exec_OP_IMM(op);
+            tagged Alu  .op   :  fa_exec_OP(op);
+            tagged Sys  .op   :  fa_exec_SYSTEM(op);
+            default           :  fa_finish_with_exception(exc_code_ILLEGAL_INSTRUCTION, ?);
          endcase
       endaction
    endfunction: fa_exec
@@ -782,10 +669,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       else begin
          if (cfg_verbose > 1) $display("[%7d] rl_exec  : pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
 
+         Bool checkScore = case(decoded.op.opcode) matches
+                              tagged Br .*   : False;
+                              tagged St .*   : False;
+                              default        : True;
+                           endcase;
+
          // Update dependency flag for $rd
-         if (  fields.opcode7 != op_BRANCH
-            && fields.opcode7 != op_STORE) begin
-               rw_scoreGPRsSet.wset(fields.rd);
+         if (checkScore) begin
+            rw_scoreGPRsSet.wset(fields.rd);
          end
 
          fa_exec(decoded, fields);
