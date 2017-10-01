@@ -623,9 +623,19 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
       if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
       Decoded_Instr  decoded = fv_decode(xPC, instr);
+      Decoded_Fields fields  = fv_decode_fields(decoded.instr);
+
+      // Fetch Address prediction by jump instruction {J offset}
+      if (decoded.op.opcode matches tagged Jal) begin
+         Word_S offset  = extend(unpack(fields.imm21_UJ));
+         Addr   next_pc = pack(unpack(xPC) + offset);
+         rw_nxtPC.wset(next_pc);
+      end
+      else begin
+         rw_nxtPC.wset(fv_fall_through_pc(xPC));
+      end
 
       fifo_d2e.enq( decoded );
-      rw_nxtPC.wset(fv_fall_through_pc(xPC));
    endrule
 
    // ---------------- EXECUTE
