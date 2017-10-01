@@ -137,10 +137,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bool)  cpu_enabled <- mkReg(False);
 
    // Program counter
-   Reg#(Addr)     pc       <- mkRegU;
-   RWire#(Addr)   rw_nxtPC <- mkRWire;
-   RWire#(Addr)   rw_jmpPC <- mkUnsafeRWire;
-   Reg#(Word)     pcEpoch  <- mkConfigRegU;
+   Reg#(Addr)     rg_FetchPC  <- mkRegU;
+   RWire#(Addr)   rw_nxtPC    <- mkRWire;
+   RWire#(Addr)   rw_jmpPC    <- mkUnsafeRWire;
+   Reg#(Word)     pcEpoch     <- mkConfigRegU;
 
    // General Purpose Registers
    RegFile#(RegName, Word) rf_GPRs  <- mkRegFileWCF(0, ~0);
@@ -608,11 +608,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction fetch
    (* fire_when_enabled *)
    rule rl_fetch(cpu_enabled);
-      let next_pc = fromMaybe(fromMaybe(pc, rw_nxtPC.wget), rw_jmpPC.wget);
+      let next_pc = fromMaybe(fromMaybe(rg_FetchPC, rw_nxtPC.wget), rw_jmpPC.wget);
       if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction pc = 0x%08h", csr_cycle, next_pc);
       memory.imem_req(next_pc);
-      rg_f2d <= tagged Valid next_pc;
-      pc <= next_pc;
+      rg_f2d      <= tagged Valid next_pc;
+      rg_FetchPC  <= next_pc;
    endrule
 
    // ----------------------------------------------------------------
@@ -741,7 +741,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // INTERFACE
 
    method Action start(Addr initial_pc) if (!cpu_enabled);
-      pc          <= initial_pc;
+      rg_FetchPC  <= initial_pc;
       pcEpoch     <= initial_pc;
       cpu_enabled <= True;
    endmethod
