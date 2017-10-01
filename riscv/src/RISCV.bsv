@@ -24,7 +24,7 @@ import DReg     :: *;
 // ----------------
 // IMem responses: either and exception or an instruction
 
-typedef Word IMem_Resp;
+typedef Tuple2#(Word, Word) IMem_Resp;
 
 // ----------------
 // DMem request ops and sizes
@@ -55,20 +55,22 @@ typedef Maybe#(Word) DMem_Resp;
 // Memory interface reference design
 
 module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
-   BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
+   BRAM_DUAL_PORT#(Bit#(14), Word)        imem <- mkBRAMCore2Load(valueOf(TExp#(14)), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
    BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
    Reg#(Bool)                             dmem_rd  <- mkDReg(False);
    Reg#(Bit#(2))                          rg_shift <- mkRegU;
 
    method Action imem_req(Addr addr);
       let phyAddr = addr - imemSt;
-      imem.put(False, truncate(phyAddr >> 2), ?);
+      imem.a.put(False, truncate(phyAddr >> 2), ?);
+      imem.b.put(False, truncate((phyAddr + 4) >> 2), ?);
       //$display("[%7d] [IMEM] ReqAddr = 0x%08h", cycles, addr);
    endmethod
 
    method ActionValue#(IMem_Resp) imem_resp();
-      let instr = imem.read();
-      return instr;
+      let instr = imem.a.read();
+      let ahead = imem.b.read();
+      return tuple2(instr, ahead);
    endmethod
 
    method Action dmem_req(DMem_Req req);
@@ -351,6 +353,16 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             endaction
          endfunction: fa_exec_JALR
 
+         function Action fa_exec_JALR_32(Addr x);
+            action
+               fa_finish_with_Rd(fields.rd, fv_fall_through_pc(pcEpoch + 4));
+               if (cfg_verbose > 2) begin
+                  $display("[%7d] fa_exec  : Fusion pc = 0x%h, *** auipc %s, 0", csr_cycle, decoded.pc, regNameABI[fields.rd]);
+                  $display("[       ]          :                         *** jalr %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], (x - pcEpoch));
+               end
+            endaction
+         endfunction: fa_exec_JALR_32
+
          function Action fa_exec_BRANCH(BrFunc op);
             action
                Word_S offset  = extend(unpack(fields.imm13_SB));
@@ -573,6 +585,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             tagged Auipc      :  fa_exec_AUIPC();
             tagged Jal        :  fa_exec_JAL();
             tagged Jalr       :  fa_exec_JALR();
+            tagged Jalr_32 .x :  fa_exec_JALR_32(x);
             tagged Br   .op   :  fa_exec_BRANCH(op);
             tagged Ld   .op   :  fa_exec_LD_Req(op);
             tagged St   .op   :  fa_exec_ST_Req(op);
@@ -619,16 +632,34 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction decode
    (* conflict_free="rl_decode, rl_exec" *)
    rule rl_decode(fifo_d2e.notFull &&& rg_f2d matches tagged Valid .xPC);
-      let instr <- memory.imem_resp;
+      let x <- memory.imem_resp;
+      let instr = tpl_1(x);
+      let ahead = tpl_2(x);
 
-      if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
-      Decoded_Instr  decoded = fv_decode(xPC, instr);
-      Decoded_Fields fields  = fv_decode_fields(decoded.instr);
+      if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h, ahead = %h", csr_cycle, xPC, instr, ahead);
+      Decoded_Instr  decoded        = fv_decode(xPC, instr);
+      Decoded_Fields fields         = fv_decode_fields(instr);
+      Decoded_Instr  decoded_ahead  = fv_decode(xPC + 4, ahead);
+      Decoded_Fields fields_ahead   = fv_decode_fields(ahead);
 
       // Fetch Address prediction by jump instruction {J offset}
       if (decoded.op.opcode matches tagged Jal) begin
          Word_S offset  = extend(unpack(fields.imm21_UJ));
          Addr   next_pc = pack(unpack(xPC) + offset);
+         rw_nxtPC.wset(next_pc);
+      end
+      // Macro-op fusion for Auipc+Jalr
+      else if (    decoded.op.opcode matches tagged Auipc
+               &&& decoded_ahead.op.opcode matches tagged Jalr
+               &&& fields.rd == fields_ahead.rs1) begin
+         Word_S s_v1    = unpack(xPC) + unpack({fields.imm20_U, 12'd0});
+         Word_S offset  = extend(unpack(fields_ahead.imm12_I));
+         Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
+
+         if (cfg_verbose > 2) $display("[%7d] rl_decode: Macro-op fusion detected at pc = 0x%08h, next_pc = 0x%08h, rd/rs1 = %d", csr_cycle, xPC, next_pc, fields.rs1);
+         decoded.instr  = decoded_ahead.instr;
+         decoded.op     = Instr_s {opcode: tagged Jalr_32 next_pc,   rs1: decoded_ahead.op.rs1,    rs2: tagged Invalid};
+         
          rw_nxtPC.wset(next_pc);
       end
       else begin
@@ -694,7 +725,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          fifo_d2e.deq;
 
          // Update pcEpoch
-         pcEpoch <= fromMaybe(fv_fall_through_pc(pcEpoch), rw_jmpPC.wget);
+         if (decoded.op.opcode matches tagged Jalr_32 .x)
+            pcEpoch <= x;
+         else
+            pcEpoch <= fromMaybe(fv_fall_through_pc(pcEpoch), rw_jmpPC.wget);
 
          // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
          csr_instret <= csr_instret + 1;

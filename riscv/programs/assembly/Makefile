@@ -15,7 +15,7 @@ default: all
 # Sources
 #--------------------------------------------------------------------
 rv32ui_tests = \
-	simple conflict\
+	simple conflict fusion \
 	add addi \
 	and andi \
 	auipc \

@@ -405,6 +405,7 @@ typedef struct {
       void        Lui;
       void        Jal;
       void        Jalr;
+      Addr        Jalr_32;
       void        Illegal;
    } opcode;
 } Instr_s deriving(Bits, Eq);

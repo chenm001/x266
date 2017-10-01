@@ -25,8 +25,8 @@ Performance
 
 |   Ver   |  FPGA / ASIC   |   LUT / Area   |   MHz  |
 | :-----: |     :---:      |       ---:     |   ---: |
-|  0.3    |     XC7Z030    |      2,077     |  149.6 |
-|  0.3    |     XCZU9EG    |      1,970     |  229.2 |
+|  0.3.1  |     XC7Z030    |      2,133     |  130.9 |
+|  0.3.1  |     XCZU9EG    |      2,257     |  215.5 |
 |  0.3    |     130 nm     |      0.64 mm^2 |  400.0 |
 <br>
 |   Case    |   rdcycle  |  rdinstret |   CPI  |
