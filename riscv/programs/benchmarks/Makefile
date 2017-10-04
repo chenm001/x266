@@ -41,6 +41,9 @@ RISCV_PREFIX := $(RISCV_TOOL_DIR)/riscv64-unknown-elf
 # gcc
 RISCV_GCC := $(RISCV_PREFIX)-gcc
 RISCV_GCC_OPTS := -static -Wa,-march=rv32im -march=rv32i -mabi=ilp32 -std=gnu99 -O2 -ffast-math -fno-common -fno-builtin-printf
+RISCV_CLANG := /opt/rh/riscv-llvm/bin/clang
+RISCV_CLANG_OPTS := -target riscv32 -O2 -fno-common -fno-builtin-printf -fno-builtin-memcpy -fno-builtin-memset -fno-builtin-strlen -momit-leaf-frame-pointer -mstack-alignment=0
+
 incs := -I$(bmarkdir)/../env -I$(bmarkdir)/common
 bmarks_defs := -DPREALLOCATE=0 -DHOST_DEBUG=0
 # link

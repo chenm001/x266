@@ -16,6 +16,10 @@
 
 #include <stdint.h>
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+
 #if HOST_DEBUG
 
 #include <stdio.h>
@@ -34,20 +38,22 @@
 
     static uint32_t getInsts() {
         uint32_t inst_num = 0;
+#ifdef __llvm__
+        asm volatile ("csrrs %0, 0xC02, x0" : "=r"(inst_num) : );
+#else
         asm volatile ("csrr %0, instret" : "=r"(inst_num) : );
+#endif
         return inst_num;
     }
 
     static uint32_t getCycle() {
         uint32_t cyc_num = 0;
+#ifdef __llvm__
+        asm volatile ("csrrs %0, 0xC00, x0" : "=r"(cyc_num) : );
+#else
         asm volatile ("csrr %0, cycle" : "=r"(cyc_num) : );
+#endif
         return cyc_num;
-    }
-
-    static uint32_t getCoreId() {
-        uint32_t id = 0;
-        asm volatile ("csrr %0, mhartid" : "=r"(id) : );
-        return id;
     }
 
 #endif // HOST_DEBUG

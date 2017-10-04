@@ -11,8 +11,13 @@
 // dataset1.h
 
 #include "util.h"
-#include <string.h>
 #include <limits.h>
+
+#ifdef __llvm__
+typedef long size_t;
+#else
+#include <string.h>
+#endif
 
 //--------------------------------------------------------------------------
 // Input/Reference Data
