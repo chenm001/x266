@@ -10,45 +10,45 @@
 #include <stdio.h>
 
 void printInt(uint32_t c) {
-	printf("%d", c);
+    printf("%d", c);
 }
 void printChar(uint32_t c) {
-	printf("%c", (char)c);
+    printf("%c", (char)c);
 }
 void printStr(char *x) {
-	printf("%s", x);
+    printf("%s", x);
 }
 #else
 
 // tag of data to host
 enum ToHostTag {
-	ExitCode = 0,
-	PrintChar = 1,
-	PrintIntLow = 2,
-	PrintIntHigh = 3
+    ExitCode = 0,
+    PrintChar = 1,
+    PrintIntLow = 2,
+    PrintIntHigh = 3
 };
 
 void printInt(uint32_t c) {
-	// print low 16 bits
-	int lo = (c & 0x0000FFFF) | (((uint32_t)PrintIntLow) << 16);
+    // print low 16 bits
+    int lo = (c & 0x0000FFFF) | (((uint32_t)PrintIntLow) << 16);
 #ifdef __llvm__
-	asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (lo));
+    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (lo));
 #else
-	asm volatile ("csrw dcsr, %0" : : "r" (lo));
+    asm volatile ("csrw dcsr, %0" : : "r" (lo));
 #endif
-	// print high 16 bits
-	int hi = (c >> 16) | (((uint32_t)PrintIntHigh) << 16);
+    // print high 16 bits
+    int hi = (c >> 16) | (((uint32_t)PrintIntHigh) << 16);
 #ifdef __llvm__
-	asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (hi));
+    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (hi));
 #else
-	asm volatile ("csrw dcsr, %0" : : "r" (hi));
+    asm volatile ("csrw dcsr, %0" : : "r" (hi));
 #endif
 }
 
 void printChar(uint32_t c) {
     c = (c & 0x0000FFFF) | (((uint32_t)PrintChar) << 16);
 #ifdef __llvm__
-	asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (c));
+    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (c));
 #else
     asm volatile ("csrw dcsr, %0" : : "r" (c));
 #endif
@@ -56,7 +56,7 @@ void printChar(uint32_t c) {
 
 void printStr(char* x) {
   while(1) {
-	 // get 4B aligned addr
+     // get 4B aligned addr
      uint32_t* y = (uint32_t*)(((uint32_t)x) & ~0x3);
      uint32_t fullC = *y;
      uint32_t mod = ((uint32_t)x) & 0x3;
@@ -156,7 +156,7 @@ static void vprintfmt(void (*putch)(int, void**), void **putdat, const char *fmt
     case '-':
       padc = '-';
       goto reswitch;
-      
+
     // flag to pad with 0's instead of spaces
     case '0':
       padc = '0';
@@ -265,7 +265,7 @@ static void vprintfmt(void (*putch)(int, void**), void **putdat, const char *fmt
     case '%':
       putch(ch, putdat);
       break;
-      
+
     // unrecognized escape sequence - just print it literally
     default:
       putch('%', putdat);
@@ -400,14 +400,14 @@ long atol(const char* str)
 
 
 void toHostExit(uint32_t ret) {
-	ret = (ret & 0x0000FFFF) | (((uint32_t) ExitCode) << 16);
+    ret = (ret & 0x0000FFFF) | (((uint32_t) ExitCode) << 16);
 #ifdef __llvm__
-	asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (ret));
+    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (ret));
 #else
-	asm volatile ("csrw dcsr, %0" : : "r" (ret));
+    asm volatile ("csrw dcsr, %0" : : "r" (ret));
 #endif
-	// stall here
-	while(1);
+    // stall here
+    while(1);
 }
 
 long handle_trap(long cause, long epc, long regs[32]) {
