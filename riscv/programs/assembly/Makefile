@@ -66,11 +66,12 @@ rv32ui_tests_dump := $(patsubst %,$(dump_dir)/%.riscv.dump, $(rv32ui_tests))
 rv32ui_tests_vmh  := $(patsubst %,$(vmh_dir)/%.riscv.vmh, $(rv32ui_tests))
 
 $(rv32ui_tests_vmh): $(vmh_dir)/%.riscv.vmh: $(bin_dir)/%.riscv
-	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< > $(vmh_dir)/temp
+	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< > $(vmh_dir)/$(@F).tmp
 	@echo "@0" > $@
-	@head -n $(VMH_DEPTH_I) $(vmh_dir)/temp >> $@
+	@head -n $(VMH_DEPTH_I) $(vmh_dir)/$(@F).tmp >> $@
 	@echo "@0" > $@.D
-	@head -$(VMH_DEPTH_T) $(vmh_dir)/temp | tail -$(VMH_DEPTH_D) >> $@.D
+	@head -$(VMH_DEPTH_T) $(vmh_dir)/$(@F).tmp | tail -$(VMH_DEPTH_D) >> $@.D
+	@rm -f $(vmh_dir)/$(@F).tmp
 #	@echo "@0" > $@
 #	$(RISCV_ELF2HEX) $(VMH_WIDTH) $(VMH_DEPTH) $< >> $@
 
