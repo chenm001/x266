@@ -255,9 +255,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------
    // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
 
-   function Action fa_finish_with_Ld(RegName rd, Bit#(3) funct3, Bit#(Bits_per_Word_Byte_Index) align);
+   function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(Bits_per_Word_Byte_Index) align);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {funct3: funct3, align: align})} );
+         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, align: align})} );
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -392,7 +392,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          written:     0,
                                          data:        ?};
                      memory.dmem_req(req);
-                     fa_finish_with_Ld(fields.rd, fields.funct3, align);
+                     fa_finish_with_Ld(fields.rd, op, align);
                   endaction
                endfunction
 
@@ -700,7 +700,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
       case(x.rd_value) matches
          tagged MemOp .op: begin
-            let funct3 = op.funct3;
+            let ld_op = op.ld_op;
             let align = op.align;
             let resp <- memory.dmem_resp;
 
@@ -711,10 +711,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
             let u = fromMaybe(?, resp);
             let data = u >> {align, 3'b0};
-            let extendFunc = (funct3 == f3_LBU || funct3 == f3_LHU) ? zeroExtend : signExtend;
-            rd_value = (case (funct3)
-                    f3_LB, f3_LBU: extendFunc(data[7:0]);
-                    f3_LH, f3_LHU: extendFunc(data[15:0]);
+            let extendFunc = (ld_op == Lbu || ld_op == Lhu) ? zeroExtend : signExtend;
+            rd_value = (case(ld_op)
+                    Lb, Lbu: extendFunc(data[7:0]);
+                    Lh, Lhu: extendFunc(data[15:0]);
                     default: extendFunc(data[31:0]);
                   endcase);
          end

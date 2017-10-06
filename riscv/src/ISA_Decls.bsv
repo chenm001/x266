@@ -48,22 +48,6 @@ typedef  Word        Addr;          // addresses/pointers
 typedef TDiv#(XLEN, Bits_per_Byte)  Bytes_per_Word;
 typedef TLog#(Bytes_per_Word)       Bits_per_Word_Byte_Index;
 
-// ----------------
-// Write Back Stage
-
-typedef union tagged {
-   Word        Value;
-
-   struct {
-      Bit#(3)                          funct3;
-      Bit#(Bits_per_Word_Byte_Index)   align;
-   }           MemOp;
-} Exec2WbValue_t deriving(Bits);
-
-typedef struct {
-   RegName  rd;
-   Exec2WbValue_t rd_value;
-} Exec2Wb_t deriving(Bits);
 
 // ================================================================
 // Symbolic register names
@@ -286,14 +270,6 @@ typedef struct {
 // ----------------
 // Decoded instructions
 
-Bit#(3) f3_LB  = 3'b000;
-Bit#(3) f3_LH  = 3'b001;
-Bit#(3) f3_LW  = 3'b010;
-Bit#(3) f3_LD  = 3'b011;
-Bit#(3) f3_LBU = 3'b100;
-Bit#(3) f3_LHU = 3'b101;
-Bit#(3) f3_LWU = 3'b110;
-
 // ================================================================
 // LOAD/STORE instructions
 
@@ -356,6 +332,24 @@ typedef enum {
     CSRR,   // read-only CSR operation
     CSRW    // write-only CSR operation
 } SysFunc deriving (Bits, Eq, FShow);
+
+
+// ----------------
+// Write Back Stage
+
+typedef union tagged {
+   Word        Value;
+
+   struct {
+      LdFunc                           ld_op;
+      Bit#(Bits_per_Word_Byte_Index)   align;
+   }           MemOp;
+} Exec2WbValue_t deriving(Bits);
+
+typedef struct {
+   RegName  rd;
+   Exec2WbValue_t rd_value;
+} Exec2Wb_t deriving(Bits);
 
 
 // ================================================================
