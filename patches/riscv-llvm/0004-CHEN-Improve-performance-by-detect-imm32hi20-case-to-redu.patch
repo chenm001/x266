@@ -1,0 +1,155 @@
+From 3e137f779934b0e31657bd1c7d350458c2e3f342 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Tue, 3 Oct 2017 14:22:40 -0500
+Subject: [PATCH] [CHEN] Improve performance by detect imm32hi20 case to reduce ADDI zero instruction
+
+---
+ lib/Target/RISCV/RISCVInstrInfo.td |    2 ++
+ test/CodeGen/RISCV/calling-conv.ll |    9 +++------
+ test/CodeGen/RISCV/imm32.ll        |   26 ++++++++++++++++++++++++++
+ test/CodeGen/RISCV/vararg.ll       |   12 ++++--------
+ 4 files changed, 35 insertions(+), 14 deletions(-)
+ create mode 100644 test/CodeGen/RISCV/imm32.ll
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index b5e7fdb..c8a1c73 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -333,9 +333,11 @@ class PatGprUimmLog2XLen<SDPatternOperator OpNode, FIShift Inst> :
+ /// Immediates
+ 
+ def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
++def simm32hi20 : ImmLeaf<XLenVT, [{return isShiftedInt<20, 12>(Imm);}]>;
+ 
+ def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
+ def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>, Requires<[IsRV32]>;
++def : Pat<(simm32hi20:$imm), (LUI (HI20 imm:$imm))>, Requires<[IsRV32]>;
+ 
+ /// Simple arithmetic operations
+ 
+diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
+index 289c033..7057624 100644
+--- a/test/CodeGen/RISCV/calling-conv.ll
++++ b/test/CodeGen/RISCV/calling-conv.ll
+@@ -40,14 +40,13 @@ define i32 @caller_scalars() {
+ ; CHECK: sw ra, 12(sp)
+ ; CHECK: sw s0, 8(sp)
+ ; CHECK: addi s0, sp, 16
+-; CHECK: lui a0, 262464
+-; CHECK: addi a6, a0, 0
+ ; CHECK: lui a0, %hi(callee_scalars)
+ ; CHECK: addi a7, a0, %lo(callee_scalars)
+ ; CHECK: addi a0, zero, 1
+ ; CHECK: addi a1, zero, 2
+ ; CHECK: addi a3, zero, 3
+ ; CHECK: addi a4, zero, 4
++; CHECK: lui a6, 262464
+ ; CHECK: addi a2, zero, 0
+ ; CHECK: addi a5, zero, 0
+ ; CHECK: jalr ra, a7, 0
+@@ -92,6 +91,8 @@ define i32 @caller_large_scalars() {
+ ; CHECK: sw ra, 44(sp)
+ ; CHECK: sw s0, 40(sp)
+ ; CHECK: addi  s0, sp, 48
++; CHECK: lui a0, 524272
++; CHECK: sw a0, -36(s0)
+ ; CHECK: sw zero, -40(s0)
+ ; CHECK: sw zero, -44(s0)
+ ; CHECK: sw zero, -48(s0)
+@@ -100,9 +101,6 @@ define i32 @caller_large_scalars() {
+ ; CHECK: sw zero, -20(s0)
+ ; CHECK: addi a0, zero, 1
+ ; CHECK: sw a0, -24(s0)
+-; CHECK: lui a0, 524272
+-; CHECK: addi a0, a0, 0
+-; CHECK: sw a0, -36(s0)
+ ; CHECK: lui a0, %hi(callee_large_scalars)
+ ; CHECK: addi a2, a0, %lo(callee_large_scalars)
+ ; CHECK: addi a0, s0, -24
+@@ -435,7 +433,6 @@ define fp128 @callee_large_scalar_ret() {
+ ; CHECK: sw s0, 8(sp)
+ ; CHECK: addi s0, sp, 16
+ ; CHECK: lui a1, 524272
+-; CHECK: addi a1, a1, 0
+ ; CHECK: sw a1, 12(a0)
+ ; CHECK: sw zero, 8(a0)
+ ; CHECK: sw zero, 4(a0)
+diff --git a/test/CodeGen/RISCV/imm32.ll b/test/CodeGen/RISCV/imm32.ll
+new file mode 100644
+index 0000000..5842051
+--- /dev/null
++++ b/test/CodeGen/RISCV/imm32.ll
+@@ -0,0 +1,26 @@
++; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
++
++define i32 @imm32() nounwind readnone {
++; CHECK-LABEL: imm32:
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: lui a0, 74565
++; CHECK: addi a0, a0, 1656
++; CHECK: jalr zero, ra, 0
++  ret i32 305419896
++}
++
++define i32 @imm32hi20() nounwind readnone {
++; CHECK-LABEL: imm32hi20:
++; CHECK: addi sp, sp, -16
++; CHECK: sw ra, 12(sp)
++; CHECK: sw s0, 8(sp)
++; CHECK: addi s0, sp, 16
++; CHECK: lui a0, 16
++; CHECK-NOT: addi a0, a0, 0
++; CHECK: jalr zero, ra, 0
++  ret i32 65536
++}
++
+diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
+index 24d9782..cafe48d 100644
+--- a/test/CodeGen/RISCV/vararg.ll
++++ b/test/CodeGen/RISCV/vararg.ll
+@@ -93,10 +93,9 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) {
+ 
+ define void @va1_caller() {
+ ; CHECK-LABEL: va1_caller:
+-; CHECK: lui a0, 261888
+-; CHECK: addi a3, a0, 0
+ ; CHECK: lui a0, %hi(va1)
+ ; CHECK: addi a0, a0, %lo(va1)
++; CHECK: lui a3, 261888
+ ; CHECK: addi a4, zero, 2
+ ; CHECK: addi a2, zero, 0
+ ; CHECK: jalr ra, a0, 0
+@@ -183,10 +182,9 @@ define double @va2_va_arg(i8 *%fmt, ...) {
+ 
+ define void @va2_caller() {
+ ; CHECK-LABEL: va2_caller:
+-; CHECK: lui a0, 261888
+-; CHECK: addi a3, a0, 0
+ ; CHECK: lui a0, %hi(va2)
+ ; CHECK: addi a0, a0, %lo(va2)
++; CHECK: lui a3, 261888
+ ; CHECK: addi a2, zero, 0
+ ; CHECK: jalr ra, a0, 0
+  %1 = call double (i8*, ...) @va2(i8* undef, double 1.000000e+00)
+@@ -285,13 +283,11 @@ define void @va3_caller() {
+ ; CHECK: sw ra, 12(sp)
+ ; CHECK: sw s0, 8(sp)
+ ; CHECK: addi s0, sp, 16
+-; CHECK: lui a0, 261888
+-; CHECK: addi a2, a0, 0
+-; CHECK: lui a0, 262144
+-; CHECK: addi a5, a0, 0
+ ; CHECK: lui a0, %hi(va3)
+ ; CHECK: addi a3, a0, %lo(va3)
+ ; CHECK: addi a0, zero, 2
++; CHECK: lui a2, 261888
++; CHECK: lui a5, 262144
+ ; CHECK: addi a1, zero, 0
+ ; CHECK: addi a4, zero, 0
+ ; CHECK: jalr ra, a3, 0
+-- 
+1.7.9.msysgit.0
+

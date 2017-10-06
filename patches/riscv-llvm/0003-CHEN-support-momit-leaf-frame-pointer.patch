@@ -1,0 +1,110 @@
+From 23bd50f36ba7be573eee21f17d08d68c57028124 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Tue, 3 Oct 2017 12:39:54 -0500
+Subject: [PATCH 3/4] [CHEN] support -momit-leaf-frame-pointer
+
+---
+ lib/Target/RISCV/RISCVFrameLowering.cpp |   33 +++++++++++++++++++-----------
+ lib/Target/RISCV/RISCVRegisterInfo.cpp  |    9 ++++++-
+ 2 files changed, 28 insertions(+), 14 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVFrameLowering.cpp b/lib/Target/RISCV/RISCVFrameLowering.cpp
+index 53e7335..a575401 100644
+--- a/lib/Target/RISCV/RISCVFrameLowering.cpp
++++ b/lib/Target/RISCV/RISCVFrameLowering.cpp
+@@ -22,13 +22,31 @@
+ 
+ using namespace llvm;
+ 
+-bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
++bool RISCVFrameLowering::hasFP(const MachineFunction &MF) const {
++    const MachineFrameInfo &MFI = MF.getFrameInfo();
++    return MF.getTarget().Options.DisableFramePointerElim(MF) ||
++        MFI.hasVarSizedObjects() || MFI.isFrameAddressTaken();
++}
+ 
+ // Determines the size of the frame and maximum call frame size.
+ void RISCVFrameLowering::determineFrameLayout(MachineFunction &MF) const {
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   const RISCVRegisterInfo *RI = STI.getRegisterInfo();
+ 
++#if 0
++  // chen
++  // Get the callee saved register list...
++  const MCPhysReg *CSRegs = MF.getRegInfo().getCalleeSavedRegs();
++ 
++  const MachineRegisterInfo &MRI = MF.getRegInfo();
++  for (int Reg = SavedRegs.find_first(); Reg != -1;
++    Reg = SavedRegs.find_next(Reg)) {
++    if (!MRI.isPhysRegModified(Reg))
++      printf("Unused %d\n", i);
++      //SavedRegs.set(Reg);
++  }
++#endif
++
+   // Get the number of bytes to allocate from the FrameInfo.
+   unsigned FrameSize = MFI.getStackSize();
+ 
+@@ -105,11 +123,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+                                       MachineBasicBlock &MBB) const {
+   assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+ 
+-  if (!hasFP(MF)) {
+-    report_fatal_error(
+-        "emitPrologue doesn't support framepointer-less functions");
+-  }
+-
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+   RISCVMachineFunctionInfo *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
+   MachineBasicBlock::iterator MBBI = MBB.begin();
+@@ -151,11 +164,6 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
+ 
+ void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
+                                       MachineBasicBlock &MBB) const {
+-  if (!hasFP(MF)) {
+-    report_fatal_error(
+-        "emitEpilogue doesn't support framepointer-less functions");
+-  }
+-
+   MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
+   const RISCVRegisterInfo *RI = STI.getRegisterInfo();
+   MachineFrameInfo &MFI = MF.getFrameInfo();
+@@ -192,7 +200,8 @@ void RISCVFrameLowering::determineCalleeSaves(MachineFunction &MF,
+                                               BitVector &SavedRegs,
+                                               RegScavenger *RS) const {
+   TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+-  SavedRegs.set(RISCV::X8);
++  if (hasFP(MF))
++    SavedRegs.set(RISCV::X8);
+   return;
+ }
+ 
+diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+index a81f0fc..c867cf9 100644
+--- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
++++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
+@@ -90,14 +90,19 @@ void RISCVRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+     FrameReg = RISCV::X2;
+     Offset += MF.getFrameInfo().getStackSize();
+   } else {
+-    FrameReg = getFrameRegister(MF);
++    if (TFI->hasFP(MF))
++      FrameReg = getFrameRegister(MF);
++    else {
++      FrameReg = RISCV::X2;
++      Offset += Subtarget.getXLen() / 8;
++    }
+     Offset += RVFI->getVarArgsSaveSize();
+   }
+ 
+   unsigned Reg = MI.getOperand(0).getReg();
+   assert(RISCV::GPRRegClass.contains(Reg) && "Unexpected register operand");
+ 
+-  assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
++  //assert(TFI->hasFP(MF) && "eliminateFrameIndex currently requires hasFP");
+ 
+   if (!isInt<32>(Offset)) {
+     report_fatal_error(
+-- 
+1.7.9.msysgit.0
+

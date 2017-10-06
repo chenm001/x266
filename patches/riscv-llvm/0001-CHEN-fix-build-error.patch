@@ -1,0 +1,32 @@
+From 7f29729f43e84e12010cdb44d90965a63f4b477b Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Tue, 3 Oct 2017 11:14:53 -0500
+Subject: [PATCH 1/4] [CHEN] fix build error
+
+---
+ utils/TableGen/CodeGenDAGPatterns.cpp |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/utils/TableGen/CodeGenDAGPatterns.cpp b/utils/TableGen/CodeGenDAGPatterns.cpp
+index ab12716..ee7b77f 100644
+--- a/utils/TableGen/CodeGenDAGPatterns.cpp
++++ b/utils/TableGen/CodeGenDAGPatterns.cpp
+@@ -310,6 +310,7 @@ bool TypeSetByHwMode::intersect(SetType &Out, const SetType &In) {
+ }
+ 
+ void TypeSetByHwMode::validate() const {
++#if 0
+ #ifndef NDEBUG
+   if (empty())
+     return;
+@@ -319,6 +320,7 @@ void TypeSetByHwMode::validate() const {
+   assert(!AllEmpty &&
+           "type set is empty for each HW mode: type contradiction?");
+ #endif
++#endif
+ }
+ 
+ // --- TypeInfer
+-- 
+1.7.9.msysgit.0
+

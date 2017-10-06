@@ -1,0 +1,25 @@
+From acfb32981822b77c23c8651f08554b3b2290a779 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Tue, 3 Oct 2017 11:31:03 -0500
+Subject: [PATCH 2/4] [CHEN] 'ret' does not change anything
+
+---
+ lib/Target/RISCV/RISCVInstrInfo.td |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index b5e7fdb..923a104 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -431,7 +431,7 @@ def PseudoCALL : Pseudo<(outs), (ins GPR:$rs1), [(Call GPR:$rs1)]>,
+ // FIXME: PseudoRET doesn't really modify X1 (RA), however marking it as
+ // such does ensure the the return address is always given a stack slot.
+ 
+-let Defs = [X1], isBarrier = 1, isReturn = 1, isTerminator = 1 in
++let isBarrier = 1, isReturn = 1, isTerminator = 1 in
+ def PseudoRET : Pseudo<(outs), (ins), [(RetFlag)]>,
+                 PseudoInstExpansion<(JALR X0, X1, 0)>;
+ 
+-- 
+1.7.9.msysgit.0
+
