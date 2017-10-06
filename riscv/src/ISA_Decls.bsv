@@ -116,132 +116,6 @@ Addr imemSt = 'h00000;
 Addr dmemSt = 'h10000;
 
 // ================================================================
-// LOAD/STORE instructions
-
-Bit#(2) f3_SIZE_B = 2'b00;
-Bit#(2) f3_SIZE_H = 2'b01;
-Bit#(2) f3_SIZE_W = 2'b10;
-Bit#(2) f3_SIZE_D = 2'b11;
-
-// ----------------
-// Load instructions
-
-Opcode op_LOAD = 7'b00_000_11;
-
-Bit#(3) f3_LB  = 3'b000;
-Bit#(3) f3_LH  = 3'b001;
-Bit#(3) f3_LW  = 3'b010;
-Bit#(3) f3_LD  = 3'b011;
-Bit#(3) f3_LBU = 3'b100;
-Bit#(3) f3_LHU = 3'b101;
-Bit#(3) f3_LWU = 3'b110;
-
-// ----------------
-// Store instructions
-
-Opcode op_STORE = 7'b01_000_11;
-
-Bit#(3) f3_SB  = 3'b000;
-Bit#(3) f3_SH  = 3'b001;
-Bit#(3) f3_SW  = 3'b010;
-Bit#(3) f3_SD  = 3'b011;
-
-// ================================================================
-// Memory Model
-
-Opcode op_MISC_MEM = 7'b00_011_11;
-
-Bit#(3) f3_FENCE   = 3'b000;
-Bit#(3) f3_FENCE_I = 3'b001;
-
-// ================================================================
-// Integer Register-Immediate Instructions
-
-Opcode op_OP_IMM = 7'b00_100_11;
-
-Bit#(3) f3_ADDI  = 3'b000;
-Bit#(3) f3_SLLI  = 3'b001;
-Bit#(3) f3_SLTI  = 3'b010;
-Bit#(3) f3_SLTIU = 3'b011;
-Bit#(3) f3_XORI  = 3'b100;
-Bit#(3) f3_SRxI  = 3'b101; Bit#(3) f3_SRLI  = 3'b101; Bit#(3) f3_SRAI  = 3'b101;
-Bit#(3) f3_ORI   = 3'b110;
-Bit#(3) f3_ANDI  = 3'b111;
-
-
-// ================================================================
-// Integer Register-Register Instructions
-
-Opcode op_OP = 7'b01_100_11;
-
-Bit#(10) f10_ADD    = 10'b000_0000_000;
-Bit#(10) f10_SUB    = 10'b010_0000_000;
-Bit#(10) f10_SLL    = 10'b000_0000_001;
-Bit#(10) f10_SLT    = 10'b000_0000_010;
-Bit#(10) f10_SLTU   = 10'b000_0000_011;
-Bit#(10) f10_XOR    = 10'b000_0000_100;
-Bit#(10) f10_SRL    = 10'b000_0000_101;
-Bit#(10) f10_SRA    = 10'b010_0000_101;
-Bit#(10) f10_OR     = 10'b000_0000_110;
-Bit#(10) f10_AND    = 10'b000_0000_111;
-
-Bit#(7) f7_MUL_DIV_REM = 7'b000_0001;
-
-Bit#(3) f3_MUL    = 3'b000;
-Bit#(3) f3_MULH   = 3'b001;
-Bit#(3) f3_MULHSU = 3'b010;
-Bit#(3) f3_MULHU  = 3'b011;
-Bit#(3) f3_DIV    = 3'b100;
-Bit#(3) f3_DIVU   = 3'b101;
-Bit#(3) f3_REM    = 3'b110;
-Bit#(3) f3_REMU   = 3'b111;
-
-
-// ================================================================
-// LUI, AUIPC
-
-Opcode op_LUI   = 7'b01_101_11;
-Opcode op_AUIPC = 7'b00_101_11;
-
-// ================================================================
-// Control transfer
-
-Opcode  op_BRANCH = 7'b11_000_11;
-
-Bit#(3) f3_BEQ   = 3'b000;
-Bit#(3) f3_BNE   = 3'b001;
-Bit#(3) f3_BLT   = 3'b100;
-Bit#(3) f3_BGE   = 3'b101;
-Bit#(3) f3_BLTU  = 3'b110;
-Bit#(3) f3_BGEU  = 3'b111;
-
-Opcode op_JAL  = 7'b11_011_11;
-
-Opcode op_JALR = 7'b11_001_11;
-
-// ================================================================
-// System Instructions
-Opcode op_SYSTEM = 7'b11_100_11;
-
-// sub-opcodes: (in funct3 field)
-Bit#(3)   f3_PRIV       = 3'b000;
-Bit#(3)   f3_CSRRW      = 3'b001;
-Bit#(3)   f3_CSRRS      = 3'b010;
-Bit#(3)   f3_CSRRC      = 3'b011;
-Bit#(3)   f3_CSRRWI     = 3'b101;
-Bit#(3)   f3_CSRRSI     = 3'b110;
-Bit#(3)   f3_CSRRCI     = 3'b111;
-
-// Wait for Interrupt
-Bit#(12) f12_WFI       = 12'b0001_0000_0010;
-
-function Bool is_SYSTEM_PRIV(Instr instr);
-   return(   (instr_opcode7(instr) == op_SYSTEM)
-          && (instr_funct3 (instr) == f3_PRIV));
-endfunction
-
-
-// ================================================================
 // Control/Status register addresses
 
 typedef Bit#(12) CSR_Addr;
@@ -412,6 +286,19 @@ typedef struct {
 // ----------------
 // Decoded instructions
 
+Bit#(3) f3_LB  = 3'b000;
+Bit#(3) f3_LH  = 3'b001;
+Bit#(3) f3_LW  = 3'b010;
+Bit#(3) f3_LD  = 3'b011;
+Bit#(3) f3_LBU = 3'b100;
+Bit#(3) f3_LHU = 3'b101;
+Bit#(3) f3_LWU = 3'b110;
+
+// ================================================================
+// LOAD/STORE instructions
+
+// ----------------
+// Load instructions
 typedef enum {
    Lb    = 3'b000,
    Lh    = 3'b001,
@@ -420,24 +307,32 @@ typedef enum {
    Lhu   = 3'b101
 } LdFunc deriving(Bits, Eq, FShow);
 
+// ----------------
+// Store instructions
 typedef enum {
    Sb    = 3'b000,
    Sh    = 3'b001,
-   Sw    = 3'b010
+   Sw    = 3'b010,
+   St_dummy = 3'b111
 } StFunc deriving(Bits, Eq, FShow);
 
+
+// ================================================================
+// Control transfer
 // These enumeration values match the bit values for funct3
 typedef enum {
     Eq   = 3'b000,
     Neq  = 3'b001,
-    Jal  = 3'b010,
-    Jalr = 3'b011,
+    //Jal  = 3'b010,
+    //Jalr = 3'b011,
     Lt   = 3'b100,
     Ge   = 3'b101,
     Ltu  = 3'b110,
     Geu  = 3'b111
 } BrFunc deriving(Bits, Eq, FShow);
 
+// ================================================================
+// Integer Register (w/wo Immediate) Instructions
 // This encoding tries to match {inst[30], funct3}
 typedef enum {
     Add  = 4'b0000,
@@ -452,6 +347,8 @@ typedef enum {
     Sra  = 4'b1101
 } AluFunc deriving(Bits, Eq, FShow);
 
+// ================================================================
+// System Instructions
 typedef enum {
     CSRRW   = 3'b001,
     CSRRS   = 3'b010,
@@ -461,6 +358,8 @@ typedef enum {
 } SysFunc deriving (Bits, Eq, FShow);
 
 
+// ================================================================
+// 7-bits Opcode kind
 typedef enum {
     Load    = 7'b00000_11,
     LoadFp  = 7'b00001_11,
@@ -525,63 +424,17 @@ function Instr_s fv_decode_instr(Instr instr);
    OpKind kind   = unpack(opcode7);
 
    return case(kind)
-      Lui      :  Instr_s {opcode: tagged Lui,   rs1: tagged Invalid,    rs2: tagged Invalid};
-      Auipc    :  Instr_s {opcode: tagged Auipc, rs1: tagged Invalid,    rs2: tagged Invalid};
-      Jal      :  Instr_s {opcode: tagged Jal,   rs1: tagged Invalid,    rs2: tagged Invalid};
-      Jalr     :  Instr_s {opcode: tagged Jalr,  rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      Branch   :  Instr_s {opcode: case(funct3)
-                                       f3_BEQ   :  tagged Br Eq;
-                                       f3_BNE   :  tagged Br Neq;
-                                       f3_BLT   :  tagged Br Lt;
-                                       f3_BGE   :  tagged Br Ge;
-                                       f3_BLTU  :  tagged Br Ltu;
-                                       f3_BGEU  :  tagged Br Geu;
-                                       default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      Load     :  Instr_s {opcode: case(funct3)
-                                       f3_LB    :  tagged Ld Lb;
-                                       f3_LBU   :  tagged Ld Lbu;
-                                       f3_LH    :  tagged Ld Lh;
-                                       f3_LHU   :  tagged Ld Lhu;
-                                       f3_LW    :  tagged Ld Lw;
-                                       default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      Store    :  Instr_s {opcode: case(funct3)
-                                       f3_SB    :  tagged St Sb;
-                                       f3_SH    :  tagged St Sh;
-                                       f3_SW    :  tagged St Sw;
-                                       default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      OpImm    :  Instr_s {opcode: case(funct3)
-                                       f3_ADDI  :  tagged Alui Add;
-                                       f3_SLTI  :  tagged Alui Slt;
-                                       f3_SLTIU :  tagged Alui Sltu;
-                                       f3_XORI  :  tagged Alui Xor;
-                                       f3_ORI   :  tagged Alui Or;
-                                       f3_ANDI  :  tagged Alui And;
-                                       f3_SLLI  :  (imm12_I[10] == 1'b0 ? tagged Alui Sll : tagged Illegal);
-                                       f3_SRxI  :  tagged Alui (imm12_I[10] == 1'b0 ? Srl : Sra);
-                                       default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
-      Op       :  Instr_s {opcode: case(funct10)
-                                       f10_ADD  :  tagged Alu Add;
-                                       f10_SUB  :  tagged Alu Sub;
-                                       f10_SLL  :  tagged Alu Sll;
-                                       f10_SLT  :  tagged Alu Slt;
-                                       f10_SLTU :  tagged Alu Sltu;
-                                       f10_XOR  :  tagged Alu Xor;
-                                       f10_SRL  :  tagged Alu Srl;
-                                       f10_SRA  :  tagged Alu Sra;
-                                       f10_OR   :  tagged Alu Or;
-                                       f10_AND  :  tagged Alu And;
-                                       default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      System   :  Instr_s {opcode: case(funct3)
-                                          f3_CSRRW :  tagged Sys CSRRW;
-                                          f3_CSRRS :  tagged Sys CSRRS;
-                                          f3_CSRRC :  tagged Sys CSRRC;
-                                          default  :  tagged Illegal;
-                                    endcase,    rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Lui      :  Instr_s {opcode: tagged Lui,                                rs1: tagged Invalid,    rs2: tagged Invalid};
+      Auipc    :  Instr_s {opcode: tagged Auipc,                              rs1: tagged Invalid,    rs2: tagged Invalid};
+      Jal      :  Instr_s {opcode: tagged Jal,                                rs1: tagged Invalid,    rs2: tagged Invalid};
+      Jalr     :  Instr_s {opcode: tagged Jalr,                               rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Branch   :  Instr_s {opcode: tagged Br    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      Load     :  Instr_s {opcode: tagged Ld    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Store    :  Instr_s {opcode: tagged St    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      OpImm    :  Instr_s {opcode: tagged Alui  unpack({(funct3 == 3'b101 ? instr[30] : 1'b0), funct3}), // check SRAI and SRLI
+                                                                              rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Op       :  Instr_s {opcode: tagged Alu   unpack({instr[30], funct3}),  rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
+      System   :  Instr_s {opcode: tagged Sys   unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Invalid};
       default  :  Instr_s {opcode: Illegal, rs1: ?, rs2: ?};
    endcase;
 endfunction
