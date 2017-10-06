@@ -159,7 +159,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Word)  csr_mcause     <- mkRegU;
    Reg#(Word)  csr_mbadaddr   <- mkRegU;
 
-   Reg#(Maybe#(Word)) csr_dcsr <- mkDReg(tagged Invalid);
+   Reg#(Maybe#(Word)) csr_dscratch <- mkDReg(tagged Invalid);
 
 
    // ----------------------------------------------------------------
@@ -189,7 +189,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       else if (csr_addr == csr_CYCLEH  )  return tagged Valid truncateLSB(csr_cycle);
       else if (csr_addr == csr_INSTRETH)  return tagged Valid truncateLSB(csr_instret);
 
-      else if (csr_addr == csr_DCSR)      return tagged Valid 0 ;
+      else if (csr_addr == csr_DSCRATCH)  return tagged Valid 0 ;
 
       else return tagged Invalid;
    endfunction: fv_read_csr
@@ -200,8 +200,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_write_csr(CSR_Addr csr_addr, Word csr_value);
       action
-         if (csr_addr == csr_DCSR) begin
-            csr_dcsr <= tagged Valid csr_value;
+         if (csr_addr == csr_DSCRATCH) begin
+            csr_dscratch <= tagged Valid csr_value;
          end
 
          else begin
@@ -552,8 +552,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
                   else if ( (op == CSRRS) && (fields.csr == csr_INSTRET) )
                      $display("[%7d] fa_exec  : pc = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (op == CSRRW) && (fields.csr == csr_DCSR) )
-                     $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dcsr, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
+                  else if ( (op == CSRRW) && (fields.csr == csr_DSCRATCH) )
+                     $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dscratch, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
                   else begin
                      let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
                               + fshow(op)
@@ -746,7 +746,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       cpu_enabled <= True;
    endmethod
 
-   method ActionValue#(Word) cpuToHost() if (csr_dcsr matches tagged Valid .ret);
+   method ActionValue#(Word) cpuToHost() if (csr_dscratch matches tagged Valid .ret);
       return ret;
    endmethod
 endmodule

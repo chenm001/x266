@@ -30,18 +30,18 @@ _start:
 
 #define PRINT_NEWLINE(tmp_reg)                                          \
         li tmp_reg, 0x0001000A;                                         \
-        csrw dcsr, tmp_reg
+        csrw dscratch, tmp_reg
 
 #define PRINT_INT(arg_reg, tmp_reg_1, tmp_reg_2)                        \
         slli tmp_reg_1, arg_reg, 16;                                    \
         srli tmp_reg_1, tmp_reg_1, 16;                                  \
         li tmp_reg_2, 0x00020000;                                       \
         or tmp_reg_2, tmp_reg_1, tmp_reg_2;                             \
-        csrw dcsr, tmp_reg_2;                                        \
+        csrw dscratch, tmp_reg_2;                                        \
         srli tmp_reg_1, arg_reg, 16;                                    \
         li tmp_reg_2, 0x00030000;                                       \
         or tmp_reg_2, tmp_reg_1, tmp_reg_2;                             \
-        csrw dcsr, tmp_reg_2                                         \
+        csrw dscratch, tmp_reg_2                                         \
 
 //-----------------------------------------------------------------------
 // End Macro (return value in TESTNUM)
@@ -56,7 +56,7 @@ exit:   csrr a0, cycle;                                                 \
         PRINT_NEWLINE(a2);                                              \
         PRINT_INT(a1, a2, x3);                                          \
         PRINT_NEWLINE(a2);                                              \
-        csrw dcsr, TESTNUM;                                          \
+        csrw dscratch, TESTNUM;                                          \
 1:      j 1b
 
 //-----------------------------------------------------------------------
@@ -78,7 +78,14 @@ exit:   csrr a0, cycle;                                                 \
 
 #define EXTRA_DATA
 
-#define RVTEST_DATA_BEGIN EXTRA_DATA .align 4; .global begin_signature; begin_signature:
+#define RVTEST_DATA_BEGIN                                               \
+        EXTRA_DATA                                                      \
+        .pushsection .tohost,"aw",@progbits;                            \
+        .align 6; .global tohost; tohost: .dword 0;                     \
+        .align 6; .global fromhost; fromhost: .dword 0;                 \
+        .popsection;                                                    \
+        .align 4; .global begin_signature; begin_signature:
+
 #define RVTEST_DATA_END .align 4; .global end_signature; end_signature:
 
 #endif

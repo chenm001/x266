@@ -24,14 +24,13 @@ MEMORY
 
 SECTIONS
 {
-  . = 0x200;
   .text 0x200 : ONLY_IF_RO
   {
     *(.text)
   } > rom
 
   . = 0x10000;
-  .data ALIGN(0x1000) : ONLY_IF_RW
+  .data : ONLY_IF_RW
   {
     *(.data*)
   } > ram
@@ -40,6 +39,10 @@ SECTIONS
   {
     *(.bss)
   } > ram
+
+  . = ALIGN(0x1000);
+  .tohost : ONLY_IF_RW { *(.tohost) } > ram
+
   _end = .;
 }
 

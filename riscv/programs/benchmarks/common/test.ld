@@ -26,22 +26,18 @@ SECTIONS
 {
 
   /* text: test code section */
-  . = 0x200;
   .text 0x200 : ONLY_IF_RO
   {
     crt.o(.text)
     *(.text*)
   } > rom
 
+  . = 0x10000;
   /* data segment */
   .data : ONLY_IF_RW
   {
-    *(.data*)
-  } > ram
-
-  .rodata : ONLY_IF_RO
-  {
     *(.rodata*)
+    *(.data*)
   } > ram
 
   .sdata : ONLY_IF_RW
@@ -74,7 +70,10 @@ SECTIONS
     crt.o(.tbss.end)
   } > ram
 
-  /* End of uninitalized data segement */
+  . = ALIGN(0x1000);
+  .tohost : ONLY_IF_RW { *(.tohost) } > ram
+
+  /* End of data segement */
   _end = .;
 }
 

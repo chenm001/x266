@@ -274,7 +274,7 @@ CSR_Addr   csr_MTDELEG  = 'h302;    // trap delegation
 CSR_Addr   csr_MIE      = 'h304;    // interrupt-enable
 CSR_Addr   csr_MTIMECMP = 'h321;    // wall-clock timer compare value
 
-CSR_Addr   csr_DCSR     = 'h7B0;    // Test input / output register
+CSR_Addr   csr_DSCRATCH = 'h7B2;    // Test input / output register
 
 // ----------------
 // Bit-fields of the CSR_MSTATUS register

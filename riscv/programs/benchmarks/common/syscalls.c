@@ -32,25 +32,25 @@ void printInt(uint32_t c) {
     // print low 16 bits
     int lo = (c & 0x0000FFFF) | (((uint32_t)PrintIntLow) << 16);
 #ifdef __llvm__
-    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (lo));
+    asm volatile ("csrrw x0, 0x7B2, %0" : : "r" (lo));
 #else
-    asm volatile ("csrw dcsr, %0" : : "r" (lo));
+    asm volatile ("csrw dscratch, %0" : : "r" (lo));
 #endif
     // print high 16 bits
     int hi = (c >> 16) | (((uint32_t)PrintIntHigh) << 16);
 #ifdef __llvm__
-    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (hi));
+    asm volatile ("csrrw x0, 0x7B2, %0" : : "r" (hi));
 #else
-    asm volatile ("csrw dcsr, %0" : : "r" (hi));
+    asm volatile ("csrw dscratch, %0" : : "r" (hi));
 #endif
 }
 
 void printChar(uint32_t c) {
     c = (c & 0x0000FFFF) | (((uint32_t)PrintChar) << 16);
 #ifdef __llvm__
-    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (c));
+    asm volatile ("csrrw x0, 0x7B2, %0" : : "r" (c));
 #else
-    asm volatile ("csrw dcsr, %0" : : "r" (c));
+    asm volatile ("csrw dscratch, %0" : : "r" (c));
 #endif
 }
 
@@ -402,9 +402,9 @@ long atol(const char* str)
 void toHostExit(uint32_t ret) {
     ret = (ret & 0x0000FFFF) | (((uint32_t) ExitCode) << 16);
 #ifdef __llvm__
-    asm volatile ("csrrw x0, 0x7B0, %0" : : "r" (ret));
+    asm volatile ("csrrw x0, 0x7B2, %0" : : "r" (ret));
 #else
-    asm volatile ("csrw dcsr, %0" : : "r" (ret));
+    asm volatile ("csrw dscratch, %0" : : "r" (ret));
 #endif
     // stall here
     while(1);

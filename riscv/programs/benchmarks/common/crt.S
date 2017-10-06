@@ -74,3 +74,11 @@ _tdata_end:
 .section ".tbss.end"
 .globl _tbss_end
 _tbss_end:
+
+.section ".tohost","aw",@progbits
+.align 6
+.globl tohost
+tohost: .dword 0
+.align 6
+.globl fromhost
+fromhost: .dword 0
