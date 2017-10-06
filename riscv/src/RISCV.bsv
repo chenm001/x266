@@ -384,7 +384,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          function ActionValue#(Fmt) fa_exec_LD_Req(LdFunc op);
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
-               Word    mem_addr = pack(s_v1 + imm_s);
+               Word_S  imm7_s   = extend(unpack(fields.imm7_I));
+               Word    mem_addr = case(op)
+                                    Lb, Lbu, Lh, Lhu, Lw :  pack(s_v1 + imm_s);
+                                    default              :  pack(s_v1 + s_v2 /*+ imm7_s*/);
+                                  endcase;
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
@@ -399,16 +403,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                endfunction
 
                case(op)
-                  Lb    :  fa_LD_Req(BITS8);
-                  Lbu   :  fa_LD_Req(BITS8);
-                  Lh    :  fa_LD_Req(BITS16);
-                  Lhu   :  fa_LD_Req(BITS16);
+                  Lb, Lbu, CiLbu    :  fa_LD_Req(BITS8);
+                  Lh, Lhu, CiLhu    :  fa_LD_Req(BITS16);
                   /*Lw*/
-               default  :  fa_LD_Req(BITS32);
+                  default           :  fa_LD_Req(BITS32);
                endcase
 
                let msg =  fshow(op)
-                        + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+                        + $format(" %s, %s", regNameABI[fields.rd], regNameABI[fields.rs1])
+                        + (case(op)
+                              Lb, Lbu, Lh, Lhu, Lw : $format(", %1d", imm_s);
+                              default              : $format(" + %s  (0x%X -> 0x%X + 0x%X)", regNameABI[fields.rs2], mem_addr, s_v1, s_v2);
+                          endcase);
                return msg;
             endactionvalue
          endfunction: fa_exec_LD_Req
@@ -700,10 +706,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
             let u = fromMaybe(?, resp);
             let data = u >> {align, 3'b0};
-            let extendFunc = (ld_op == Lbu || ld_op == Lhu) ? zeroExtend : signExtend;
+            let extendFunc = (ld_op == Lb || ld_op == Lh) ? signExtend : zeroExtend;
             rd_value = (case(ld_op)
-                    Lb, Lbu: extendFunc(data[7:0]);
-                    Lh, Lhu: extendFunc(data[15:0]);
+                    Lb, Lbu, CiLbu: extendFunc(data[7:0]);
+                    Lh, Lhu, CiLhu: extendFunc(data[15:0]);
                     default: extendFunc(data[31:0]);
                   endcase);
          end

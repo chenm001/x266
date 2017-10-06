@@ -238,6 +238,7 @@ function  RegName    instr_rs2    (Instr x); return x[24:20]; endfunction
 function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction     // {F,D} Extension
 function  CSR_Addr   instr_csr    (Instr x); return unpack(x[31:20]); endfunction
 
+function  Bit#( 7)   instr_I_imm7  (Instr x); return { x[31:25] }; endfunction
 function  Bit#(12)   instr_I_imm12 (Instr x); return x[31:20]; endfunction
 function  Bit#(12)   instr_S_imm12 (Instr x); return { x[31:25], x[11:7] }; endfunction
 function  Bit#(13)   instr_SB_imm13(Instr x); return { x[31], x[7], x[30:25], x[11:8], 1'b0 }; endfunction
@@ -280,7 +281,10 @@ typedef enum {
    Lh    = 3'b001,
    Lw    = 3'b010,
    Lbu   = 3'b100,
-   Lhu   = 3'b101
+   Lhu   = 3'b101,
+   CiLw  = 3'b011,   // lw  dst, [rs1 + rs2]
+   CiLhu = 3'b110,   // lhu dst, [rs1 + rs2]
+   CiLbu = 3'b111    // lbu dst, [rs1 + rs2]
 } LdFunc deriving(Bits, Eq, FShow);
 
 // ----------------
@@ -398,6 +402,7 @@ typedef struct {
    Bit#(7)  funct7;
    Bit#(10) funct10;
 
+   Bit#( 7) imm7_I;
    Bit#(12) imm12_I;
    Bit#(12) imm12_S;
    Bit#(13) imm13_SB;
@@ -423,7 +428,10 @@ function Instr_s fv_decode_instr(Instr instr);
       Jal      :  Instr_s {opcode: tagged Jal,                                rs1: tagged Invalid,    rs2: tagged Invalid};
       Jalr     :  Instr_s {opcode: tagged Jalr,                               rs1: tagged Valid rs1,  rs2: tagged Invalid};
       Branch   :  Instr_s {opcode: tagged Br    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
-      Load     :  Instr_s {opcode: tagged Ld    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Invalid};
+      Load     :  Instr_s {opcode: tagged Ld    unpack(funct3),               rs1: tagged Valid rs1,  rs2: (case(unpack(funct3))
+                                                                                                               CiLbu, CiLhu, CiLw: tagged Valid rs2;
+                                                                                                               default: tagged Invalid;
+                                                                                                            endcase)};
       Store    :  Instr_s {opcode: tagged St    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2};
       OpImm    :  Instr_s {opcode: tagged Alui  unpack({(funct3 == 3'b101 ? instr[30] : 1'b0), funct3}), // check SRAI and SRLI
                                                                               rs1: tagged Valid rs1,  rs2: tagged Invalid};
@@ -447,6 +455,7 @@ function Decoded_Fields fv_decode_fields(Instr instr);
             funct7   :  instr_funct7   (instr),
             funct10  :  instr_funct10  (instr),
 
+            imm7_I   :  instr_I_imm7   (instr),
             imm12_I  :  instr_I_imm12  (instr),
             imm12_S  :  instr_S_imm12  (instr),
             imm13_SB :  instr_SB_imm13 (instr),
