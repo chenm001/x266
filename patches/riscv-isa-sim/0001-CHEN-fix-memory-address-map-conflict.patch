@@ -1,15 +1,15 @@
-From c18679572e610456f4360b205613cdeb7067deb8 Mon Sep 17 00:00:00 2001
+From 69109ac5c8ace59ebced58be6893717595ca5ea9 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Thu, 5 Oct 2017 19:32:44 -0500
 Subject: [PATCH] [CHEN] fix memory address map conflict
 
 ---
  riscv/decode.h     |    4 ++--
- riscv/devices.cc   |    2 ++
+ riscv/devices.cc   |   22 ++++++++++++++--------
  riscv/encoding.h   |    4 ++--
  riscv/processor.cc |    4 ++++
  riscv/sim.cc       |   11 ++++++++++-
- 5 files changed, 20 insertions(+), 5 deletions(-)
+ 5 files changed, 32 insertions(+), 13 deletions(-)
 
 diff --git a/riscv/decode.h b/riscv/decode.h
 index 9dcd809..d3130f1 100644
@@ -26,20 +26,56 @@ index 9dcd809..d3130f1 100644
  
  #endif
 diff --git a/riscv/devices.cc b/riscv/devices.cc
-index 15115c8..d543912 100644
+index 15115c8..0323151 100644
 --- a/riscv/devices.cc
 +++ b/riscv/devices.cc
-@@ -2,6 +2,8 @@
+@@ -1,30 +1,36 @@
+ #include "devices.h"
  
++// detect 0x00000000 based memory block and hardcode it to 0x00000000
++#define ADJUST_ADDR(X)  ((X) == 0 ? 16 : (X))
++#define ADJUST_BASE(X)  ((X) == -16 ? 0 : (X))
++
  void bus_t::add_device(reg_t addr, abstract_device_t* dev)
  {
-+  if (addr == 0)
-+      addr = 16;
-   devices[-addr] = dev;
+-  devices[-addr] = dev;
++  devices[-ADJUST_ADDR(addr)] = dev;
  }
  
+ bool bus_t::load(reg_t addr, size_t len, uint8_t* bytes)
+ {
+-  auto it = devices.lower_bound(-addr);
++  auto it = devices.lower_bound(-ADJUST_ADDR(addr));
+   if (it == devices.end())
+     return false;
+-  return it->second->load(addr - -it->first, len, bytes);
++  return it->second->load(addr - -ADJUST_BASE(it->first), len, bytes);
+ }
+ 
+ bool bus_t::store(reg_t addr, size_t len, const uint8_t* bytes)
+ {
+-  auto it = devices.lower_bound(-addr);
++  auto it = devices.lower_bound(-ADJUST_ADDR(addr));
+   if (it == devices.end())
+     return false;
+-  return it->second->store(addr - -it->first, len, bytes);
++  return it->second->store(addr - -ADJUST_BASE(it->first), len, bytes);
+ }
+ 
+ std::pair<reg_t, abstract_device_t*> bus_t::find_device(reg_t addr)
+ {
+-  auto it = devices.lower_bound(-addr);
+-  if (it == devices.end() || addr < -it->first)
++  auto it = devices.lower_bound(-ADJUST_ADDR(addr));
++  if (it == devices.end() || ADJUST_ADDR(addr) < -ADJUST_BASE(it->first))
+     return std::make_pair((reg_t)0, (abstract_device_t*)NULL);
+-  return std::make_pair(-it->first, it->second);
++  return std::make_pair(-ADJUST_BASE(it->first), it->second);
+ }
++#undef ADJUST_ADDR
++#undef ADJUST_BASE
 diff --git a/riscv/encoding.h b/riscv/encoding.h
-index 8ec1345..ffeb24d 100644
+index 8ec1345..ca062f5 100644
 --- a/riscv/encoding.h
 +++ b/riscv/encoding.h
 @@ -150,11 +150,11 @@
@@ -52,7 +88,7 @@ index 8ec1345..ffeb24d 100644
  #define CLINT_SIZE         0x000c0000
  #define EXT_IO_BASE        0x40000000
 -#define DRAM_BASE          0x80000000
-+#define DRAM_BASE          0x00000010
++#define DRAM_BASE          0x00000000
  
  // page table entry (PTE) fields
  #define PTE_V     0x001 // Valid
