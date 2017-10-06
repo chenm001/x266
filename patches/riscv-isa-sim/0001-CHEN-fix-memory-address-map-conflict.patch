@@ -1,0 +1,107 @@
+From c18679572e610456f4360b205613cdeb7067deb8 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Thu, 5 Oct 2017 19:32:44 -0500
+Subject: [PATCH] [CHEN] fix memory address map conflict
+
+---
+ riscv/decode.h     |    4 ++--
+ riscv/devices.cc   |    2 ++
+ riscv/encoding.h   |    4 ++--
+ riscv/processor.cc |    4 ++++
+ riscv/sim.cc       |   11 ++++++++++-
+ 5 files changed, 20 insertions(+), 5 deletions(-)
+
+diff --git a/riscv/decode.h b/riscv/decode.h
+index 9dcd809..d3130f1 100644
+--- a/riscv/decode.h
++++ b/riscv/decode.h
+@@ -247,7 +247,7 @@ inline freg_t freg(freg_t f) { return f; }
+   (which); })
+ 
+ // Seems that 0x0 doesn't work.
+-#define DEBUG_START             0x100
+-#define DEBUG_END                 (0x1000 - 1)
++#define DEBUG_START             0x01000100
++#define DEBUG_END               (0x01001000 - 1)
+ 
+ #endif
+diff --git a/riscv/devices.cc b/riscv/devices.cc
+index 15115c8..d543912 100644
+--- a/riscv/devices.cc
++++ b/riscv/devices.cc
+@@ -2,6 +2,8 @@
+ 
+ void bus_t::add_device(reg_t addr, abstract_device_t* dev)
+ {
++  if (addr == 0)
++      addr = 16;
+   devices[-addr] = dev;
+ }
+ 
+diff --git a/riscv/encoding.h b/riscv/encoding.h
+index 8ec1345..ffeb24d 100644
+--- a/riscv/encoding.h
++++ b/riscv/encoding.h
+@@ -150,11 +150,11 @@
+ #define IRQ_COP      12
+ #define IRQ_HOST     13
+ 
+-#define DEFAULT_RSTVEC     0x00001000
++#define DEFAULT_RSTVEC     0x00000200
+ #define CLINT_BASE         0x02000000
+ #define CLINT_SIZE         0x000c0000
+ #define EXT_IO_BASE        0x40000000
+-#define DRAM_BASE          0x80000000
++#define DRAM_BASE          0x00000010
+ 
+ // page table entry (PTE) fields
+ #define PTE_V     0x001 // Valid
+diff --git a/riscv/processor.cc b/riscv/processor.cc
+index 6804ba7..b712fce 100644
+--- a/riscv/processor.cc
++++ b/riscv/processor.cc
+@@ -479,6 +479,10 @@ void processor_t::set_csr(int which, reg_t val)
+       break;
+     case CSR_DSCRATCH:
+       state.dscratch = val;
++      if ((val >> 16) == 0) {
++          halt_request = true;
++          //state.dcsr.halt = true;
++      }
+       break;
+   }
+ }
+diff --git a/riscv/sim.cc b/riscv/sim.cc
+index 647cc46..2f6ce93 100644
+--- a/riscv/sim.cc
++++ b/riscv/sim.cc
+@@ -70,9 +70,17 @@ void sim_t::main()
+       interactive();
+     else
+       step(INTERLEAVE);
+     if (remote_bitbang) {
+       remote_bitbang->tick();
+     }
++
++    if (procs[current_proc]->halt_request) {
++      htif_t::stop();
++      host->switch_to();
++      raise(SIGTERM);
++      //sleep(1);
++      break;
++    }
+   }
+ }
+ 
+@@ -325,7 +334,7 @@ char* sim_t::addr_to_mem(reg_t addr) {
+ 
+ void sim_t::reset()
+ {
+-  make_dtb();
++  //make_dtb();
+ }
+ 
+ void sim_t::idle()
+-- 
+1.7.1
+
