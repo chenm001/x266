@@ -99,7 +99,7 @@ $(bmarks_riscv_bin): $(bin_dir)/%.riscv: $$(filter $(obj_dir)/$$(basename $$(not
 
 $(c_objs): $(obj_dir)/%.o: $(bmarkdir)/%.c
 	mkdir -p $(dir $@)
-	$(RISCV_GCC) $(RISCV_GCC_OPTS) $(bmarks_defs) -c $(incs) -I$(dir $<) $< -o $@
+	$(RISCV_CLANG) $(RISCV_CLANG_OPTS) $(bmarks_defs) -c $(incs) -I$(dir $<) $< -o $@
 
 $(asm_objs): $(obj_dir)/%.o: $(bmarkdir)/%.S
 	mkdir -p $(dir $@)
