@@ -222,7 +222,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
    function Action fa_finish_with_exception(Bit#(4) exc_code, Addr badaddr);
       action
-         if (cfg_verbose != 0) begin
+         if (cfg_verbose > 0) begin
             $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, pcEpoch, exc_code, badaddr);
          end
 
@@ -288,8 +288,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // This function encapsulates ALL the opcodes.
    // It has internal functions that group related sub-opcodes.
 
-   function Action fa_exec(Decoded_Instr decoded, Decoded_Fields fields);
-      action
+   function ActionValue#(Fmt) fa_exec(Decoded_Instr decoded, Decoded_Fields fields);
+      actionvalue
 
          // Values of Rs1 and Rs2 fields of the instr, unsigned
          //Word v1 = decoded.v1;
@@ -306,53 +306,57 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
 
          // ----------------------------------------------------------------
          // Instructions for Upper Immediate
-         function Action fa_exec_LUI();
-            action
+         function ActionValue#(Fmt) fa_exec_LUI();
+            actionvalue
                Bit#(32)    v32   = { fields.imm20_U, 12'h0 };
                Word_S      iv    = extend(unpack(v32));
                let         value = pack(iv);
 
                fa_finish_with_Rd(fields.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** lui %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
-            endaction
+               let msg = $format("lui %s, 0x%h", regNameABI[fields.rd], value[31:12]);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_LUI
 
-         function Action fa_exec_AUIPC();
-            action
+         function ActionValue#(Fmt) fa_exec_AUIPC();
+            actionvalue
                Word_S  iv    = extend(unpack({ fields.imm20_U, 12'b0}));
                Word_S  pc_s  = unpack(pcEpoch);
                Word    value = pack(pc_s + iv);
 
                fa_finish_with_Rd(fields.rd, value);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** auipc %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], value[31:12]);
-            endaction
+               let msg = $format("auipc %s, 0x%h", regNameABI[fields.rd], value[31:12]);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_AUIPC
 
          // ----------------------------------------------------------------
          // Instructions for control-transfer
 
-         function Action fa_exec_JAL();
-            action
+         function ActionValue#(Fmt) fa_exec_JAL();
+            actionvalue
                Word_S offset  = extend(unpack(fields.imm21_UJ));
                Addr   next_pc = pack(unpack(pcEpoch) + offset);
 
                fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** jal %s, 0x%h", csr_cycle, decoded.pc, regNameABI[fields.rd], next_pc);
-            endaction
+               let msg = $format("jal %s, 0x%h", regNameABI[fields.rd], next_pc);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_JAL
 
-         function Action fa_exec_JALR();
-            action
+         function ActionValue#(Fmt) fa_exec_JALR();
+            actionvalue
                Word_S offset  = extend(unpack(fields.imm12_I));
                Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
 
                fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
-               if (cfg_verbose > 2) $display("[%7d] fa_exec  : pc = 0x%h, *** jalr %s, %s, %1d", csr_cycle, decoded.pc, regNameABI[fields.rd], regNameABI[fields.rs1], offset);
-            endaction
+               let msg = $format("jalr %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], offset);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_JALR
 
-         function Action fa_exec_BRANCH(BrFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_BRANCH(BrFunc op);
+            actionvalue
                Word_S offset  = extend(unpack(fields.imm13_SB));
                Word   next_pc = pack(unpack(pcEpoch) + offset);
 
@@ -366,21 +370,19 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                default  :  fa_finish_cond_branch(v1  >= v2,    next_pc);
                endcase
 
-               if (cfg_verbose > 2) begin
-                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** B", csr_cycle, decoded.pc)
-                           + fshow(op)
-                           + $format(" %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], next_pc);
-                  $display(msg);
-               end
-            endaction
+               let msg =  $format("B")
+                        + fshow(op)
+                        + $format(" %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], next_pc);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_BRANCH
 
          // ----------------------------------------------------------------
          // LD and ST instructions.
          // Issue request here; will be completed in STATE_EXEC_LD/ST_RESPONSE
 
-         function Action fa_exec_LD_Req(LdFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_LD_Req(LdFunc op);
+            actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s);
 
@@ -405,17 +407,14 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                default  :  fa_LD_Req(BITS32);
                endcase
 
-               if (cfg_verbose > 2) begin
-                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
-                           + fshow(op)
-                           + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
-                  $display(msg);
-               end
-            endaction
+               let msg =  fshow(op)
+                        + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_LD_Req
 
-         function Action fa_exec_ST_Req(StFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_ST_Req(StFunc op);
+            actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_S));
                Word    mem_addr = pack(s_v1 + imm_s);
 
@@ -445,20 +444,17 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                default  :  fa_ST_req(BITS32);
                endcase
 
-               if (cfg_verbose > 2) begin
-                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
-                           + fshow(op)
-                           + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
-                  $display(msg);
-               end
-            endaction
+               let msg =  fshow(op)
+                        + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_ST_Req
 
          // ----------------------------------------------------------------
          // Instructios for Register-Immediate alu ops
 
-         function Action fa_exec_OP_IMM(AluFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_OP_IMM(AluFunc op);
+            actionvalue
                Word                v2    = zeroExtend(fields.imm12_I);
                Word_S              s_v2  = signExtend(unpack(fields.imm12_I));
                Bit#(TLog#(XLEN))   shamt = truncate(fields.imm12_I);
@@ -476,20 +472,17 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 >> shamt));
                endcase
 
-               if (cfg_verbose > 2) begin
-                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
-                           + fshow(op)
-                           + $format("i %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], fields.imm12_I);
-                  $display(msg);
-               end
-            endaction
+               let msg =  fshow(op)
+                        + $format("i %s, %s, 0x%h", regNameABI[fields.rd], regNameABI[fields.rs1], fields.imm12_I);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_OP_IMM
 
          // ----------------------------------------------------------------
          // Instructios for Register-Register alu ops
 
-         function Action fa_exec_OP(AluFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_OP(AluFunc op);
+            actionvalue
                Bit#(TLog#(XLEN)) shamt = truncate(v2);    // NOTE: upper bits are unspecified in spec
 
                case(op)
@@ -506,21 +499,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                default  :  fa_finish_with_Rd(fields.rd, pack(s_v1 & s_v2));
                endcase
 
-               if (cfg_verbose > 2) begin
-                  let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
-                           + fshow(op)
-                           + $format(" %s, %s, %s", regNameABI[fields.rd], regNameABI[fields.rs1], regNameABI[fields.rs2]);
-                  $display(msg);
-               end
-            endaction
+               let msg =  fshow(op)
+                        + $format(" %s, %s, %s", regNameABI[fields.rd], regNameABI[fields.rs1], regNameABI[fields.rs2]);
+               return msg;
+            endactionvalue
          endfunction: fa_exec_OP
 
 
          // ----------------------------------------------------------------
          // Instrucions for System-level ops
 
-         function Action fa_exec_SYSTEM(SysFunc op);
-            action
+         function ActionValue#(Fmt) fa_exec_SYSTEM(SysFunc op);
+            actionvalue
                let csr_old_val = fromMaybe(?, m_v_csr);
 
                case(op)
@@ -547,41 +537,41 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                               end
                endcase
 
-               if (cfg_verbose > 2) begin
-                  if ( (op == CSRRS) && (fields.csr == csr_CYCLE) )
-                     $display("[%7d] fa_exec  : pc = 0x%h, *** rdcycle %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (op == CSRRS) && (fields.csr == csr_INSTRET) )
-                     $display("[%7d] fa_exec  : pc = 0x%h, *** rdinstret %s", csr_cycle, decoded.pc, regNameABI[fields.rd]);
-                  else if ( (op == CSRRW) && (fields.csr == csr_DSCRATCH) )
-                     $display("[%7d] fa_exec  : pc = 0x%h, *** csrw dscratch, %s", csr_cycle, decoded.pc, regNameABI[fields.rs1]);
-                  else begin
-                     let msg =  $format("[%7d] fa_exec  : pc = 0x%h, *** ", csr_cycle, decoded.pc)
-                              + fshow(op)
-                              + $format(" %s, 0x%h, %s", regNameABI[fields.rd], fields.csr, regNameABI[fields.rs1]);
-                     $display(msg);
-                  end
+               let msg = ?;
+               if ( (op == CSRRS) && (fields.csr == csr_CYCLE) )
+                  msg = $format("rdcycle %s", regNameABI[fields.rd]);
+               else if ( (op == CSRRS) && (fields.csr == csr_INSTRET) )
+                  msg = $format("rdinstret %s", regNameABI[fields.rd]);
+               else if ( (op == CSRRW) && (fields.csr == csr_DSCRATCH) )
+                  msg = $format("csrw dscratch, %s", regNameABI[fields.rs1]);
+               else begin
+                  msg =  fshow(op)
+                       + $format(" %s, 0x%h, %s", regNameABI[fields.rd], fields.csr, regNameABI[fields.rs1]);
                end
-            endaction
+               return msg;
+            endactionvalue
          endfunction: fa_exec_SYSTEM
 
          // ----------------------------------------------------------------
          // Main body of fa_exec(), dispatching to the sub functions
          // based on major OPCODE
 
+         let x = ?;
          case(decoded.op.opcode) matches
-            tagged Lui        :  fa_exec_LUI();
-            tagged Auipc      :  fa_exec_AUIPC();
-            tagged Jal        :  fa_exec_JAL();
-            tagged Jalr       :  fa_exec_JALR();
-            tagged Br   .op   :  fa_exec_BRANCH(op);
-            tagged Ld   .op   :  fa_exec_LD_Req(op);
-            tagged St   .op   :  fa_exec_ST_Req(op);
-            tagged Alui .op   :  fa_exec_OP_IMM(op);
-            tagged Alu  .op   :  fa_exec_OP(op);
-            tagged Sys  .op   :  fa_exec_SYSTEM(op);
+            tagged Lui        :  x <- fa_exec_LUI();
+            tagged Auipc      :  x <- fa_exec_AUIPC();
+            tagged Jal        :  x <- fa_exec_JAL();
+            tagged Jalr       :  x <- fa_exec_JALR();
+            tagged Br   .op   :  x <- fa_exec_BRANCH(op);
+            tagged Ld   .op   :  x <- fa_exec_LD_Req(op);
+            tagged St   .op   :  x <- fa_exec_ST_Req(op);
+            tagged Alui .op   :  x <- fa_exec_OP_IMM(op);
+            tagged Alu  .op   :  x <- fa_exec_OP(op);
+            tagged Sys  .op   :  x <- fa_exec_SYSTEM(op);
             default           :  fa_finish_with_exception(exc_code_ILLEGAL_INSTRUCTION, ?);
          endcase
-      endaction
+         return x;
+      endactionvalue
    endfunction: fa_exec
 
 
@@ -609,7 +599,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    (* fire_when_enabled *)
    rule rl_fetch(cpu_enabled);
       let next_pc = fromMaybe(fromMaybe(rg_FetchPC, rw_nxtPC.wget), rw_jmpPC.wget);
-      if (cfg_verbose > 1) $display("[%7d] rl_fetch : Read instruction pc = 0x%08h", csr_cycle, next_pc);
+      if (cfg_verbose > 1) $display("[%7d] ( |F   ) : Read instruction pc = 0x%08h", csr_cycle, next_pc);
       memory.imem_req(next_pc);
       rg_f2d      <= tagged Valid next_pc;
       rg_FetchPC  <= next_pc;
@@ -621,7 +611,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_decode(fifo_d2e.notFull &&& rg_f2d matches tagged Valid .xPC);
       let instr <- memory.imem_resp;
 
-      if (cfg_verbose > 1) $display("[%7d] rl_decode: pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
+      if (cfg_verbose > 1) $display("[%7d] ( | D  ) : pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
       Decoded_Instr  decoded = fv_decode(xPC, instr);
 
       fifo_d2e.enq( decoded );
@@ -652,7 +642,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       let score_conflict = score1 || score2;
 
       if (cfg_verbose > 2) begin
-         $write("[%7d] rl_exec  : Scoreboard = [", csr_cycle);
+         $write("[%7d] ( |    ) : Scoreboard = [", csr_cycle);
          for(Integer i = 0; i < numRegs; i = i + 1) begin
             $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
          end
@@ -660,15 +650,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       end
 
       if (decoded.pc != pcEpoch) begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] (P|  E ) : STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
          fifo_d2e.deq;
       end
       else if (score_conflict) begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] (R|  E ) : STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
       end
       else begin
-         if (cfg_verbose > 1) $display("[%7d] rl_exec  : pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
-
          Bool checkScore = case(decoded.op.opcode) matches
                               tagged Br .*   : False;
                               tagged St .*   : False;
@@ -680,7 +668,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             rw_scoreGPRsSet.wset(fields.rd);
          end
 
-         fa_exec(decoded, fields);
+         let msg <- fa_exec(decoded, fields);
+         if (cfg_verbose > 1) $display("[%7d] ( |  E ) : pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h [", csr_cycle, decoded.pc, decoded.instr, pcEpoch, msg, "]");
          fifo_d2e.deq;
 
          // Update pcEpoch
@@ -705,7 +694,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
             let resp <- memory.dmem_resp;
 
             if (cfg_verbose > 0 && !isValid(resp)) begin
-               $display("[%7d] rl_write : Memory read failed", csr_cycle);
+               $display("[%7d] ( |   W) : Memory read failed", csr_cycle);
                $finish;
             end
 
@@ -723,7 +712,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          end
       endcase
 
-      if (cfg_verbose > 1) $display("[%7d] rl_write : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
+      if (cfg_verbose > 1) $display("[%7d] ( |   W) : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
       rf_GPRs.upd(rd, rd_value);
