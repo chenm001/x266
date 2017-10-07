@@ -40,6 +40,6 @@ for test_name in ${bmarks_tests[@]}; do
 	cp ${mem_file}.D mem.vmh.D
 
 	# run test
-	./${simdut} > ${log_dir}/${test_name}.log
+	./${simdut} | ./buffer.py 64K > ${log_dir}/${test_name}.log
 	echo ""
 done
