@@ -95,9 +95,8 @@ endmodule
 
 
 // ----------------------------------------------------------------
-// This interface is an argument to the 'mkRISCV_Spec' module,
+// This interface is an argument to the '_mkRISCV' module,
 // and is used insided the module to access memory.
-// MMUs, caches etc. are outside this boundary.
 
 interface Memory_IFC;
    method Action                  imem_req(Addr addr);
@@ -108,7 +107,7 @@ interface Memory_IFC;
 endinterface
 
 // ================================================================
-// This interfacce is offered by the 'mkRISCV_Spec' module to the environment.
+// This interfacce is offered by the '_mkRISCV' module to the environment.
 // It is not part of the spec, per se, and just has scaffolding that allows
 // the environment to control and CPU and probe its state.
 
