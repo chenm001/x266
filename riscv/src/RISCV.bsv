@@ -54,23 +54,28 @@ typedef Maybe#(Word) DMem_Resp;
 // ----------------
 // Memory interface reference design
 
-module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
-   BRAM_PORT#(Bit#(14), Word)             imem <- mkBRAMCore1Load(valueOf(TExp#(14)), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
-   BRAM_DUAL_PORT_BE#(Bit#(15), Word, 4)  dmem <- mkBRAMCore2BELoad(valueOf(TExp#(15)), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
-   Reg#(Bool)                             dmem_rd  <- mkDReg(False);
+module mkIMemory#(Reg#(Bit#(64)) cycles)(IMemory_IFC#(size))
+   provisos(Add#(a__, size, XLEN));
+   BRAM_PORT#(Bit#(size), Word)     mem   <- mkBRAMCore1Load(2 ** valueOf(size), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
 
-   method Action imem_req(Addr addr);
-      let phyAddr = addr - imemSt;
-      imem.put(False, truncate(phyAddr >> 2), ?);
+   method Action mem_req(Addr addr);
+      let phyAddr = (addr - imemSt);
+      mem.put(False, truncate(phyAddr >> 2), ?);
       //$display("[%7d] [IMEM] ReqAddr = 0x%08h", cycles, addr);
    endmethod
 
-   method ActionValue#(IMem_Resp) imem_resp();
-      let instr = imem.read();
-      return instr;
+   method ActionValue#(IMem_Resp) mem_resp();
+      let x = mem.read();
+      return x;
    endmethod
+endmodule
 
-   method Action dmem_req(DMem_Req req);
+module mkDMemory#(Reg#(Bit#(64)) cycles)(DMemory_IFC#(size))
+   provisos(Add#(a__, size, XLEN));
+   BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
+   Reg#(Bool)                                mem_rd   <- mkDReg(False);
+
+   method Action mem_req(DMem_Req req);
       let phyAddr = (req.addr - dmemSt);
       Bit#(Bits_per_Word_Byte_Index) shift = truncate(req.addr);
 
@@ -79,30 +84,31 @@ module mkMemory#(Reg#(Bit#(64)) cycles)(Memory_IFC);
          $finish;
       end
 
-      dmem.a.put(req.written, truncate(phyAddr >> 2), req.data);
-      dmem_rd <= !(req.mem_op == MEM_OP_STORE);
+      mem.a.put(req.written, truncate(phyAddr >> 2), req.data);
+      mem_rd <= !(req.mem_op == MEM_OP_STORE);
       //$display("[DMEM] Addr = 0x%08h", req.addr);
    endmethod
 
-   method ActionValue#(DMem_Resp) dmem_resp;
-      Word v = dmem.a.read();
+   method ActionValue#(DMem_Resp) mem_resp;
+      Word v = mem.a.read();
 
       //$display("[DMEM] Data = 0x%08h", v);
-      return dmem_rd ? tagged Valid v : tagged Invalid;
+      return mem_rd ? tagged Valid v : tagged Invalid;
    endmethod
 endmodule
-
 
 // ----------------------------------------------------------------
 // This interface is an argument to the '_mkRISCV' module,
 // and is used insided the module to access memory.
 
-interface Memory_IFC;
-   method Action                  imem_req(Addr addr);
-   method ActionValue#(IMem_Resp) imem_resp;
+interface IMemory_IFC#(numeric type size);
+   method Action                  mem_req(Addr addr);
+   method ActionValue#(IMem_Resp) mem_resp;
+endinterface
 
-   method Action                  dmem_req(DMem_Req req);
-   method ActionValue#(DMem_Resp) dmem_resp;
+interface DMemory_IFC#(numeric type size);
+   method Action                  mem_req(DMem_Req req);
+   method ActionValue#(DMem_Resp) mem_resp;
 endinterface
 
 // ================================================================
@@ -148,7 +154,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bit#(64))    csr_instret <- mkConfigReg(0);
 
    // internal components
-   Memory_IFC           memory   <- mkMemory(csr_cycle);
+   IMemory_IFC#(14)     imemory  <- mkIMemory(csr_cycle);
+   DMemory_IFC#(15)     dmemory  <- mkDMemory(csr_cycle);
 
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
@@ -391,7 +398,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          addr:        {mem_addr[xlen-1:2], 2'b00},
                                          written:     0,
                                          data:        ?};
-                     memory.dmem_req(req);
+                     dmemory.mem_req(req);
                      fa_finish_with_Ld(fields.rd, op, align);
                   endaction
                endfunction
@@ -430,7 +437,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                          addr:        {mem_addr[xlen-1:2], 2'b00},
                                          data:        aligned_data,
                                          written:     write_en};
-                     memory.dmem_req(req);
+                     dmemory.mem_req(req);
                      fa_finish_with_no_output;
                   endaction
                endfunction
@@ -598,7 +605,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    rule rl_fetch(cpu_enabled);
       let next_pc = fromMaybe(fromMaybe(rg_FetchPC, rw_nxtPC.wget), rw_jmpPC.wget);
       if (cfg_verbose > 1) $display("[%7d] ( |F   ) : Read instruction pc = 0x%08h", csr_cycle, next_pc);
-      memory.imem_req(next_pc);
+      imemory.mem_req(next_pc);
       rg_f2d      <= tagged Valid next_pc;
       rg_FetchPC  <= next_pc;
    endrule
@@ -607,7 +614,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // Instruction decode
    (* conflict_free="rl_decode, rl_exec" *)
    rule rl_decode(fifo_d2e.notFull &&& rg_f2d matches tagged Valid .xPC);
-      let instr <- memory.imem_resp;
+      let instr <- imemory.mem_resp;
 
       if (cfg_verbose > 1) $display("[%7d] ( | D  ) : pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
       Decoded_Instr  decoded = fv_decode(xPC, instr);
@@ -689,7 +696,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          tagged MemOp .op: begin
             let ld_op = op.ld_op;
             let align = op.align;
-            let resp <- memory.dmem_resp;
+            let resp <- dmemory.mem_resp;
 
             if (cfg_verbose > 0 && !isValid(resp)) begin
                $display("[%7d] ( |   W) : Memory read failed", csr_cycle);
