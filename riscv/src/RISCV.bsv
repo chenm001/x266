@@ -54,12 +54,12 @@ typedef Maybe#(Word) DMem_Resp;
 // ----------------
 // Memory interface reference design
 
-module mkIMemory#(Reg#(Bit#(64)) cycles)(IMemory_IFC#(size))
+module mkIMemory#(Reg#(Bit#(64)) cycles, Addr base)(IMemory_IFC#(size))
    provisos(Add#(a__, size, XLEN));
    BRAM_PORT#(Bit#(size), Word)     mem   <- mkBRAMCore1Load(2 ** valueOf(size), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
 
    method Action mem_req(Addr addr);
-      let phyAddr = (addr - imemSt);
+      let phyAddr = (addr - base);
       mem.put(False, truncate(phyAddr >> 2), ?);
       //$display("[%7d] [IMEM] ReqAddr = 0x%08h", cycles, addr);
    endmethod
@@ -70,13 +70,13 @@ module mkIMemory#(Reg#(Bit#(64)) cycles)(IMemory_IFC#(size))
    endmethod
 endmodule
 
-module mkDMemory#(Reg#(Bit#(64)) cycles)(DMemory_IFC#(size))
+module mkDMemory#(Reg#(Bit#(64)) cycles, Addr base)(DMemory_IFC#(size))
    provisos(Add#(a__, size, XLEN));
    BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
    Reg#(Bool)                                mem_rd   <- mkDReg(False);
 
    method Action mem_req(DMem_Req req);
-      let phyAddr = (req.addr - dmemSt);
+      let phyAddr = (req.addr - base);
       Bit#(Bits_per_Word_Byte_Index) shift = truncate(req.addr);
 
       if (shift != 0) begin
@@ -154,8 +154,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bit#(64))    csr_instret <- mkConfigReg(0);
 
    // internal components
-   IMemory_IFC#(14)     imemory  <- mkIMemory(csr_cycle);
-   DMemory_IFC#(15)     dmemory  <- mkDMemory(csr_cycle);
+   IMemory_IFC#(14)     imemory  <- mkIMemory(csr_cycle, imemSt);
+   DMemory_IFC#(15)     dmemory  <- mkDMemory(csr_cycle, dmemSt);
 
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
