@@ -1,28 +1,31 @@
-From 3e137f779934b0e31657bd1c7d350458c2e3f342 Mon Sep 17 00:00:00 2001
+From f42e9526a3d587519d753cb57b8c8c7144d7b7d2 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
-Date: Tue, 3 Oct 2017 14:22:40 -0500
-Subject: [PATCH] [CHEN] Improve performance by detect imm32hi20 case to reduce ADDI zero instruction
+Date: Tue, 10 Oct 2017 13:14:05 -0500
+Subject: [PATCH] [CHEN] Improve by detect imm32hi20 case to reduce ADDI
+ instruction
 
 ---
  lib/Target/RISCV/RISCVInstrInfo.td |    2 ++
  test/CodeGen/RISCV/calling-conv.ll |    9 +++------
- test/CodeGen/RISCV/imm32.ll        |   26 ++++++++++++++++++++++++++
  test/CodeGen/RISCV/vararg.ll       |   12 ++++--------
- 4 files changed, 35 insertions(+), 14 deletions(-)
- create mode 100644 test/CodeGen/RISCV/imm32.ll
+ 3 files changed, 9 insertions(+), 14 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b5e7fdb..c8a1c73 100644
+index 6644f15..d5a9ee8 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -333,9 +333,11 @@ class PatGprUimmLog2XLen<SDPatternOperator OpNode, FIShift Inst> :
- /// Immediates
+@@ -125,6 +125,7 @@ def ixlenimm : Operand<XLenVT>;
  
+ // Standalone (codegen-only) immleaf patterns.
  def simm32 : ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]>;
 +def simm32hi20 : ImmLeaf<XLenVT, [{return isShiftedInt<20, 12>(Imm);}]>;
+ def simm64 : ImmLeaf<XLenVT, [{return isInt<64>(Imm);}]>;
  
+ // Addressing modes.
+@@ -377,6 +378,7 @@ class PatGprUimmLog2XLen<SDPatternOperator OpNode, RVInstIShift Inst>
  def : Pat<(simm12:$imm), (ADDI X0, simm12:$imm)>;
- def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>, Requires<[IsRV32]>;
+ def : Pat<(simm32:$imm), (ADDI (LUI (HI20 imm:$imm)), (LO12Sext imm:$imm))>,
+       Requires<[IsRV32]>;
 +def : Pat<(simm32hi20:$imm), (LUI (HI20 imm:$imm))>, Requires<[IsRV32]>;
  
  /// Simple arithmetic operations
@@ -74,38 +77,6 @@ index 289c033..7057624 100644
  ; CHECK: sw a1, 12(a0)
  ; CHECK: sw zero, 8(a0)
  ; CHECK: sw zero, 4(a0)
-diff --git a/test/CodeGen/RISCV/imm32.ll b/test/CodeGen/RISCV/imm32.ll
-new file mode 100644
-index 0000000..5842051
---- /dev/null
-+++ b/test/CodeGen/RISCV/imm32.ll
-@@ -0,0 +1,26 @@
-+; RUN: llc -mtriple=riscv32 -verify-machineinstrs < %s | FileCheck %s
-+
-+define i32 @imm32() nounwind readnone {
-+; CHECK-LABEL: imm32:
-+; CHECK: addi sp, sp, -16
-+; CHECK: sw ra, 12(sp)
-+; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 16
-+; CHECK: lui a0, 74565
-+; CHECK: addi a0, a0, 1656
-+; CHECK: jalr zero, ra, 0
-+  ret i32 305419896
-+}
-+
-+define i32 @imm32hi20() nounwind readnone {
-+; CHECK-LABEL: imm32hi20:
-+; CHECK: addi sp, sp, -16
-+; CHECK: sw ra, 12(sp)
-+; CHECK: sw s0, 8(sp)
-+; CHECK: addi s0, sp, 16
-+; CHECK: lui a0, 16
-+; CHECK-NOT: addi a0, a0, 0
-+; CHECK: jalr zero, ra, 0
-+  ret i32 65536
-+}
-+
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
 index 24d9782..cafe48d 100644
 --- a/test/CodeGen/RISCV/vararg.ll
