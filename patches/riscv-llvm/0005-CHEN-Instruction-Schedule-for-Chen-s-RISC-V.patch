@@ -1,0 +1,170 @@
+From 5bbda080cdea6494fe66d71f945ec330238f41b1 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Wed, 11 Oct 2017 16:46:53 -0500
+Subject: [PATCH] [CHEN] Instruction Schedule for Chen's RISC-V
+
+---
+ lib/Target/RISCV/RISCV.td            |    8 +++-
+ lib/Target/RISCV/RISCVSchedule.td    |   38 +++++++++++++++++++++
+ lib/Target/RISCV/RISCVScheduleMVP.td |   60 ++++++++++++++++++++++++++++++++++
+ lib/Target/RISCV/RISCVSubtarget.h    |    4 ++
+ 4 files changed, 108 insertions(+), 2 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVSchedule.td
+ create mode 100644 lib/Target/RISCV/RISCVScheduleMVP.td
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index fee8dde..45eb92a 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -47,17 +47,21 @@ def RV32           : HwMode<"-64bit">;
+ // Registers, calling conventions, instruction descriptions.
+ //===----------------------------------------------------------------------===//
+ 
++include "RISCVSchedule.td"
++
+ include "RISCVRegisterInfo.td"
+ include "RISCVCallingConv.td"
+ include "RISCVInstrInfo.td"
+ 
++include "RISCVScheduleMVP.td"
++
+ //===----------------------------------------------------------------------===//
+ // RISC-V processors supported.
+ //===----------------------------------------------------------------------===//
+ 
+-def : ProcessorModel<"generic-rv32", NoSchedModel, []>;
++def : ProcessorModel<"generic-rv32", RISCVSchedModel, []>;
+ 
+-def : ProcessorModel<"generic-rv64", NoSchedModel, [Feature64Bit]>;
++def : ProcessorModel<"generic-rv64", RISCVSchedModel, [Feature64Bit]>;
+ 
+ //===----------------------------------------------------------------------===//
+ // Define the RISC-V target.
+diff --git a/lib/Target/RISCV/RISCVSchedule.td b/lib/Target/RISCV/RISCVSchedule.td
+new file mode 100644
+index 0000000..f712a87
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVSchedule.td
+@@ -0,0 +1,38 @@
++//===-- RISCVSchedule.td - RISC-V Scheduling Definitions ---*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++// ===---------------------------------------------------------------------===//
++// The following definitions describe the simpler per-operand machine model.
++// This works with MachineScheduler. See MCSchedule.h for details.
++
++// RISC-V machine model for scheduling and other instruction cost heuristics.
++def RISCVSchedModel : SchedMachineModel {
++  let IssueWidth = 1;
++  let LoadLatency = 2;
++  let HighLatency = 10;
++  let MispredictPenalty = 2;
++  let LoopMicroOpBufferSize = 0;
++  let MicroOpBufferSize = 1; // Explicitly set to one for in-order with conflict.
++  let PostRAScheduler  = 0;
++  let CompleteModel = 0;
++}
++
++def WriteI         : SchedWrite; // Int ALU
++//def WriteILD       : SchedWrite; // Int Load
++//def WriteIST       : SchedWrite; // Int Store
++def ReadI          : SchedRead;  // Int ALU
++
++//===----------------------------------------------------------------------===//
++// Define each kind of processor resource and number available.
++
++// Modeling each pipeline as a ProcResource using the BufferSize = 0 since
++// RISC-V is in-order.
++
++def UnitIALU    : ProcResource<2> { let BufferSize = 0; } // Int ALU/Load/Store
++//def UnitILdSt   : ProcResource<1> { let BufferSize = 0; } // Int Load/Store
+diff --git a/lib/Target/RISCV/RISCVScheduleMVP.td b/lib/Target/RISCV/RISCVScheduleMVP.td
+new file mode 100644
+index 0000000..e998750
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVScheduleMVP.td
+@@ -0,0 +1,60 @@
++//===-- RISCVScheduleMVP.td - RISC-V Scheduling Definitions -*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++// ===---------------------------------------------------------------------===//
++// The following definitions describe the simpler per-operand machine model.
++// This works with MachineScheduler. See MCSchedule.h for details.
++
++//===----------------------------------------------------------------------===//
++// Subtarget-specific SchedWrite types which both map the ProcResources and
++// set the latency.
++
++
++let SchedModel = RISCVSchedModel in {
++
++// ALU - Despite having a full pipeline stage of 4.
++def : WriteRes<WriteI, [UnitIALU]> { let Latency = 2; }
++
++def : ReadAdvance<ReadI, 0>;
++
++def WriteIAlu   : SchedWriteRes<[UnitIALU, UnitIALU, UnitIALU]> { let Latency = 2; }
++def WriteIMem   : SchedWriteRes<[UnitIALU, UnitIALU, UnitIALU]> { let Latency = 2; }
++def WriteBr     : SchedWriteRes<[UnitIALU, UnitIALU, UnitIALU]> { let Latency = 2; }
++
++
++//---
++// Miscellaneous
++//---
++def : InstRW<[WriteI], (instrs COPY)>;
++
++//---
++// ALU
++//---
++def : InstRW<[WriteIAlu], (instregex "(ADD|XOR|AND|OR|SRL|SRA|SLL|SLT)(I?)$")>;
++def : InstRW<[WriteIAlu], (instregex "(LUI|SUB|SLTIU|AUIPC)$")>;
++
++
++//---
++// Branch
++//---
++def : InstRW<[WriteBr], (instregex "B(EQ|NE|GE|GEU|LT|LTU)$")>;
++def : InstRW<[WriteBr], (instregex "JAL(R?)$")>;
++
++//---
++// Load/Store
++//---
++def : InstRW<[WriteIAlu], (instregex "L(B|BU|H|HU|W)$")>;
++def : InstRW<[WriteIMem], (instregex "S(B|H|W)$")>;
++
++//---
++// System
++//---
++def : InstRW<[WriteIAlu], (instregex "CSR(RS|RC|RW)(I?)$")>;
++}
++
+diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
+index 4397024..b836c80 100644
+--- a/lib/Target/RISCV/RISCVSubtarget.h
++++ b/lib/Target/RISCV/RISCVSubtarget.h
+@@ -57,6 +57,10 @@ public:
+   // definition of this function is auto-generated by tblgen.
+   void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
+ 
++  /// Enable the MachineScheduler pass for all subtargets.
++  bool enableMachineScheduler() const override { return true; }
++  bool enablePostRAScheduler() const { return true; }
++
+   const RISCVFrameLowering *getFrameLowering() const override {
+     return &FrameLowering;
+   }
+-- 
+1.7.9.msysgit.0
+
