@@ -1,0 +1,44 @@
+From cf669ca460f812968c54b1837495d9e3d2fd7a32 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Wed, 11 Oct 2017 18:49:47 -0500
+Subject: [PATCH] [CHEN] import RISC-V optimize rule
+
+---
+ lib/Target/RISCV/RISCV.td         |    1 +
+ lib/Target/RISCV/RISCVOptimize.td |   12 ++++++++++++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
+ create mode 100644 lib/Target/RISCV/RISCVOptimize.td
+
+diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
+index 45eb92a..6267e5b 100644
+--- a/lib/Target/RISCV/RISCV.td
++++ b/lib/Target/RISCV/RISCV.td
+@@ -54,6 +54,7 @@ include "RISCVCallingConv.td"
+ include "RISCVInstrInfo.td"
+ 
+ include "RISCVScheduleMVP.td"
++include "RISCVOptimize.td"
+ 
+ //===----------------------------------------------------------------------===//
+ // RISC-V processors supported.
+diff --git a/lib/Target/RISCV/RISCVOptimize.td b/lib/Target/RISCV/RISCVOptimize.td
+new file mode 100644
+index 0000000..0714bee
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVOptimize.td
+@@ -0,0 +1,12 @@
++//===-- RISCVOptimize.td - RISC-V Optimization Definitions ---*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++// Mapping A+(B+(C+D)) -> (A+B)+(C+D)
++def : Pat<(add (add (add GPR:$x1, GPR:$x2), GPR:$x3), GPR:$x4), (ADD (ADD GPR:$x1, GPR:$x2), (ADD GPR:$x3, GPR:$x4))>;
++
+-- 
+1.7.9.msysgit.0
+
