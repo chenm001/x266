@@ -1,7 +1,7 @@
-From 7f29729f43e84e12010cdb44d90965a63f4b477b Mon Sep 17 00:00:00 2001
+From 3dbbf0ed8db001e0ae40abc06610e56592843693 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Tue, 3 Oct 2017 11:14:53 -0500
-Subject: [PATCH 1/4] [CHEN] fix build error
+Subject: [PATCH] [CHEN] fix build error
 
 ---
  utils/TableGen/CodeGenDAGPatterns.cpp |    2 ++

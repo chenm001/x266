@@ -1,4 +1,4 @@
-From f42e9526a3d587519d753cb57b8c8c7144d7b7d2 Mon Sep 17 00:00:00 2001
+From 231aacf8b54582f3c961d7fc53a955506d186769 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Tue, 10 Oct 2017 13:14:05 -0500
 Subject: [PATCH] [CHEN] Improve by detect imm32hi20 case to reduce ADDI
@@ -11,7 +11,7 @@ Subject: [PATCH] [CHEN] Improve by detect imm32hi20 case to reduce ADDI
  3 files changed, 9 insertions(+), 14 deletions(-)
 
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index 6644f15..d5a9ee8 100644
+index b58ee20..9604388 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
 @@ -125,6 +125,7 @@ def ixlenimm : Operand<XLenVT>;
@@ -31,7 +31,7 @@ index 6644f15..d5a9ee8 100644
  /// Simple arithmetic operations
  
 diff --git a/test/CodeGen/RISCV/calling-conv.ll b/test/CodeGen/RISCV/calling-conv.ll
-index 289c033..7057624 100644
+index 381d04a..c00ebfa 100644
 --- a/test/CodeGen/RISCV/calling-conv.ll
 +++ b/test/CodeGen/RISCV/calling-conv.ll
 @@ -40,14 +40,13 @@ define i32 @caller_scalars() {
@@ -78,7 +78,7 @@ index 289c033..7057624 100644
  ; CHECK: sw zero, 8(a0)
  ; CHECK: sw zero, 4(a0)
 diff --git a/test/CodeGen/RISCV/vararg.ll b/test/CodeGen/RISCV/vararg.ll
-index 24d9782..cafe48d 100644
+index 73cfa68..251d6b0 100644
 --- a/test/CodeGen/RISCV/vararg.ll
 +++ b/test/CodeGen/RISCV/vararg.ll
 @@ -93,10 +93,9 @@ define i32 @va1_va_arg_alloca(i8* %fmt, ...) {

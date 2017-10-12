@@ -1,4 +1,4 @@
-From cf669ca460f812968c54b1837495d9e3d2fd7a32 Mon Sep 17 00:00:00 2001
+From 81d4e92aeb539e2938b5d89fcb3b5f8304ef2271 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Wed, 11 Oct 2017 18:49:47 -0500
 Subject: [PATCH] [CHEN] import RISC-V optimize rule
@@ -10,7 +10,7 @@ Subject: [PATCH] [CHEN] import RISC-V optimize rule
  create mode 100644 lib/Target/RISCV/RISCVOptimize.td
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index 45eb92a..6267e5b 100644
+index bbede0e..edf78b6 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -54,6 +54,7 @@ include "RISCVCallingConv.td"

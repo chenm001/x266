@@ -1,4 +1,4 @@
-From 5bbda080cdea6494fe66d71f945ec330238f41b1 Mon Sep 17 00:00:00 2001
+From 0a2a1dc148eedd0044c984e10f200663e3424139 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Wed, 11 Oct 2017 16:46:53 -0500
 Subject: [PATCH] [CHEN] Instruction Schedule for Chen's RISC-V
@@ -13,7 +13,7 @@ Subject: [PATCH] [CHEN] Instruction Schedule for Chen's RISC-V
  create mode 100644 lib/Target/RISCV/RISCVScheduleMVP.td
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
-index fee8dde..45eb92a 100644
+index 69b9c5d..bbede0e 100644
 --- a/lib/Target/RISCV/RISCV.td
 +++ b/lib/Target/RISCV/RISCV.td
 @@ -47,17 +47,21 @@ def RV32           : HwMode<"-64bit">;
@@ -86,7 +86,7 @@ index 0000000..f712a87
 +//def UnitILdSt   : ProcResource<1> { let BufferSize = 0; } // Int Load/Store
 diff --git a/lib/Target/RISCV/RISCVScheduleMVP.td b/lib/Target/RISCV/RISCVScheduleMVP.td
 new file mode 100644
-index 0000000..e998750
+index 0000000..525ec53
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVScheduleMVP.td
 @@ -0,0 +1,60 @@
@@ -151,7 +151,7 @@ index 0000000..e998750
 +}
 +
 diff --git a/lib/Target/RISCV/RISCVSubtarget.h b/lib/Target/RISCV/RISCVSubtarget.h
-index 4397024..b836c80 100644
+index 4397024..25b5137 100644
 --- a/lib/Target/RISCV/RISCVSubtarget.h
 +++ b/lib/Target/RISCV/RISCVSubtarget.h
 @@ -57,6 +57,10 @@ public:
