@@ -1,0 +1,25 @@
+From 6a3e4d9d8dd28ac3f89bef6976d2cca4fc23660a Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Thu, 12 Oct 2017 15:53:45 -0500
+Subject: [PATCH 2/6] [CHEN] setting x266 custom LLVM id
+
+---
+ cmake/modules/GetSVN.cmake |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/cmake/modules/GetSVN.cmake b/cmake/modules/GetSVN.cmake
+index f729395..5cf3686 100644
+--- a/cmake/modules/GetSVN.cmake
++++ b/cmake/modules/GetSVN.cmake
+@@ -98,7 +98,7 @@ function(append_info name path)
+   file(APPEND "${HEADER_FILE}.txt"
+     "#define ${name}_REVISION \"${revision}\"\n")
+   file(APPEND "${HEADER_FILE}.txt"
+-    "#define ${name}_REPOSITORY \"${repository}\"\n")
++    "#define ${name}_REPOSITORY \"http://github.com/chenm001/x266\"\n")
+ endfunction()
+ 
+ function(validate_inputs source_dirs names)
+-- 
+1.7.9.msysgit.0
+
