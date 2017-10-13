@@ -1,11 +1,12 @@
 From 3dbbf0ed8db001e0ae40abc06610e56592843693 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Tue, 3 Oct 2017 11:14:53 -0500
-Subject: [PATCH] [CHEN] fix build error
+Subject: [PATCH] [CHEN] fix lowRISC riscv-llvm build error
 
 ---
  utils/TableGen/CodeGenDAGPatterns.cpp |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/utils/TableGen/CodeGenDAGPatterns.cpp b/utils/TableGen/CodeGenDAGPatterns.cpp
 index ab12716..ee7b77f 100644
@@ -27,6 +28,19 @@ index ab12716..ee7b77f 100644
  }
  
  // --- TypeInfer
+diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
+index e4c2a23..670b3db 100644
+--- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
++++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
+@@ -1333,7 +1333,7 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
+ SDValue DAGTypeLegalizer::PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo) {
+   // Promote the rw, locality, and cache type arguments to a supported integer
+   // width.
+-  N->dump(&DAG);
++  DEBUG(N->dump(&DAG));
+   SDValue Op2 = GetPromotedInteger(N->getOperand(2));
+   SDValue Op3 = GetPromotedInteger(N->getOperand(3));
+   SDValue Op4 = GetPromotedInteger(N->getOperand(4));
 -- 
 1.7.9.msysgit.0
 
