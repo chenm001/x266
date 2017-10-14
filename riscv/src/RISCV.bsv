@@ -76,7 +76,6 @@ module mkDMemory#(Reg#(Bit#(64)) cycles, Addr base)(DMemory_IFC#(size))
    Reg#(Bool)                                mem_rd   <- mkDReg(False);
 
    method Action mem_req(DMem_Req req);
-      let phyAddr = (req.addr - base);
       Bit#(Bits_per_Word_Byte_Index) shift = truncate(req.addr);
 
       if (shift != 0) begin
@@ -84,6 +83,7 @@ module mkDMemory#(Reg#(Bit#(64)) cycles, Addr base)(DMemory_IFC#(size))
          $finish;
       end
 
+      let phyAddr = (req.addr - base);
       mem.a.put(req.written, truncate(phyAddr >> 2), req.data);
       mem_rd <= !(req.mem_op == MEM_OP_STORE);
       //$display("[DMEM] Addr = 0x%08h", req.addr);
