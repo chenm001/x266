@@ -48,7 +48,9 @@ for test_name in ${asm_tests[@]}; do
 		exit
 	fi
 	cp ${mem_file} mem.vmh
-	cp ${mem_file}.D mem.vmh.D
+	for ((idx = 0; idx < 8; idx++)); do
+	    cp ${mem_file}.D${idx} mem.vmh.D${idx}
+	done
 
 	# run test
 	./${simdut} | ./buffer.py 64K > ${log_dir}/${test_name}.log

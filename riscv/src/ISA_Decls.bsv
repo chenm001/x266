@@ -48,6 +48,8 @@ typedef  Word        Addr;          // addresses/pointers
 typedef TDiv#(XLEN, Bits_per_Byte)  Bytes_per_Word;
 typedef TLog#(Bytes_per_Word)       Bits_per_Word_Byte_Index;
 
+typedef 8 MemBanks;
+Integer memBanks = valueOf(MemBanks);
 
 // ================================================================
 // Symbolic register names
@@ -338,12 +340,8 @@ typedef enum {
 // Write Back Stage
 
 typedef union tagged {
-   Word        Value;
-
-   struct {
-      LdFunc                           ld_op;
-      Bit#(Bits_per_Word_Byte_Index)   align;
-   }           MemOp;
+   Word                                      Value;
+   struct { LdFunc ld_op; Bit#(5) lsb5; }    MemOp;
 } Exec2WbValue_t deriving(Bits);
 
 typedef struct {

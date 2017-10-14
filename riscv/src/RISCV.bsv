@@ -8,6 +8,7 @@ import RegFile       :: *;    // For RISC-V GPRs
 import ConfigReg     :: *;
 import FIFOF         :: *;
 import SpecialFIFOs  :: *;
+import Vector        :: *;
 
 // ================================================================
 // BSV project imports
@@ -70,21 +71,13 @@ module mkIMemory#(Reg#(Bit#(64)) cycles, Addr base)(IMemory_IFC#(size))
    endmethod
 endmodule
 
-module mkDMemory#(Reg#(Bit#(64)) cycles, Addr base)(DMemory_IFC#(size))
+module mkDMemory#(Reg#(Bit#(64)) cycles, Integer bank)(DMemory_IFC#(size))
    provisos(Add#(a__, size, XLEN));
-   BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D"), False);
+   BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D") + integerToString(bank), False);
    Reg#(Bool)                                mem_rd   <- mkDReg(False);
 
    method Action mem_req(DMem_Req req);
-      Bit#(Bits_per_Word_Byte_Index) shift = truncate(req.addr);
-
-      if (shift != 0) begin
-         $display("Memory alignment check failed at addr 0x%h", req.addr);
-         $finish;
-      end
-
-      let phyAddr = (req.addr - base);
-      mem.a.put(req.written, truncate(phyAddr >> 2), req.data);
+      mem.a.put(req.written, truncate(req.addr), req.data);
       mem_rd <= !(req.mem_op == MEM_OP_STORE);
       //$display("[DMEM] Addr = 0x%08h", req.addr);
    endmethod
@@ -135,7 +128,10 @@ endfunction: fv_fall_through_pc
 
 // ----------------
 
-module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
+module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
+   provisos(
+      Log#(MemBanks, bitsMemBanks)
+   );
 
    // CPU state
    Reg#(Bool)  cpu_enabled <- mkReg(False);
@@ -154,8 +150,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    Reg#(Bit#(64))    csr_instret <- mkConfigReg(0);
 
    // internal components
-   IMemory_IFC#(14)     imemory  <- mkIMemory(csr_cycle, imemSt);
-   DMemory_IFC#(15)     dmemory  <- mkDMemory(csr_cycle, dmemSt);
+   IMemory_IFC#(14)     imemory     <- mkIMemory(csr_cycle, imemSt);
+   DMemory_IFC#(12)     dmemory[memBanks];
+   for(Integer i = 0; i < memBanks; i = i + 1)
+      dmemory[i]  <- mkDMemory(csr_cycle, i);
 
    // ----------------
    // These CSRs are technically not present in the user-mode ISA.
@@ -260,9 +258,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
    // ----------------
    // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
 
-   function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(Bits_per_Word_Byte_Index) align);
+   function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, align: align})} );
+         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, lsb5: lsb5})} );
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -386,20 +384,37 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          // LD and ST instructions.
          // Issue request here; will be completed in STATE_EXEC_LD/ST_RESPONSE
 
+         function Vector#(8, Addr) f_getBankAddr(Addr mem_addr);
+            Bit#(3) bank = truncate(mem_addr >> 2);
+            Addr sub_addr = (mem_addr >> (2+3));
+            Vector#(8, Addr) ret = ?;
+
+            // Example: bank=2
+            // 0 1 2 3 4 5 6 7
+            //     * * * * * *
+            // * *
+            for(Integer i = 0; i < 8; i = i + 1)
+               ret[i] = sub_addr + (fromInteger(i) < bank ? 1 : 0);
+            return ret;
+         endfunction
+
          function ActionValue#(Fmt) fa_exec_LD_Req(LdFunc op);
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
-               Word    mem_addr = pack(s_v1 + imm_s);
+               Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
+               Bit#(5) lsb5     = truncate(mem_addr);
+               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
-                     Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
-                     let req = DMem_Req {mem_op:      MEM_OP_LOAD,
-                                         addr:        {mem_addr[xlen-1:2], 2'b00},
-                                         written:     0,
-                                         data:        ?};
-                     dmemory.mem_req(req);
-                     fa_finish_with_Ld(fields.rd, op, align);
+                     for(Integer i = 0; i < memBanks; i = i + 1) begin
+                        let req = DMem_Req {mem_op:      MEM_OP_LOAD,
+                                            addr:        bankAddr[i],
+                                            written:     0,
+                                            data:        ?};
+                        dmemory[i].mem_req(req);
+                     end
+                     fa_finish_with_Ld(fields.rd, op, lsb5);
                   endaction
                endfunction
 
@@ -421,11 +436,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
          function ActionValue#(Fmt) fa_exec_ST_Req(StFunc op);
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_S));
-               Word    mem_addr = pack(s_v1 + imm_s);
+               Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
+               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr);
 
                function Action fa_ST_req(Mem_Data_Size sz);
                   action
                      Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
+                     Bit#(3) bank = truncate(mem_addr >> 2);
                      Word aligned_data = v2 << {align, 3'b0};
                      Bit#(Bytes_per_Word) write_en = (case(sz)
                                                          BITS8:  ('b0001 << align);
@@ -433,11 +450,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
                                                          default/*BITS32*/: ('b1111);
                                                       endcase);
 
-                     let req = DMem_Req {mem_op:      MEM_OP_STORE,
-                                         addr:        {mem_addr[xlen-1:2], 2'b00},
-                                         data:        aligned_data,
-                                         written:     write_en};
-                     dmemory.mem_req(req);
+                     for(Integer i = 0; i < memBanks; i = i + 1) begin
+                        let req = DMem_Req {mem_op:      MEM_OP_STORE,
+                                            addr:        bankAddr[i],
+                                            data:        aligned_data,
+                                            written:     (fromInteger(i) == bank ? write_en : 0)};
+                        dmemory[i].mem_req(req);
+                     end
                      fa_finish_with_no_output;
                   endaction
                endfunction
@@ -695,8 +714,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC);
       case(x.rd_value) matches
          tagged MemOp .op: begin
             let ld_op = op.ld_op;
-            let align = op.align;
-            let resp <- dmemory.mem_resp;
+            let bank  = op.lsb5[4:2];
+            let align = op.lsb5[1:0];
+            let resp <- dmemory[bank].mem_resp;
 
             if (cfg_verbose > 0 && !isValid(resp)) begin
                $display("[%7d] (  |   W) : Memory read failed", csr_cycle);

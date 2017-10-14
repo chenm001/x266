@@ -51,6 +51,7 @@ checkasm
 *.bo
 *.ba
 *.v
+*.vmh*
 
 .digress_x264
 dataDec.txt
