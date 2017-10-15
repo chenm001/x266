@@ -260,10 +260,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
 
    function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
       action
+         function Bit#(5) mapOffsetToBank(Integer x);
+            return (fromInteger(x) + lsb5);
+         endfunction
+
+         Vector#(32, Bit#(5)) offset = map(mapOffsetToBank, genVector);
          Vector#(32, Bit#(6)) s = ?;
+
          for(Integer i = 0; i < 32; i = i + 1) begin
-            Bit#(6) offset = zeroExtend(lsb5) + fromInteger(i);
-            s[i] = 32 + {1'b0, truncate(offset)};
+            s[i] = 32 + zeroExtend(offset[i]);
          end
 
          fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, shuffle: s})} );
