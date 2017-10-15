@@ -384,17 +384,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          // LD and ST instructions.
          // Issue request here; will be completed in STATE_EXEC_LD/ST_RESPONSE
 
-         function Vector#(8, Addr) f_getBankAddr(Addr mem_addr);
+         function Vector#(8, Addr) f_getBankAddr(Addr mem_addr, Addr stride);
             Bit#(3) bank = truncate(mem_addr >> 2);
-            Addr sub_addr = (mem_addr >> (2+3));
             Vector#(8, Addr) ret = ?;
 
+            // =================
+            // Bank offset table
             // Example: bank=2
             // 0 1 2 3 4 5 6 7
             //     * * * * * *
             // * *
-            for(Integer i = 0; i < 8; i = i + 1)
-               ret[i] = sub_addr + (fromInteger(i) < bank ? 1 : 0);
+            Integer tbl_offset[8][8] = {
+               {0, 1, 2, 3, 4, 5, 6, 7},
+               {7, 0, 1, 2, 3, 4, 5, 6},
+               {6, 7, 0, 1, 2, 3, 4, 5},
+               {5, 6, 7, 0, 1, 2, 3, 4},
+               {4, 5, 6, 7, 0, 1, 2, 3},
+               {3, 4, 5, 6, 7, 0, 1, 2},
+               {2, 3, 4, 5, 6, 7, 0, 1},
+               {1, 2, 3, 4, 5, 6, 7, 0}
+            };
+
+            for(Integer i = 0; i < 8; i = i + 1) begin
+               ret[i] = (mem_addr + fromInteger(tbl_offset[bank][i]) * stride) >> (2+3);
+            end
             return ret;
          endfunction
 
@@ -403,7 +416,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
                Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
                Bit#(5) lsb5     = truncate(mem_addr);
-               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr);
+               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
                function Action fa_LD_Req(Mem_Data_Size sz);
                   action
@@ -437,7 +450,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_S));
                Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
-               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr);
+               Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
                function Action fa_ST_req(Mem_Data_Size sz);
                   action
