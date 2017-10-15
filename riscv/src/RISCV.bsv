@@ -143,7 +143,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    Reg#(Word)     pcEpoch     <- mkConfigRegU;
 
    // General Purpose Registers
-   RegFile#(RegName, Word) rf_GPRs  <- mkRegFileWCF(0, ~0);
+   RegFile#(RegName, Word) rf_GPRs  <- mkRegFileWCFLoad((genC ? "zeros_32.hex" : "R:/zeros_32.hex"), 0, ~0);
 
    // CSRs
    Reg#(Bit#(64))    csr_cycle   <- mkConfigReg(0);
@@ -297,8 +297,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          // Values of Rs1 and Rs2 fields of the instr, unsigned
          //Word v1 = decoded.v1;
          //Word v2 = decoded.v2;
-         Word  v1  = ((fields.rs1 == 0) ? 0: rf_GPRs.sub(fields.rs1));
-         Word  v2  = ((fields.rs2 == 0) ? 0: rf_GPRs.sub(fields.rs2));
+         Word  v1  = rf_GPRs.sub(fields.rs1);
+         Word  v2  = rf_GPRs.sub(fields.rs2);
 
          // Values of Rs1 and Rs2 fields of the instr, signed versions
          Word_S  s_v1 = unpack(v1);
@@ -740,7 +740,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       if (cfg_verbose > 1) $display("[%7d] (  |   W) : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
-      rf_GPRs.upd(rd, rd_value);
+      if (rd != 0) begin
+         rf_GPRs.upd(rd, rd_value);
+      end
       rw_scoreGPRsReset.wset(rd);
    endrule
 
