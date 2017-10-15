@@ -657,11 +657,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       let score1 = False;
       let score2 = False;
    
-      if (decoded.op.rs1 matches tagged Valid .x &&& x != 0)
-         score1 = rg_scoreGPRs[x];
+      if (decoded.op.rs1 != 0)
+         score1 = rg_scoreGPRs[decoded.op.rs1];
    
-      if (decoded.op.rs2 matches tagged Valid .x &&& x != 0)
-         score2 = rg_scoreGPRs[x];
+      if (decoded.op.rs2 != 0)
+         score2 = rg_scoreGPRs[decoded.op.rs2];
 
       let score_conflict = score1 || score2;
 
