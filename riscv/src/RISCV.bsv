@@ -56,7 +56,7 @@ typedef Maybe#(Word) DMem_Resp;
 // Memory interface reference design
 
 module mkIMemory#(Reg#(Bit#(64)) cycles, Addr base)(IMemory_IFC#(size))
-   provisos(Add#(a__, size, XLEN));
+   provisos(Add#(a__, size, ALEN));
    BRAM_PORT#(Bit#(size), Word)     mem   <- mkBRAMCore1Load(2 ** valueOf(size), False, (genC ? "mem.vmh" : "R:/mem.vmh"), False);
 
    method Action mem_req(Addr addr);
@@ -72,7 +72,7 @@ module mkIMemory#(Reg#(Bit#(64)) cycles, Addr base)(IMemory_IFC#(size))
 endmodule
 
 module mkDMemory#(Reg#(Bit#(64)) cycles, Integer bankID)(DMemory_IFC#(size))
-   provisos(Add#(a__, size, XLEN));
+   provisos(Add#(a__, size, ALEN));
    BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D") + integerToString(bankID), False);
    Reg#(Bool)                                mem_rd   <- mkDReg(False);
 
@@ -140,7 +140,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    Reg#(Addr)     rg_FetchPC  <- mkRegU;
    RWire#(Addr)   rw_nxtPC    <- mkRWire;
    RWire#(Addr)   rw_jmpPC    <- mkUnsafeRWire;
-   Reg#(Word)     pcEpoch     <- mkConfigRegU;
+   Reg#(Addr)     pcEpoch     <- mkConfigRegU;
 
    // General Purpose Registers
    RegFile#(RegName, Word) rf_GPRs  <- mkRegFileWCFLoad((genC ? "zeros_32.hex" : "R:/zeros_32.hex"), 0, ~0);
@@ -229,9 +229,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
             $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, pcEpoch, exc_code, badaddr);
          end
 
-         csr_mepc     <= pcEpoch;
+         csr_mepc     <= extend(pcEpoch);
          csr_mcause   <= { 1'b0, 0, exc_code };
-         csr_mbadaddr <= badaddr;
+         csr_mbadaddr <= extend(badaddr);
 
          $finish;
       endaction
@@ -330,7 +330,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_AUIPC();
             actionvalue
                Word_S  iv    = extend(unpack({ fields.imm20_U, 12'b0}));
-               Word_S  pc_s  = unpack(pcEpoch);
+               Word_S  pc_s  = extend(unpack(pcEpoch));
                Word    value = pack(pc_s + iv);
 
                fa_finish_with_Rd(fields.rd, value);
@@ -345,9 +345,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_JAL();
             actionvalue
                Word_S offset  = extend(unpack(fields.imm21_UJ));
-               Addr   next_pc = pack(unpack(pcEpoch) + offset);
+               Addr   next_pc = truncate(pack(extend(unpack(pcEpoch)) + offset));
 
-               fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
+               fa_finish_jump(fields.rd, extend(fv_fall_through_pc(pcEpoch)), next_pc);
                let msg = $format("jal %s, 0x%h", regNameABI[fields.rd], next_pc);
                return msg;
             endactionvalue
@@ -356,10 +356,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_JALR();
             actionvalue
                Word_S offset  = extend(unpack(fields.imm12_I));
-               Addr   next_pc = {truncateLSB(pack(s_v1 + offset)), 1'b0};
+               Addr   next_pc = {truncate((pack(s_v1 + offset)) >> 1), 1'b0};
 
-               fa_finish_jump(fields.rd, fv_fall_through_pc(pcEpoch), next_pc);
-               let msg = $format("jalr %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], offset);
+               fa_finish_jump(fields.rd, extend(fv_fall_through_pc(pcEpoch)), next_pc);
+               let msg = $format("jalr %s, %s, %1d -> %h", regNameABI[fields.rd], regNameABI[fields.rs1], offset, next_pc);
                return msg;
             endactionvalue
          endfunction: fa_exec_JALR
@@ -367,7 +367,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_BRANCH(BrFunc op);
             actionvalue
                Word_S offset  = extend(unpack(fields.imm13_SB));
-               Word   next_pc = pack(unpack(pcEpoch) + offset);
+               Addr   next_pc = truncate(pack(extend(unpack(pcEpoch)) + offset));
 
                case(op)
                   Eq    :  fa_finish_cond_branch(v1  == v2,    next_pc);
@@ -420,7 +420,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_LD_Req(LdFunc op);
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_I));
-               Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
+               Addr    mem_addr = truncate(pack(s_v1 + imm_s)) - dmemSt;
                Bit#(5) lsb5     = truncate(mem_addr);
                Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
@@ -455,7 +455,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          function ActionValue#(Fmt) fa_exec_ST_Req(StFunc op);
             actionvalue
                Word_S  imm_s    = extend(unpack(fields.imm12_S));
-               Word    mem_addr = pack(s_v1 + imm_s) - dmemSt;
+               Addr    mem_addr = truncate(pack(s_v1 + imm_s)) - dmemSt;
                Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
                function Action fa_ST_req(Mem_Data_Size sz);

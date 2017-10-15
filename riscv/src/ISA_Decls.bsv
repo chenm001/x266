@@ -32,6 +32,7 @@ import RegFile   :: *;    // For RISC-V GPRs
 // ================================================================
 
 typedef 32 XLEN;
+typedef 32 ALEN;
 
 typedef TMul#(2, XLEN)  XLEN_2;     // Double-width for multiplications
 Integer xlen = valueOf(XLEN);
@@ -43,7 +44,7 @@ typedef  8  Bits_per_Byte;
 typedef  Bit#(XLEN)  Word;          // Raw (unsigned) register data
 typedef  Int#(XLEN)  Word_S;        // Signed register data
 
-typedef  Word        Addr;          // addresses/pointers
+typedef  Bit#(ALEN)  Addr;          // addresses/pointers
 
 typedef TDiv#(XLEN, Bits_per_Byte)  Bytes_per_Word;
 typedef TLog#(Bytes_per_Word)       Bits_per_Word_Byte_Index;
