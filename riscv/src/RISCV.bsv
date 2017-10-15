@@ -71,9 +71,9 @@ module mkIMemory#(Reg#(Bit#(64)) cycles, Addr base)(IMemory_IFC#(size))
    endmethod
 endmodule
 
-module mkDMemory#(Reg#(Bit#(64)) cycles, Integer bank)(DMemory_IFC#(size))
+module mkDMemory#(Reg#(Bit#(64)) cycles, Integer bankID)(DMemory_IFC#(size))
    provisos(Add#(a__, size, XLEN));
-   BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D") + integerToString(bank), False);
+   BRAM_DUAL_PORT_BE#(Bit#(size), Word, 4)   mem      <- mkBRAMCore2BELoad(2 ** valueOf(size), False, (genC ? "mem.vmh.D" : "R:/mem.vmh.D") + integerToString(bankID), False);
    Reg#(Bool)                                mem_rd   <- mkDReg(False);
 
    method Action mem_req(DMem_Req req);
