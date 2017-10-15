@@ -395,24 +395,18 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
             Vector#(8, Addr) ret = ?;
 
             // =================
-            // Bank offset table
+            // Generate bank offset table
             // Example: bank=2
             // 0 1 2 3 4 5 6 7
             //     * * * * * *
             // * *
-            Integer tbl_offset[8][8] = {
-               {0, 1, 2, 3, 4, 5, 6, 7},
-               {7, 0, 1, 2, 3, 4, 5, 6},
-               {6, 7, 0, 1, 2, 3, 4, 5},
-               {5, 6, 7, 0, 1, 2, 3, 4},
-               {4, 5, 6, 7, 0, 1, 2, 3},
-               {3, 4, 5, 6, 7, 0, 1, 2},
-               {2, 3, 4, 5, 6, 7, 0, 1},
-               {1, 2, 3, 4, 5, 6, 7, 0}
-            };
+            function Bit#(3) mapBankToOffset(Integer x);
+               return (fromInteger(x) - bank);
+            endfunction
 
+            Vector#(8, Bit#(3)) offset = map(mapBankToOffset, genVector);
             for(Integer i = 0; i < 8; i = i + 1) begin
-               ret[i] = (mem_addr + fromInteger(tbl_offset[bank][i]) * stride) >> (2+3);
+               ret[i] = (mem_addr + zeroExtend(offset[i]) * stride) >> (2+3);
             end
             return ret;
          endfunction
