@@ -57,9 +57,6 @@ RVTEST_CODE_BEGIN
   TEST_LD_SRC1_BYPASS( 16, 1, lh, 0xfffffffffffff00f, 2, tdat3 );
   TEST_LD_SRC1_BYPASS( 17, 2, lh, 0xffffffffffffff00, 2, tdat1 );
 
-  #-------------------------------------------------------------
-  # Test write-after-write hazard
-  #-------------------------------------------------------------
 
   TEST_CASE( 18, x2, 2, \
     la  x5, tdat; \
@@ -73,6 +70,11 @@ RVTEST_CODE_BEGIN
     nop; \
     li  x2, 2; \
   )
+
+  #-------------------------------------------------------------
+  # Test Bank boundary
+  #-------------------------------------------------------------
+  TEST_LD_OP(20, lh, 0xffffffffffffe8e9, 30, tdat );
 
   TEST_PASSFAIL
 
@@ -88,5 +90,9 @@ tdat1:  .half 0x00ff
 tdat2:  .half 0xff00
 tdat3:  .half 0x0ff0
 tdat4:  .half 0xf00f
+tdat5:  .byte  -1,  -2,  -3,  -4,  -5,  -6,  -7,  -8
+        .byte  -9, -10, -11, -12, -13, -14, -15, -16
+        .byte -17, -18, -19, -20, -21, -22, -23, -24
+        .byte -25, -26, -27, -28, -29, -30, -31, -32
 
 RVTEST_DATA_END

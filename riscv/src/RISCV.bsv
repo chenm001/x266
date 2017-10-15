@@ -260,7 +260,13 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
 
    function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
       action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, lsb5: lsb5})} );
+         Vector#(32, Bit#(6)) s = ?;
+         for(Integer i = 0; i < 32; i = i + 1) begin
+            Bit#(6) offset = zeroExtend(lsb5) + fromInteger(i);
+            s[i] = 32 + {1'b0, truncate(offset)};
+         end
+
+         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, shuffle: s})} );
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -611,7 +617,15 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       endactionvalue
    endfunction: fa_exec
 
+   function Bit#(256) f_shuffle(Bit#(512) v, Vector#(32, Bit#(6)) s);
+      Vector#(64, Bit#(8)) x = unpack(v);
+      Vector#(32, Bit#(8)) r = ?;
 
+      for(Integer i = 0; i < 32; i = i + 1) begin
+         r[i] = x[s[i]];
+      end
+      return pack(r);
+   endfunction: f_shuffle
 
    // ================================================================
    // The CPU's top-level logic
@@ -727,17 +741,22 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       case(x.rd_value) matches
          tagged MemOp .op: begin
             let ld_op = op.ld_op;
-            let bank  = op.lsb5[4:2];
-            let align = op.lsb5[1:0];
-            let resp <- dmemory[bank].mem_resp;
+            let shuffle = op.shuffle;
 
-            if (cfg_verbose > 0 && !isValid(resp)) begin
-               $display("[%7d] (  |   W) : Memory read failed", csr_cycle);
-               $finish;
+            // Shuffle memory bus response
+            Vector#(8, Word) resp = ?;
+            for(Integer i = 0; i < 8; i = i + 1) begin
+               let data_resp <- dmemory[i].mem_resp;
+               resp[i] = fromMaybe(?, data_resp);
+
+               if (cfg_verbose > 0 && !isValid(data_resp)) begin
+                  $display("[%7d] (  |   W) : Memory read failed on Bank(%d)", csr_cycle, i);
+                  $finish;
+               end
             end
+            let data256 = f_shuffle({pack(resp), ?}, shuffle);
 
-            let u = fromMaybe(?, resp);
-            let data = u >> {align, 3'b0};
+            Word data = truncate(data256);
             let extendFunc = (ld_op == Lbu || ld_op == Lhu) ? zeroExtend : signExtend;
             rd_value = (case(ld_op)
                     Lb, Lbu: extendFunc(data[7:0]);
