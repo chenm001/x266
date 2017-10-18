@@ -1,0 +1,70 @@
+From 2787b36498cd3548a63996ba71edc15f4cad17c0 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Tue, 17 Oct 2017 16:04:46 -0500
+Subject: [PATCH] [CHEN] add new vector instructions 'v.ld2nx8', 'v.st2nx8'
+
+---
+ opcodes-custom |   31 +++++++------------------------
+ parse-opcodes  |    7 +++++++
+ 2 files changed, 14 insertions(+), 24 deletions(-)
+
+diff --git a/opcodes-custom b/opcodes-custom
+index 1df6f0f..2972e38 100644
+--- a/opcodes-custom
++++ b/opcodes-custom
+@@ -1,27 +1,10 @@
+-@custom0            rd rs1 imm12 14..12=0 6..2=0x02 1..0=3
+-@custom0.rs1        rd rs1 imm12 14..12=2 6..2=0x02 1..0=3
+-@custom0.rs1.rs2    rd rs1 imm12 14..12=3 6..2=0x02 1..0=3
+-@custom0.rd         rd rs1 imm12 14..12=4 6..2=0x02 1..0=3
+-@custom0.rd.rs1     rd rs1 imm12 14..12=6 6..2=0x02 1..0=3
+-@custom0.rd.rs1.rs2 rd rs1 imm12 14..12=7 6..2=0x02 1..0=3
++# Custom0 6..2=0x02
++@v.ld2nx8               imm9hi 27..25=0  imm9lo1 rs1 14..12=0  rd      6..2=0x02 1..0=3
++@v.st2nx8               imm9hi 27..25=0  rs1 rs2     14..12=1  imm9lo0 6..2=0x02 1..0=3
+ 
+-@custom1            rd rs1 imm12 14..12=0 6..2=0x0A 1..0=3
+-@custom1.rs1        rd rs1 imm12 14..12=2 6..2=0x0A 1..0=3
+-@custom1.rs1.rs2    rd rs1 imm12 14..12=3 6..2=0x0A 1..0=3
+-@custom1.rd         rd rs1 imm12 14..12=4 6..2=0x0A 1..0=3
+-@custom1.rd.rs1     rd rs1 imm12 14..12=6 6..2=0x0A 1..0=3
+-@custom1.rd.rs1.rs2 rd rs1 imm12 14..12=7 6..2=0x0A 1..0=3
++# Custom1 6..2=0x0A
+ 
+-@custom2            rd rs1 imm12 14..12=0 6..2=0x16 1..0=3
+-@custom2.rs1        rd rs1 imm12 14..12=2 6..2=0x16 1..0=3
+-@custom2.rs1.rs2    rd rs1 imm12 14..12=3 6..2=0x16 1..0=3
+-@custom2.rd         rd rs1 imm12 14..12=4 6..2=0x16 1..0=3
+-@custom2.rd.rs1     rd rs1 imm12 14..12=6 6..2=0x16 1..0=3
+-@custom2.rd.rs1.rs2 rd rs1 imm12 14..12=7 6..2=0x16 1..0=3
++# Custom2 6..2=0x16
++
++# Custom3 6..2=0x1E
+ 
+-@custom3            rd rs1 imm12 14..12=0 6..2=0x1E 1..0=3
+-@custom3.rs1        rd rs1 imm12 14..12=2 6..2=0x1E 1..0=3
+-@custom3.rs1.rs2    rd rs1 imm12 14..12=3 6..2=0x1E 1..0=3
+-@custom3.rd         rd rs1 imm12 14..12=4 6..2=0x1E 1..0=3
+-@custom3.rd.rs1     rd rs1 imm12 14..12=6 6..2=0x1E 1..0=3
+-@custom3.rd.rs1.rs2 rd rs1 imm12 14..12=7 6..2=0x1E 1..0=3
+diff --git a/parse-opcodes b/parse-opcodes
+index 408ed0c..0fd62c6 100755
+--- a/parse-opcodes
++++ b/parse-opcodes
+@@ -31,6 +31,13 @@ arglut['shamt'] = (25,20)
+ arglut['shamtw'] = (24,20)
+ arglut['vseglen'] = (31,29)
+ 
++# Chen's Vector Extension
++arglut['imm9lo0'] = (11,7)
++arglut['imm9lo1'] = (24,20)
++arglut['imm9hi'] = (31,28)
++arglut['funct6lo'] = (14,12)
++arglut['funct6hi'] = (27,25)
++
+ causes = [
+   (0x00, 'misaligned fetch'),
+   (0x01, 'fetch access'),
+-- 
+1.7.1
+
