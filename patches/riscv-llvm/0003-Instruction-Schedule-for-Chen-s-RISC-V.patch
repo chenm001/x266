@@ -1,7 +1,7 @@
-From 0a2a1dc148eedd0044c984e10f200663e3424139 Mon Sep 17 00:00:00 2001
+From 48b787083960f250c030ee5296456b372eab9123 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Wed, 11 Oct 2017 16:46:53 -0500
-Subject: [PATCH] [CHEN] Instruction Schedule for Chen's RISC-V
+Subject: [PATCH 3/4] Instruction Schedule for Chen's RISC-V
 
 ---
  lib/Target/RISCV/RISCV.td            |    8 +++-

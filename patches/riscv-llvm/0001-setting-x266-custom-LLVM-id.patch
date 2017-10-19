@@ -1,7 +1,7 @@
-From 6a3e4d9d8dd28ac3f89bef6976d2cca4fc23660a Mon Sep 17 00:00:00 2001
+From 3e6c511246ca730288fde88f45091044ad4b9384 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Thu, 12 Oct 2017 15:53:45 -0500
-Subject: [PATCH 2/6] [CHEN] setting x266 custom LLVM id
+Subject: [PATCH 1/4] setting x266 custom LLVM id
 
 ---
  cmake/modules/GetSVN.cmake |    2 +-

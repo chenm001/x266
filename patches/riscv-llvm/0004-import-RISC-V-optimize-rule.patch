@@ -1,12 +1,12 @@
-From 81d4e92aeb539e2938b5d89fcb3b5f8304ef2271 Mon Sep 17 00:00:00 2001
+From ae28895cc7b8f2445544351322908e670e4df665 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Wed, 11 Oct 2017 18:49:47 -0500
-Subject: [PATCH] [CHEN] import RISC-V optimize rule
+Subject: [PATCH 4/4] import RISC-V optimize rule
 
 ---
  lib/Target/RISCV/RISCV.td         |    1 +
- lib/Target/RISCV/RISCVOptimize.td |   12 ++++++++++++
- 2 files changed, 13 insertions(+), 0 deletions(-)
+ lib/Target/RISCV/RISCVOptimize.td |   16 ++++++++++++++++
+ 2 files changed, 17 insertions(+), 0 deletions(-)
  create mode 100644 lib/Target/RISCV/RISCVOptimize.td
 
 diff --git a/lib/Target/RISCV/RISCV.td b/lib/Target/RISCV/RISCV.td
@@ -23,10 +23,10 @@ index bbede0e..edf78b6 100644
  // RISC-V processors supported.
 diff --git a/lib/Target/RISCV/RISCVOptimize.td b/lib/Target/RISCV/RISCVOptimize.td
 new file mode 100644
-index 0000000..0714bee
+index 0000000..83d202a
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVOptimize.td
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,16 @@
 +//===-- RISCVOptimize.td - RISC-V Optimization Definitions ---*- tablegen -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38,6 +38,10 @@ index 0000000..0714bee
 +
 +// Mapping A+(B+(C+D)) -> (A+B)+(C+D)
 +def : Pat<(add (add (add GPR:$x1, GPR:$x2), GPR:$x3), GPR:$x4), (ADD (ADD GPR:$x1, GPR:$x2), (ADD GPR:$x3, GPR:$x4))>;
++
++// Remove reduce 'addi X, X, 0' on high 20-bits only constant.
++def simm32hi20 : ImmLeaf<XLenVT, [{return isShiftedInt<20, 12>(Imm);}]>;
++def : Pat<(simm32hi20:$imm), (LUI (HI20 imm:$imm))>, Requires<[IsRV32]>;
 +
 -- 
 1.7.9.msysgit.0
