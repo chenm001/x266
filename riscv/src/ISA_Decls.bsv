@@ -232,6 +232,7 @@ function  Opcode     instr_opcode7(Instr x); return x[6:0]; endfunction
 
 function  Bit#(3)    instr_funct3 (Instr x); return x[14:12]; endfunction
 function  Bit#(5)    instr_funct5 (Instr x); return x[31:27]; endfunction
+function  Bit#(6)    instr_funct6 (Instr x); return {x[27:25], x[14:12]}; endfunction
 function  Bit#(7)    instr_funct7 (Instr x); return x[31:25]; endfunction
 function  Bit#(10)   instr_funct10(Instr x); return { x[31:25], x[14:12] }; endfunction
 
@@ -241,6 +242,8 @@ function  RegName    instr_rs2    (Instr x); return x[24:20]; endfunction
 function  RegName    instr_rs3    (Instr x); return x[31:27]; endfunction     // {F,D} Extension
 function  CSR_Addr   instr_csr    (Instr x); return unpack(x[31:20]); endfunction
 
+function  Bit#(9)    instr_I_imm9  (Instr x); return {x[31:28], x[24:20]}; endfunction
+function  Bit#(9)    instr_S_imm9  (Instr x); return {x[31:28], x[11:7]}; endfunction
 function  Bit#(12)   instr_I_imm12 (Instr x); return x[31:20]; endfunction
 function  Bit#(12)   instr_S_imm12 (Instr x); return { x[31:25], x[11:7] }; endfunction
 function  Bit#(13)   instr_SB_imm13(Instr x); return { x[31], x[7], x[30:25], x[11:8], 1'b0 }; endfunction
@@ -402,6 +405,11 @@ typedef struct {
    Bit#(13) imm13_SB;
    Bit#(20) imm20_U;
    Bit#(21) imm21_UJ;
+
+   // Vector Extension
+   Bit#(6)  funct6;
+   Bit#(9)  imm9_I;
+   Bit#(9)  imm9_S;
 } Decoded_Fields deriving(Bits);
 
 function Instr_s fv_decode_instr(Instr instr);
@@ -441,11 +449,15 @@ function Decoded_Fields fv_decode_fields(Instr instr);
             rs3      :  instr_rs3      (instr),
             csr      :  instr_csr      (instr),
 
+
             funct3   :  instr_funct3   (instr),
             funct5   :  instr_funct5   (instr),
+            funct6   :  instr_funct6   (instr),
             funct7   :  instr_funct7   (instr),
             funct10  :  instr_funct10  (instr),
 
+            imm9_I   :  instr_I_imm9   (instr),
+            imm9_S   :  instr_I_imm9   (instr),
             imm12_I  :  instr_I_imm12  (instr),
             imm12_S  :  instr_S_imm12  (instr),
             imm13_SB :  instr_SB_imm13 (instr),
