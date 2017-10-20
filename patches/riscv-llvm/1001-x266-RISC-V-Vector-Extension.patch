@@ -1,0 +1,382 @@
+From 3a9de9c042789b75d28b068966d9b6a9b1bd01c5 Mon Sep 17 00:00:00 2001
+From: Min Chen <chenm003@163.com>
+Date: Fri, 20 Oct 2017 17:17:41 -0500
+Subject: [PATCH] x266 RISC-V Vector Extension
+
+---
+ include/llvm/IR/Intrinsics.td                      |    1 +
+ include/llvm/IR/IntrinsicsRISCV.td                 |   29 ++++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |    9 ++
+ .../RISCV/Disassembler/RISCVDisassembler.cpp       |   26 +++++
+ lib/Target/RISCV/RISCVISelLowering.cpp             |   84 ++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfo.td                 |    2 +
+ lib/Target/RISCV/RISCVInstrInfoV.td                |  102 ++++++++++++++++++++
+ lib/Target/RISCV/RISCVIntrinsics.td                |   40 ++++++++
+ 8 files changed, 293 insertions(+), 0 deletions(-)
+ create mode 100644 include/llvm/IR/IntrinsicsRISCV.td
+ create mode 100644 lib/Target/RISCV/RISCVInstrInfoV.td
+ create mode 100644 lib/Target/RISCV/RISCVIntrinsics.td
+
+diff --git a/include/llvm/IR/Intrinsics.td b/include/llvm/IR/Intrinsics.td
+index cb16c3d..49f988b 100644
+--- a/include/llvm/IR/Intrinsics.td
++++ b/include/llvm/IR/Intrinsics.td
+@@ -971,3 +971,4 @@ include "llvm/IR/IntrinsicsAMDGPU.td"
+ include "llvm/IR/IntrinsicsBPF.td"
+ include "llvm/IR/IntrinsicsSystemZ.td"
+ include "llvm/IR/IntrinsicsWebAssembly.td"
++include "llvm/IR/IntrinsicsRISCV.td"
+diff --git a/include/llvm/IR/IntrinsicsRISCV.td b/include/llvm/IR/IntrinsicsRISCV.td
+new file mode 100644
+index 0000000..0d9240a
+--- /dev/null
++++ b/include/llvm/IR/IntrinsicsRISCV.td
+@@ -0,0 +1,29 @@
++//===- IntrinsicsRV32.td - Defines RV32 intrinsics ---------*- tablegen -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file defines all of the RV32-specific intrinsics for use with NVPTX.
++//
++//===----------------------------------------------------------------------===//
++
++let TargetPrefix = "riscv" in {
++
++//
++// LD
++//
++
++  def int_riscv_v_ld32x8 : GCCBuiltin<"__rv32_v_ld32x8">,
++      Intrinsic<[llvm_v32i8_ty], [llvm_ptr_ty, llvm_i32_ty], [IntrReadMem, IntrArgMemOnly]>;
++
++//
++// ST
++//
++  def int_riscv_v_st32x8 : GCCBuiltin<"__rv32_v_st32x8">,
++      Intrinsic<[], [llvm_v32i8_ty, llvm_ptr_ty, llvm_i32_ty], [IntrWriteMem, IntrArgMemOnly]>;
++
++}
+diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index 1dffdb2..b1e5a0b 100644
+--- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -255,6 +255,15 @@ public:
+ 
+   bool isSImm21Lsb0() const { return isBareSimmNLsb0<21>(); }
+ 
++  bool isSImm9() const {
++    int64_t Imm;
++    RISCVMCExpr::VariantKind VK;
++    if (!isImm())
++      return false;
++    bool IsConstantImm = evaluateConstantImm(Imm, VK);
++    return IsConstantImm && isUInt<9>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
++  }
++
+   /// getStartLoc - Gets location of the first token of this operand
+   SMLoc getStartLoc() const override { return StartLoc; }
+   /// getEndLoc - Gets location of the last token of this operand
+diff --git a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+index f0e33a5..af6504e 100644
+--- a/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
++++ b/lib/Target/RISCV/Disassembler/RISCVDisassembler.cpp
+@@ -133,6 +133,32 @@ static DecodeStatus DecodeFPR64RegisterClass(MCInst &Inst, uint64_t RegNo,
+   return MCDisassembler::Success;
+ }
+ 
++static const unsigned VPRDecoderTable[] = {
++    RISCV::V0,  RISCV::V1,  RISCV::V2,  RISCV::V3,
++    RISCV::V4,  RISCV::V5,  RISCV::V6,  RISCV::V7,
++    RISCV::V8,  RISCV::V9,  RISCV::V10, RISCV::V11,
++    RISCV::V12, RISCV::V13, RISCV::V14, RISCV::V15,
++    RISCV::V16, RISCV::V17, RISCV::V18, RISCV::V19,
++    RISCV::V20, RISCV::V21, RISCV::V22, RISCV::V23,
++    RISCV::V24, RISCV::V25, RISCV::V26, RISCV::V27,
++    RISCV::V28, RISCV::V29, RISCV::V30, RISCV::V31
++};
++
++static DecodeStatus DecodeVPRRegisterClass(MCInst &Inst, uint64_t RegNo,
++    uint64_t Address,
++    const void *Decoder) {
++    if (RegNo > sizeof(VPRDecoderTable)) {
++        return MCDisassembler::Fail;
++    }
++
++    // We must define our own mapping from RegNo to register identifier.
++    // Accessing index RegNo in the register class will work in the case that
++    // registers were added in ascending order, but not in general.
++    unsigned Reg = VPRDecoderTable[RegNo];
++    Inst.addOperand(MCOperand::createReg(Reg));
++    return MCDisassembler::Success;
++}
++
+ template <unsigned N>
+ static DecodeStatus decodeUImmOperand(MCInst &Inst, uint64_t Imm,
+                                       int64_t Address, const void *Decoder) {
+diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
+index 9ff9af9..e2caaff 100644
+--- a/lib/Target/RISCV/RISCVISelLowering.cpp
++++ b/lib/Target/RISCV/RISCVISelLowering.cpp
+@@ -45,6 +45,90 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   // Set up the register classes.
+   addRegisterClass(XLenVT, &RISCV::GPRRegClass);
+ 
++  // Vector Extension
++  // First set operation action for all vector types to expand. Then we
++  // will selectively turn on ones that can be effectively codegen'd.
++  addRegisterClass(MVT::v32i8, &RISCV::VPRRegClass);
++
++  // Disable to avoid conflict with Intrinsic functions
++/*
++  for (MVT VT : { MVT::v32i8, MVT::v16i16, MVT::v8i32 }) {
++    // We promote all shuffles to v32i8.
++    setOperationAction(ISD::VECTOR_SHUFFLE, VT, Promote);
++    AddPromotedToType (ISD::VECTOR_SHUFFLE, VT, MVT::v32i8);
++
++    // We promote all non-typed operations to v8i32.
++    setOperationAction(ISD::AND   , VT, Promote);
++    AddPromotedToType (ISD::AND   , VT, MVT::v8i32);
++    setOperationAction(ISD::OR    , VT, Promote);
++    AddPromotedToType (ISD::OR    , VT, MVT::v8i32);
++    setOperationAction(ISD::XOR   , VT, Promote);
++    AddPromotedToType (ISD::XOR   , VT, MVT::v8i32);
++    setOperationAction(ISD::SELECT, VT, Promote);
++    AddPromotedToType (ISD::SELECT, VT, MVT::v8i32);
++    setOperationAction(ISD::SELECT_CC, VT, Promote);
++    AddPromotedToType (ISD::SELECT_CC, VT, MVT::v8i32);
++    setOperationAction(ISD::LOAD  , VT, Promote);
++    AddPromotedToType (ISD::LOAD  , VT, MVT::v8i32);
++    setOperationAction(ISD::STORE , VT, Promote);
++    AddPromotedToType (ISD::STORE , VT, MVT::v8i32);
++
++    // No other operations are legal.
++    setOperationAction(ISD::ADD, VT, Expand);
++    setOperationAction(ISD::SUB, VT, Expand);
++    setOperationAction(ISD::CTPOP, VT, Expand);
++    setOperationAction(ISD::CTLZ, VT, Expand);
++    setOperationAction(ISD::CTTZ, VT, Expand);
++    setOperationAction(ISD::MUL , VT, Expand);
++    setOperationAction(ISD::SDIV, VT, Expand);
++    setOperationAction(ISD::SREM, VT, Expand);
++    setOperationAction(ISD::UDIV, VT, Expand);
++    setOperationAction(ISD::UREM, VT, Expand);
++    setOperationAction(ISD::FDIV, VT, Expand);
++    setOperationAction(ISD::FREM, VT, Expand);
++    setOperationAction(ISD::FNEG, VT, Expand);
++    setOperationAction(ISD::FSQRT, VT, Expand);
++    setOperationAction(ISD::FLOG, VT, Expand);
++    setOperationAction(ISD::FLOG10, VT, Expand);
++    setOperationAction(ISD::FLOG2, VT, Expand);
++    setOperationAction(ISD::FEXP, VT, Expand);
++    setOperationAction(ISD::FEXP2, VT, Expand);
++    setOperationAction(ISD::FSIN, VT, Expand);
++    setOperationAction(ISD::FCOS, VT, Expand);
++    setOperationAction(ISD::FABS, VT, Expand);
++    setOperationAction(ISD::FFLOOR, VT, Expand);
++    setOperationAction(ISD::FCEIL,  VT, Expand);
++    setOperationAction(ISD::FTRUNC, VT, Expand);
++    setOperationAction(ISD::FRINT,  VT, Expand);
++    setOperationAction(ISD::FNEARBYINT, VT, Expand);
++    setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Expand);
++    setOperationAction(ISD::INSERT_VECTOR_ELT, VT, Expand);
++    setOperationAction(ISD::BUILD_VECTOR, VT, Expand);
++    setOperationAction(ISD::MULHU, VT, Expand);
++    setOperationAction(ISD::MULHS, VT, Expand);
++    setOperationAction(ISD::UMUL_LOHI, VT, Expand);
++    setOperationAction(ISD::SMUL_LOHI, VT, Expand);
++    setOperationAction(ISD::UDIVREM, VT, Expand);
++    setOperationAction(ISD::SDIVREM, VT, Expand);
++    setOperationAction(ISD::SCALAR_TO_VECTOR, VT, Expand);
++    setOperationAction(ISD::FPOW, VT, Expand);
++    setOperationAction(ISD::BSWAP, VT, Expand);
++    setOperationAction(ISD::VSELECT, VT, Expand);
++    setOperationAction(ISD::SIGN_EXTEND_INREG, VT, Expand);
++    setOperationAction(ISD::ROTL, VT, Expand);
++    setOperationAction(ISD::ROTR, VT, Expand);
++
++    for (MVT InnerVT : MVT::vector_valuetypes()) {
++      setTruncStoreAction(VT, InnerVT, Expand);
++      setLoadExtAction(ISD::SEXTLOAD, VT, InnerVT, Expand);
++      setLoadExtAction(ISD::ZEXTLOAD, VT, InnerVT, Expand);
++      setLoadExtAction(ISD::EXTLOAD, VT, InnerVT, Expand);
++    }
++  }
++*/
++  setOperationAction(ISD::LOAD  , MVT::v32i8, Legal);
++  setOperationAction(ISD::STORE , MVT::v32i8, Legal);
++
+   // Compute derived properties from the register classes.
+   computeRegisterProperties(STI.getRegisterInfo());
+ 
+diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
+index b58ee20..b6521ec 100644
+--- a/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -570,3 +570,5 @@ include "RISCVInstrInfoM.td"
+ include "RISCVInstrInfoA.td"
+ include "RISCVInstrInfoF.td"
+ include "RISCVInstrInfoD.td"
++include "RISCVInstrInfoV.td"
++include "RISCVIntrinsics.td"
+diff --git a/lib/Target/RISCV/RISCVInstrInfoV.td b/lib/Target/RISCV/RISCVInstrInfoV.td
+new file mode 100644
+index 0000000..e3d4d80
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVInstrInfoV.td
+@@ -0,0 +1,102 @@
++//===- RV32InstrInfoV.td - Chen's RV Vector Instructions -------*- tblgen -*-==//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++// TODO: Merge into RISCVRegisterInfo.td
++let Namespace = "RISCV" in {
++class RISCVReg256<bits<5> Enc, string n, list<string> alt = []> : Register<n> {
++  let HWEncoding{4-0} = Enc;
++  let AltNames = alt;
++}
++
++// Floating point registers
++let RegAltNameIndices = [ABIRegAltName] in {
++  def V0  : RISCVReg256<0, "v0", ["v0"]>, DwarfRegNum<[96]>;
++  def V1  : RISCVReg256<1, "v1", ["v1"]>, DwarfRegNum<[97]>;
++  def V2  : RISCVReg256<2, "v2", ["v2"]>, DwarfRegNum<[98]>;
++  def V3  : RISCVReg256<3, "v3", ["v3"]>, DwarfRegNum<[99]>;
++  def V4  : RISCVReg256<4, "v4", ["v4"]>, DwarfRegNum<[100]>;
++  def V5  : RISCVReg256<5, "v5", ["v5"]>, DwarfRegNum<[101]>;
++  def V6  : RISCVReg256<6, "v6", ["v6"]>, DwarfRegNum<[102]>;
++  def V7  : RISCVReg256<7, "v7", ["v7"]>, DwarfRegNum<[103]>;
++  def V8  : RISCVReg256<8, "v8", ["v8"]>, DwarfRegNum<[104]>;
++  def V9  : RISCVReg256<9, "v9", ["v9"]>, DwarfRegNum<[105]>;
++  def V10 : RISCVReg256<10, "v10", ["v10"]>, DwarfRegNum<[106]>;
++  def V11 : RISCVReg256<11, "v11", ["v11"]>, DwarfRegNum<[107]>;
++  def V12 : RISCVReg256<12, "v12", ["v12"]>, DwarfRegNum<[108]>;
++  def V13 : RISCVReg256<13, "v13", ["v13"]>, DwarfRegNum<[109]>;
++  def V14 : RISCVReg256<14, "v14", ["v14"]>, DwarfRegNum<[110]>;
++  def V15 : RISCVReg256<15, "v15", ["v15"]>, DwarfRegNum<[111]>;
++  def V16 : RISCVReg256<16, "v16", ["v16"]>, DwarfRegNum<[112]>;
++  def V17 : RISCVReg256<17, "v17", ["v17"]>, DwarfRegNum<[113]>;
++  def V18 : RISCVReg256<18, "v18", ["v18"]>, DwarfRegNum<[114]>;
++  def V19 : RISCVReg256<19, "v19", ["v19"]>, DwarfRegNum<[115]>;
++  def V20 : RISCVReg256<20, "v20", ["v20"]>, DwarfRegNum<[116]>;
++  def V21 : RISCVReg256<21, "v21", ["v21"]>, DwarfRegNum<[117]>;
++  def V22 : RISCVReg256<22, "v22", ["v22"]>, DwarfRegNum<[118]>;
++  def V23 : RISCVReg256<23, "v23", ["v23"]>, DwarfRegNum<[119]>;
++  def V24 : RISCVReg256<24, "v24", ["v24"]>, DwarfRegNum<[120]>;
++  def V25 : RISCVReg256<25, "v25", ["v25"]>, DwarfRegNum<[121]>;
++  def V26 : RISCVReg256<26, "v26", ["v26"]>, DwarfRegNum<[122]>;
++  def V27 : RISCVReg256<27, "v27", ["v27"]>, DwarfRegNum<[123]>;
++  def V28 : RISCVReg256<28, "v28", ["v28"]>, DwarfRegNum<[124]>;
++  def V29 : RISCVReg256<29, "v29", ["v29"]>, DwarfRegNum<[125]>;
++  def V30 : RISCVReg256<30, "v30", ["v30"]>, DwarfRegNum<[126]>;
++  def V31 : RISCVReg256<31, "v31", ["v31"]>, DwarfRegNum<[127]>;
++}
++
++def VPR : RegisterClass<"RISCV", [v32i8, v16i16, v8i32], 256,
++  (sequence "V%u", 0, 31)> {
++  let RegInfos = RegInfoByHwMode<
++      [RV32,                 RV64,                 DefaultMode],
++      [RegInfo<256,256,256>, RegInfo<256,256,256>, RegInfo<256,256,256>]>;
++}
++}
++
++// TODO: merge into RISCVInstrFormats.td
++def OPC_CUSTOM0     : RISCVOpcode<0b0001011>;
++
++class RVInstVI<bits<6> funct6, RISCVOpcode opcode, dag outs, dag ins,
++              string opcodestr, string argstr, list<dag> pattern>
++    : RVInst<outs, ins, opcodestr, argstr, pattern, InstFormatI> {
++  bits<9> simm9;
++  bits<5> rs1;
++  bits<5> rd;
++
++  let Inst{31-28} = simm9{8-5};
++  let Inst{27-25} = funct6{5-3};
++  let Inst{24-20} = simm9{4-0};
++  let Inst{19-15} = rs1;
++  let Inst{14-12} = funct6{2-0};
++  let Inst{11-7} = rd;
++  let Opcode = opcode.Value;
++}
++
++def simm9 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<9>(Imm);}]> {
++  let ParserMatchClass = SImmAsmOperand<9>;
++  let EncoderMethod = "getImmOpValue";
++  let DecoderMethod = "decodeSImmOperand<9>";
++}
++
++def loadi32  : PatFrag<(ops node:$ptr), (i32 (load node:$ptr))>;
++
++// 256-bit bitconvert pattern fragments
++def bc_v32i8 : PatFrag<(ops node:$in), (v32i8 (bitconvert node:$in))>;
++def bc_v16i16 : PatFrag<(ops node:$in), (v16i16 (bitconvert node:$in))>;
++def bc_v8i32 : PatFrag<(ops node:$in), (v8i32 (bitconvert node:$in))>;
++
++let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
++class Vec0_LDvri<bits<6> funct6, string opcodestr, Intrinsic IntOP> :
++      RVInstVI<funct6, OPC_CUSTOM0, (outs VPR:$rd), (ins GPR:$rs1, simm9:$imm9),
++         opcodestr, "\t$rd, ${imm9}(${rs1})", [(set (v32i8 VPR:$rd), (IntOP GPR:$rs1, simm9:$imm9))]>;
++
++let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
++class Vec0_STvri<bits<6> funct6, string opcodestr, Intrinsic IntOP> :
++      RVInstVI<funct6, OPC_CUSTOM0, (outs ), (ins VPR:$rs2, GPR:$rs1, simm9:$imm9),
++         opcodestr, "\t$rs2, ${imm9}(${rs1})", [(IntOP (v32i8 VPR:$rs2), GPR:$rs1, simm9:$imm9)]>;
++
+diff --git a/lib/Target/RISCV/RISCVIntrinsics.td b/lib/Target/RISCV/RISCVIntrinsics.td
+new file mode 100644
+index 0000000..2a4de6d
+--- /dev/null
++++ b/lib/Target/RISCV/RISCVIntrinsics.td
+@@ -0,0 +1,40 @@
++//===- RV32Intrinsics.td - RV32 Intrinsics Instructions -------*- tblgen -*-==//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++
++//======
++// Load
++//======
++
++def V_LD32X8 : Vec0_LDvri<0b000000, "v.ld32x8", int_riscv_v_ld32x8>, Requires<[IsRV32]>;
++
++//def : Pat<(v32i8 (load GPR:$rs1)), (V_LD32X8 GPR:$rs1, 0)>;
++
++multiclass VecLdPat<PatFrag LoadOp, RVInst Inst> {
++  def : Pat<(v32i8 (LoadOp GPR:$rs1)), (Inst GPR:$rs1, 0)>;
++  def : Pat<(v32i8 (LoadOp (add GPR:$rs1, simm9:$imm9))), (Inst GPR:$rs1, simm9:$imm9)>;
++}
++
++defm : VecLdPat<load, V_LD32X8>;
++
++
++//======
++// Store
++//======
++
++def V_ST32X8 : Vec0_STvri<0b000001, "v.st32x8", int_riscv_v_st32x8>, Requires<[IsRV32]>;
++//def : Pat<(store (v32i8 VPR:$rs2), GPR:$rs1), (V_ST32X8 VPR:$rs2, GPR:$rs1, 0)>;
++
++multiclass VecStPat<PatFrag StoreOp, RVInst Inst> {
++  def : Pat<(StoreOp (v32i8 VPR:$rs2), GPR:$rs1), (Inst VPR:$rs2, GPR:$rs1, 0)>;
++  def : Pat<(StoreOp (v32i8 VPR:$rs2), (add GPR:$rs1, simm9:$imm9)),
++            (Inst VPR:$rs2, GPR:$rs1, simm9:$imm9)>;
++}
++
++defm : VecStPat<store, V_ST32X8>;
+-- 
+1.7.9.msysgit.0
+
