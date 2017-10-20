@@ -446,7 +446,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                endcase
 
                let msg =  fshow(op)
-                        + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+                        + $format(" %s, %1d(%s)", regNameABI[fields.rd], imm_s, regNameABI[fields.rs1]);
                return msg;
             endactionvalue
          endfunction: fa_exec_LD_Req
@@ -487,7 +487,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                endcase
 
                let msg =  fshow(op)
-                        + $format(" %s, %s, %1d", regNameABI[fields.rd], regNameABI[fields.rs1], imm_s);
+                        + $format(" %s, %1d(%s)", regNameABI[fields.rd], imm_s, regNameABI[fields.rs1]);
                return msg;
             endactionvalue
          endfunction: fa_exec_ST_Req
