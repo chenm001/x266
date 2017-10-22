@@ -649,7 +649,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    (* fire_when_enabled *)
    rule rl_fetch(cpu_enabled);
       let next_pc = fromMaybe(fromMaybe(rg_FetchPC, rw_nxtPC.wget), rw_jmpPC.wget);
-      if (cfg_verbose > 1) $display("[%7d] (  |F   ) : Read instruction pc = 0x%08h", csr_cycle, next_pc);
+      if (cfg_verbose > 1) $display("[%7d] (  |F   ) : %25s Read instruction pc = 0x%08h", csr_cycle, "", next_pc);
       imemory.mem_req(next_pc);
       rg_f2d      <= tagged Valid next_pc;
       rg_FetchPC  <= next_pc;
@@ -661,7 +661,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    rule rl_decode(fifo_d2e.notFull &&& rg_f2d matches tagged Valid .xPC);
       let instr <- imemory.mem_resp;
 
-      if (cfg_verbose > 1) $display("[%7d] (  | D  ) : pc = 0x%08h, instr = %h", csr_cycle, xPC, instr);
+      if (cfg_verbose > 1) $display("[%7d] (  | D  ) : %25s pc = 0x%08h, instr = %h", csr_cycle, "", xPC, instr);
       Decoded_Instr  decoded = fv_decode(xPC, instr);
 
       fifo_d2e.enq( decoded );
@@ -692,7 +692,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       let score_conflict = score1 || score2;
 
       if (cfg_verbose > 2) begin
-         $write("[%7d] ( |    ) : Scoreboard = [", csr_cycle);
+         $write("[%7d] ( |    ) : %25s Scoreboard = [", csr_cycle, "");
          for(Integer i = 0; i < numRegs; i = i + 1) begin
             $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
          end
@@ -700,11 +700,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       end
 
       if (decoded.pc != pcEpoch) begin
-         if (cfg_verbose > 1) $display("[%7d] (A |  E ) : STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] (A |  E ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
          fifo_d2e.deq;
       end
       else if (score_conflict) begin
-         if (cfg_verbose > 1) $display("[%7d] ( R|  E ) : STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, decoded.pc, decoded.instr, pcEpoch);
+         if (cfg_verbose > 1) $display("[%7d] ( R|  E ) : %25s STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
       end
       else begin
          Bool checkScore = case(decoded.op.opcode) matches
@@ -719,7 +719,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          end
 
          let msg <- fa_exec(decoded, fields);
-         if (cfg_verbose > 1) $display("[%7d] (  |  E ) : pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h [", csr_cycle, decoded.pc, decoded.instr, pcEpoch, msg, "]");
+         if (cfg_verbose > 1) begin
+            $write("[%7d] (  |  E ) : [ ", csr_cycle, msg);
+            $display(" ]    pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", decoded.pc, decoded.instr, pcEpoch);
+         end
          fifo_d2e.deq;
 
          // Update pcEpoch
@@ -768,7 +771,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          end
       endcase
 
-      if (cfg_verbose > 1) $display("[%7d] (  |   W) : %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
+      if (cfg_verbose > 1) $display("[%7d] (  |   W) : %25s %s = %h, clear scoreGPRs[%1d] (= %1d)", csr_cycle, "", regNameABI[rd], rd_value, rd, rg_scoreGPRs[rd] ? 1 : 0);
 
       // NOTE: DOES NOT check register x0 because set value to Zero when read
       if (rd != 0) begin
