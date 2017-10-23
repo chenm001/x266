@@ -345,7 +345,7 @@ typedef enum {
 
 typedef union tagged {
    Word  Value;
-   struct { LdFunc ld_op; Vector#(32, Bit#(6)) shuffle; } MemOp;
+   struct { LdFunc ld_op; Bit#(5) lsb5; } MemOp;
 } Exec2WbValue_t deriving(Bits);
 
 typedef struct {

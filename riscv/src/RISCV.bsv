@@ -260,18 +260,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
 
    function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
       action
-         function Bit#(5) mapPhyToBank(Integer x);
-            return (fromInteger(x) + lsb5);
-         endfunction
-
-         Vector#(32, Bit#(5)) offset = map(mapPhyToBank, genVector);
-         Vector#(32, Bit#(6)) s = ?;
-
-         for(Integer i = 0; i < 32; i = i + 1) begin
-            s[i] = 32 + zeroExtend(offset[i]);
-         end
-
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, shuffle: s})} );
+         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, lsb5: lsb5})} );
          fa_finish_with_no_output;
       endaction
    endfunction
@@ -734,7 +723,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    endrule
 
    // ---------------- RegFile & DMem Write Back
-   rule rl_write_back(fifo_e2w.notEmpty);
+   rule rl_write_back_gpr(fifo_e2w.notEmpty);
       let x = fifo_e2w.first;
       fifo_e2w.deq;
       let rd = x.rd;
@@ -743,7 +732,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       case(x.rd_value) matches
          tagged MemOp .op: begin
             let ld_op = op.ld_op;
-            let shuffle = op.shuffle;
+            let lsb5 = op.lsb5;
+            Bit#(3) bank = truncateLSB(lsb5);
+            Bit#(2) shift = truncate(lsb5);
 
             // Shuffle memory bus response
             Vector#(8, Word) resp = ?;
@@ -756,9 +747,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                   $finish;
                end
             end
-            let data256 = f_shuffle({pack(resp), ?}, shuffle);
 
-            Word data = truncate(data256);
+            Word data = (resp[bank] >> {shift, 3'd0});
             let extendFunc = (ld_op == Lbu || ld_op == Lhu) ? zeroExtend : signExtend;
             rd_value = (case(ld_op)
                     Lb, Lbu: extendFunc(data[7:0]);
