@@ -181,6 +181,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    RWire#(RegName)   rw_scoreGPRsReset <- mkRWire;
 
    // ----------------------------------------------------------------
+   // Internal 256-bits memory bus
+   RWire#(Vector#(8, Word)) rw_memBus  <- mkUnsafeRWire;
+
+   // ----------------------------------------------------------------
    // Read a CSR
    // If the addr is valid, return tagged Valid value
    // else return tagged Invalid
@@ -722,6 +726,22 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       end
    endrule
 
+   // ---------------- Read and forward memory data
+   rule rl_mem_bus;
+      // Shuffle memory bus response
+      Vector#(8, Word) resp = ?;
+      for(Integer i = 0; i < 8; i = i + 1) begin
+         let data_resp <- dmemory[i].mem_resp;
+         resp[i] = fromMaybe(?, data_resp);
+    
+         if (cfg_verbose > 0 && !isValid(data_resp)) begin
+            $display("[%7d] (  |   W) : Memory read failed on Bank(%d)", csr_cycle, i);
+            $finish;
+         end
+      end
+      rw_memBus.wset(resp);
+   endrule
+
    // ---------------- RegFile & DMem Write Back
    rule rl_write_back_gpr(fifo_e2w.notEmpty);
       let x = fifo_e2w.first;
@@ -735,18 +755,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
             let lsb5 = op.lsb5;
             Bit#(3) bank = truncateLSB(lsb5);
             Bit#(2) shift = truncate(lsb5);
-
-            // Shuffle memory bus response
-            Vector#(8, Word) resp = ?;
-            for(Integer i = 0; i < 8; i = i + 1) begin
-               let data_resp <- dmemory[i].mem_resp;
-               resp[i] = fromMaybe(?, data_resp);
-
-               if (cfg_verbose > 0 && !isValid(data_resp)) begin
-                  $display("[%7d] (  |   W) : Memory read failed on Bank(%d)", csr_cycle, i);
-                  $finish;
-               end
-            end
+            let resp = fromMaybe(?, rw_memBus.wget);
 
             Word data = (resp[bank] >> {shift, 3'd0});
             let extendFunc = (ld_op == Lbu || ld_op == Lhu) ? zeroExtend : signExtend;
