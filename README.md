@@ -48,6 +48,10 @@ Prebuilt
 - C/C++ interface code can be obtained from /src_c<br>
 - Verilog code can be obtained from /src_ver<br>
 
+Note
+=================
+- The x266's RISC-V NON-Standard Vector Extension ONLY compile and disassembly by x266 project modified llvm suite. You may build bu yourself or please contract to get prebuilt Centos-6 binary package.
+
 
 License
 =======
