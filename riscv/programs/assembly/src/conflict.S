@@ -42,7 +42,7 @@ RVTEST_CODE_BEGIN
       addi  x1, x0, 1; \
       addi  x1, x0, 1; \
     )
-
+    
     # Case: Fake DecodeStage register conflict
     TEST_CASE( 3, x1, 1, \
       la  x8, 1f;
@@ -51,6 +51,12 @@ RVTEST_CODE_BEGIN
 1:    addi  x1, x1, 4; \
 2:    addi  x1, x1, 1; \
       sub   x1, x1, x8; \
+    )
+
+    # Case: Register read conflict (src1 == src2)
+    TEST_CASE( 4, x1, 0, \
+      li  x1, 0x1234; \
+      xor  x1, x1, x1; \
     )
 
   TEST_PASSFAIL
