@@ -7,9 +7,9 @@
 typedef char __v32i8 __attribute__((aligned(32),vector_size(32)));
 
 static __inline__ __v32i8 __DEFAULT_FN_ATTRS
-__v_ld32x8(const char *__p, int __i)
+__v_ld32x8(const char *__p, int __i, __v32i8 __permute)
 {
-    return (v32i8)__rv32_v_ld32x8(__p, __i);
+    return (v32i8)__rv32_v_ld32x8(__p, __i, __permute);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS

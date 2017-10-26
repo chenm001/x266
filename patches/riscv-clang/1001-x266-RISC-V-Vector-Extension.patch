@@ -1,22 +1,22 @@
-From 6eba319b5d9b49ed60f9ac4b0bdfdc75f516dcd3 Mon Sep 17 00:00:00 2001
+From 59e6f46bb41f05def97f4601ad3d7cf167588279 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Fri, 20 Oct 2017 17:01:18 -0500
 Subject: [PATCH] x266 RISC-V Vector Extension
 
 ---
- include/clang/Basic/BuiltinsRISCV.def |   27 +++++++++++++++++++++++++++
+ include/clang/Basic/BuiltinsRISCV.def |   28 ++++++++++++++++++++++++++++
  include/clang/Basic/TargetBuiltins.h  |   10 ++++++++++
  lib/Basic/Targets/RISCV.cpp           |   18 ++++++++++++++++++
  lib/Basic/Targets/RISCV.h             |    4 +++-
- 4 files changed, 58 insertions(+), 1 deletions(-)
+ 4 files changed, 59 insertions(+), 1 deletions(-)
  create mode 100644 include/clang/Basic/BuiltinsRISCV.def
 
 diff --git a/include/clang/Basic/BuiltinsRISCV.def b/include/clang/Basic/BuiltinsRISCV.def
 new file mode 100644
-index 0000000..6da7928
+index 0000000..c7af462
 --- /dev/null
 +++ b/include/clang/Basic/BuiltinsRISCV.def
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,28 @@
 +//===--- BuiltinsRISCV.def - RV32 Builtin function database ----*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -40,6 +40,7 @@ index 0000000..6da7928
 +// LD2NX8
 +
 +BUILTIN(__rv32_v_ld32x8, "V32ccC*i", "n")
++BUILTIN(__rv32_v_ld32x8_p, "V32ccC*iV32cC", "n")
 +BUILTIN(__rv32_v_st32x8, "vV32ccC*i", "n")
 +
 +#undef BUILTIN

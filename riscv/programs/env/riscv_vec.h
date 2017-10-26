@@ -9,22 +9,28 @@
 
 #define EXTRACT(a, offset, size) (((~(~0 << size) << offset) & a) >> offset)
 
-#define VLD32X8(rd, rs1, imm)                   \
+#define VLD32X8_P(rd, rs1, imm, rs2)            \
   .word                                         \
-  (0b0000011                                |   \
+  (XCUSTOM_OPCODE_0                         |   \
   (rd                   << (7))             |   \
-  (0b111                << (7+5))           |   \
+  (0b000                << (7+5))           |   \
   (rs1                  << (7+5+3))         |   \
-  (EXTRACT(imm, 0, 12)  << (7+5+3+5)))
+  (rs2                  << (7+5+3+5))       |   \
+  (0b000                << (7+5+3+5+5))     |   \
+  (EXTRACT(imm, 0, 4)   << (7+5+3+5+5+3)))
+
+#define VLD32X8(rd, rs1, imm, rs2)              \
+  VLD32X8_P(rd, rs1, imm, 0)
 
 #define VST32X8(rs2, rs1, imm)                  \
   .word                                         \
-  (0b0100011                                |   \
+  (XCUSTOM_OPCODE_0                         |   \
   (EXTRACT(imm, 0, 5)   << (7))             |   \
   (0b100                << (7+5))           |   \
   (rs1                  << (7+5+3))         |   \
   (rs2                  << (7+5+3+5))       |   \
-  (EXTRACT(imm, 5, 7)   << (7+5+3+5+5)))
+  (0b111                << (7+5+3+5+5))     |   \
+  (EXTRACT(imm, 5, 4)   << (7+5+3+5+5+3)))
 
 
 
