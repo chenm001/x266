@@ -58,8 +58,11 @@ interface IIntra32;
 endinterface
 
 
-module mkIntra(IIntra#(size));
-   FIFOF#(Vector#(size, Bit#(8)))                  fifo_o   <- mkPipelineFIFOF;
+module mkIntra(IIntra#(size))
+   provisos(
+      Bits#(Vector#(size, Bit#(8)), __a)
+   );
+   FIFOF#(Vector#(size1, Bit#(8)))                  fifo_o   <- mkPipelineFIFOF;
 
    Reg#(Maybe#(IntraChannel_t))                    id       <- mkReg(tagged Invalid);
    Reg#(Vector#(64, Bit#(8)))                      buff     <- mkRegU;
@@ -353,11 +356,11 @@ module mkIntra(IIntra#(size));
       fifo_s1.deq;
 
       Vector#(32, Bit#(8)) z = ?;
-      Vector#(2, Vector#(32, Bit#(8))) y = unpack(pack(x));
+      Vector#(2, Vector#(32, Bit#(8))) y = unpack(pack(v));
       let fac = facTbl[mode][r];
 
       for(Integer i = 0; i < 32; i = i + 1) begin
-         Bit#(13) tmp = zExtend(v[0][i]) * zExtend(32 - fac) + zExtend(v[1][i]) * zExtend(fac) + 16;
+         Bit#(13) tmp = zeroExtend(v[0][i]) * fromInteger(32 - fac) + zeroExtend(v[1][i]) * fromInteger(fac) + 16;
          z[i] = truncate(tmp >> 6);
       end
 
@@ -400,7 +403,7 @@ module mkIntra32(IIntra32);
    FIFOF#(Vector#(32, Bit#(8)))                    fifo_o   <- mkPipelineFIFOF;
    Reg#(Bit#(6))                                   mode     <- mkReg(0);            // 0-Mode2, 1-Mode3..., 15-Mode17, 16-Mode34, 17-Mode33..., 32-Mode18
 
-   IIntra#(32) dut <- mkIntra;
+   IIntra#(32) dut <- mkIntra(32);
 
 `ifdef XXX
    Reg#(Maybe#(Vector#(64, Bit#(8))))              stage0   <- mkReg(tagged Invalid);
