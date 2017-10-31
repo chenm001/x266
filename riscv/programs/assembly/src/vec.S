@@ -21,8 +21,8 @@ RVTEST_CODE_BEGIN
   TEST_CASE( 2, x3, 0x07060504, \
     la  x8, tdat1; \
     la  x9, tbuf1; \
-    VLD32X8(_v0, _x8, 4); \
-    VST32X8(_v0, _x9, 0); \
+    VLD32X8(_v1, _x8, 4, _v0); \
+    VST32X8(_v1, _x9, 0); \
     lw  x3, 0(x9); \
   )
 
