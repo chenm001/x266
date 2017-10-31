@@ -1,4 +1,4 @@
-From a1a0c07ba00d5587565fb86ccc80add7f105e5e9 Mon Sep 17 00:00:00 2001
+From de31aa745eae05feeeb8ba1873cf1e00bcaa1d62 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Fri, 20 Oct 2017 17:17:41 -0500
 Subject: [PATCH] x266 RISC-V Vector Extension
@@ -6,15 +6,15 @@ Subject: [PATCH] x266 RISC-V Vector Extension
 ---
  include/llvm/IR/Intrinsics.td                      |    1 +
  include/llvm/IR/IntrinsicsRISCV.td                 |   32 +++++
- lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |   27 ++++
+ lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp      |   18 +++
  .../RISCV/Disassembler/RISCVDisassembler.cpp       |   38 ++++++
  .../RISCV/MCTargetDesc/RISCVMCCodeEmitter.cpp      |   19 +++
- lib/Target/RISCV/RISCVISelLowering.cpp             |   84 ++++++++++++
+ lib/Target/RISCV/RISCVISelLowering.cpp             |   84 +++++++++++++
  lib/Target/RISCV/RISCVInstrInfo.td                 |    2 +
- lib/Target/RISCV/RISCVInstrInfoV.td                |  135 ++++++++++++++++++++
+ lib/Target/RISCV/RISCVInstrInfoV.td                |  132 ++++++++++++++++++++
  lib/Target/RISCV/RISCVIntrinsics.td                |   39 ++++++
  lib/Target/RISCV/RISCVRegisterInfo.cpp             |    1 +
- 10 files changed, 378 insertions(+), 0 deletions(-)
+ 10 files changed, 366 insertions(+), 0 deletions(-)
  create mode 100644 include/llvm/IR/IntrinsicsRISCV.td
  create mode 100644 lib/Target/RISCV/RISCVInstrInfoV.td
  create mode 100644 lib/Target/RISCV/RISCVIntrinsics.td
@@ -67,38 +67,29 @@ index 0000000..5557853
 +
 +}
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 1dffdb2..a9e0c73 100644
+index 1dffdb2..b3b6b4d 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -255,6 +255,33 @@ public:
+@@ -255,6 +255,24 @@ public:
  
    bool isSImm21Lsb0() const { return isBareSimmNLsb0<21>(); }
  
-+  bool isUImm4() const {
++  bool isUImm7() const {
 +    int64_t Imm;
 +    RISCVMCExpr::VariantKind VK;
 +    if (!isImm())
 +      return false;
 +    bool IsConstantImm = evaluateConstantImm(Imm, VK);
-+    return IsConstantImm && isInt<4>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
++    return IsConstantImm && isInt<7>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
 +  }
 +
-+  bool isUImm6() const {
++  bool isSImm10() const {
 +    int64_t Imm;
 +    RISCVMCExpr::VariantKind VK;
 +    if (!isImm())
 +      return false;
 +    bool IsConstantImm = evaluateConstantImm(Imm, VK);
-+    return IsConstantImm && isInt<6>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
-+  }
-+
-+  bool isSImm9() const {
-+    int64_t Imm;
-+    RISCVMCExpr::VariantKind VK;
-+    if (!isImm())
-+      return false;
-+    bool IsConstantImm = evaluateConstantImm(Imm, VK);
-+    return IsConstantImm && isInt<9>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
++    return IsConstantImm && isInt<10>(Imm) && VK == RISCVMCExpr::VK_RISCV_None;
 +  }
 +
    /// getStartLoc - Gets location of the first token of this operand
@@ -304,10 +295,10 @@ index b58ee20..b6521ec 100644
 +include "RISCVIntrinsics.td"
 diff --git a/lib/Target/RISCV/RISCVInstrInfoV.td b/lib/Target/RISCV/RISCVInstrInfoV.td
 new file mode 100644
-index 0000000..831f6ad
+index 0000000..6c46fd2
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVInstrInfoV.td
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,132 @@
 +//===- RV32InstrInfoV.td - Chen's RV Vector Instructions -------*- tblgen -*-==//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -370,82 +361,79 @@ index 0000000..831f6ad
 +
 +// TODO: merge into RISCVInstrFormats.td
 +def OPC_CUSTOM0     : RISCVOpcode<0b0001011>;
++def OPC_CUSTOM1     : RISCVOpcode<0b0101011>;
++def OPC_CUSTOM2     : RISCVOpcode<0b1011011>;
++def OPC_CUSTOM3     : RISCVOpcode<0b1111011>;
 +
 +// Extension from S-Type, for V.ST* only
-+class RVInstVS<bits<6> funct6, RISCVOpcode opcode, dag outs, dag ins,
++class RVInstVS<bits<5> funct5, RISCVOpcode opcode, dag outs, dag ins,
 +              string opcodestr, string argstr, list<dag> pattern>
 +    : RVInst<outs, ins, opcodestr, argstr, pattern, InstFormatS> {
-+  bits<9> imm;
++  bits<10> imm;
 +  bits<5> rs2;
 +  bits<5> rs1;
 +
-+  let Inst{31-28} = imm{8-5};
-+  let Inst{27-25} = funct6{5-3};
++  let Inst{31-27} = imm{9-5};
++  let Inst{26-25} = funct5{4-3};
 +  let Inst{24-20} = rs2;
 +  let Inst{19-15} = rs1;
-+  let Inst{14-12} = funct6{2-0};
++  let Inst{14-12} = funct5{2-0};
 +  let Inst{11-7} = imm{4-0};
 +  let Opcode = opcode.Value;
 +}
 +
 +// Extension from R-Type, for all of other instructions
-+class RVInstVR<bits<6> funct6, RISCVOpcode opcode, dag outs,
++class RVInstVR<bits<5> funct5, RISCVOpcode opcode, dag outs,
 +              dag ins, string opcodestr, string argstr, list<dag> pattern>
 +    : RVInst<outs, ins, opcodestr, argstr, pattern, InstFormatR> {
-+  bits<4> imm;
++  bits<5> imm;
 +  bits<5> rs2;
 +  bits<5> rs1;
 +  bits<5> rd;
 +
-+  let Inst{31-28} = imm;
-+  let Inst{27-25} = funct6{5-3};
++  let Inst{31-27} = imm;
++  let Inst{26-25} = funct5{4-3};
 +  let Inst{24-20} = rs2;
 +  let Inst{19-15} = rs1;
-+  let Inst{14-12} = funct6{2-0};
++  let Inst{14-12} = funct5{2-0};
 +  let Inst{11-7} = rd;
 +  let Opcode = opcode.Value;
 +}
 +
 +
-+def imm4 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<4>(Imm);}]> {
-+  let ParserMatchClass = UImmAsmOperand<4>;
-+  let EncoderMethod = "getImmOpValue";
-+  let DecoderMethod = "decodeUImmOperand<4>";
-+}
-+
-+def imm6Lo2AllZero : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isShiftedInt<6, 2>(Imm);}]> {
-+  let ParserMatchClass = UImmAsmOperand<6>;
++def imm7Lo2AllZero : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isShiftedInt<7, 2>(Imm);}]> {
++  let ParserMatchClass = UImmAsmOperand<7>;
 +  let EncoderMethod = "getImmOpValueLsr2";
-+  let DecoderMethod = "decodeUImmOperandAndLsl2<6>";
++  let DecoderMethod = "decodeUImmOperandAndLsl2<7>";
 +}
 +
-+def simm9 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<9>(Imm);}]> {
-+  let ParserMatchClass = SImmAsmOperand<9>;
++def simm10 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<10>(Imm);}]> {
++  let ParserMatchClass = SImmAsmOperand<10>;
 +  let EncoderMethod = "getImmOpValue";
-+  let DecoderMethod = "decodeSImmOperand<9>";
++  let DecoderMethod = "decodeSImmOperand<10>";
 +}
 +
 +def loadi32  : PatFrag<(ops node:$ptr), (i32 (load node:$ptr))>;
 +
 +// 256-bit bitconvert pattern fragments
-+def bc_v32i8 : PatFrag<(ops node:$in), (v32i8 (bitconvert node:$in))>;
++def bc_v32i8  : PatFrag<(ops node:$in), (v32i8  (bitconvert node:$in))>;
 +def bc_v16i16 : PatFrag<(ops node:$in), (v16i16 (bitconvert node:$in))>;
-+def bc_v8i32 : PatFrag<(ops node:$in), (v8i32 (bitconvert node:$in))>;
++def bc_v8i32  : PatFrag<(ops node:$in), (v8i32  (bitconvert node:$in))>;
 +
 +
 +let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
-+class Vec0_STvri<bits<6> funct6, string opcodestr, Intrinsic IntOP> :
-+      RVInstVS<funct6, OPC_CUSTOM0, (outs), (ins VPR:$rs2, GPR:$rs1, simm9:$imm9),
-+         opcodestr, "\t$rs2, ${imm9}(${rs1})", [(IntOP (v32i8 VPR:$rs2), GPR:$rs1, simm9:$imm9)]>;
++class Vec0_STvri<bits<5> funct5, string opcodestr, Intrinsic IntOP> :
++      RVInstVS<funct5, OPC_CUSTOM0, (outs), (ins VPR:$rs2, GPR:$rs1, simm10:$imm),
++         opcodestr, "\t$rs2, ${imm}(${rs1})", [(IntOP (v32i8 VPR:$rs2), GPR:$rs1, simm10:$imm)]>;
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-+class Vec0_LDvriv<bits<6> funct6, string opcodestr, Intrinsic IntOP> :
-+      RVInstVR<funct6, OPC_CUSTOM0, (outs VPR:$rd), (ins GPR:$rs1, imm6Lo2AllZero:$imm, VPR:$rs2),
-+         opcodestr, "\t$rd, ${imm}(${rs1}){{${rs2}}}", [(set (v32i8 VPR:$rd), (IntOP GPR:$rs1, imm6Lo2AllZero:$imm, VPR:$rs2))]>;
++class Vec0_LDvriv<bits<5> funct5, string opcodestr, Intrinsic IntOP> :
++      RVInstVR<funct5, OPC_CUSTOM0, (outs VPR:$rd), (ins GPR:$rs1, imm7Lo2AllZero:$imm, VPR:$rs2),
++         opcodestr, "\t$rd, ${imm}(${rs1}).{{${rs2}}}", [(set (v32i8 VPR:$rd), (IntOP GPR:$rs1, imm7Lo2AllZero:$imm, VPR:$rs2))]>;
 +
 diff --git a/lib/Target/RISCV/RISCVIntrinsics.td b/lib/Target/RISCV/RISCVIntrinsics.td
 new file mode 100644
-index 0000000..7ea330b
+index 0000000..a4be74f
 --- /dev/null
 +++ b/lib/Target/RISCV/RISCVIntrinsics.td
 @@ -0,0 +1,39 @@
@@ -463,12 +451,12 @@ index 0000000..7ea330b
 +// Store
 +//======
 +
-+def V_ST32X8 : Vec0_STvri<0b111100, "v.st32x8", int_riscv_v_st32x8>, Requires<[IsRV32]>;
++def V_ST32X8 : Vec0_STvri<0b11100, "v.st32x8", int_riscv_v_st32x8>, Requires<[IsRV32]>;
 +
 +multiclass VecStPat<PatFrag StoreOp, RVInst Inst> {
 +  def : Pat<(StoreOp (v32i8 VPR:$rs2), GPR:$rs1), (Inst VPR:$rs2, GPR:$rs1, 0)>;
-+  def : Pat<(StoreOp (v32i8 VPR:$rs2), (add GPR:$rs1, simm9:$imm)),
-+            (Inst VPR:$rs2, GPR:$rs1, simm9:$imm)>;
++  def : Pat<(StoreOp (v32i8 VPR:$rs2), (add GPR:$rs1, simm10:$imm)),
++            (Inst VPR:$rs2, GPR:$rs1, simm10:$imm)>;
 +}
 +
 +defm : VecStPat<store, V_ST32X8>;
@@ -477,16 +465,16 @@ index 0000000..7ea330b
 +//======
 +// Load
 +//======
-+def V_LD32X8_P : Vec0_LDvriv<0b000000, "v.ld32x8", int_riscv_v_ld32x8_p>, Requires<[IsRV32]>;
++def V_LD32X8_P : Vec0_LDvriv<0b00000, "v.ld32x8", int_riscv_v_ld32x8_p>, Requires<[IsRV32]>;
 +
 +let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in {
 +def PseudoLD32X8_0 : Pseudo<(outs VPR:$rd), (ins GPR:$rs1), [(set (v32i8 VPR:$rd), (load GPR:$rs1))]>,
 +                     PseudoInstExpansion<(V_LD32X8_P VPR:$rd, GPR:$rs1, 0, V0)>;
-+def PseudoLD32X8_1 : Pseudo<(outs VPR:$rd), (ins GPR:$rs1, imm6Lo2AllZero:$imm), [(set (v32i8 VPR:$rd), (load (add GPR:$rs1, imm6Lo2AllZero:$imm)))]>,
-+                     PseudoInstExpansion<(V_LD32X8_P VPR:$rd, GPR:$rs1, imm6Lo2AllZero:$imm, V0)>;
++def PseudoLD32X8_1 : Pseudo<(outs VPR:$rd), (ins GPR:$rs1, imm7Lo2AllZero:$imm), [(set (v32i8 VPR:$rd), (load (add GPR:$rs1, imm7Lo2AllZero:$imm)))]>,
++                     PseudoInstExpansion<(V_LD32X8_P VPR:$rd, GPR:$rs1, imm7Lo2AllZero:$imm, V0)>;
 +}
 +
-+def : Pat<(v32i8 (int_riscv_v_ld32x8 GPR:$rs1, imm6Lo2AllZero:$imm)), (PseudoLD32X8_1 GPR:$rs1, imm6Lo2AllZero:$imm)>;
++def : Pat<(v32i8 (int_riscv_v_ld32x8 GPR:$rs1, imm7Lo2AllZero:$imm)), (PseudoLD32X8_1 GPR:$rs1, imm7Lo2AllZero:$imm)>;
 +
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 index 980d9ce..2c9f69f 100644
