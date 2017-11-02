@@ -651,14 +651,42 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    // ----------------------------------------------------------------
    // Instruction decode
    (* conflict_free="rl_decode, rl_exec" *)
-   rule rl_decode(fifo_d2e.notFull &&& rg_f2d matches tagged Valid .xPC);
+   rule rl_decode(rg_f2d matches tagged Valid .xPC);
       let instr <- imemory.mem_resp;
 
       if (cfg_verbose > 1) $display("[%7d] (  | D  ) : %25s pc = 0x%08h, instr = %h", csr_cycle, "", xPC, instr);
-      Decoded_Instr  decoded = fv_decode(xPC, instr);
 
-      fifo_d2e.enq( decoded );
-      rw_nxtPC.wset(fv_fall_through_pc(xPC));
+      Decoded_Instr  decoded = fv_decode(xPC, instr);
+      Decoded_Fields fields  = fv_decode_fields(decoded.instr);
+
+      // Calculate dependency register
+      let score1 = False;
+      let score2 = False;
+      let rd_upd = fromMaybe(0, rw_scoreGPRsSet.wget);
+   
+      if (decoded.op.rs1 != 0)
+         score1 = rg_scoreGPRs[decoded.op.rs1] || (rd_upd == decoded.op.rs1);
+   
+      if (decoded.op.rs2 != 0)
+         score2 = rg_scoreGPRs[decoded.op.rs2] || (rd_upd == decoded.op.rs2);
+
+      let score_conflict = score1 || score2;
+
+      if (cfg_verbose > 2) begin
+         $write("[%7d] (  |    ) : %25s Scoreboard = [", csr_cycle, "");
+         for(Integer i = 0; i < numRegs; i = i + 1) begin
+            $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
+         end
+         $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
+      end
+
+      if (score_conflict) begin
+         if (cfg_verbose > 1) $display("[%7d] ( R| D  ) : %25s STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
+      end
+      else begin
+         fifo_d2e.enq( decoded );
+         rw_nxtPC.wset(fv_fall_through_pc(xPC));
+      end
    endrule
 
    // ---------------- EXECUTE
@@ -672,32 +700,9 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       // Instruction fields decode
       Decoded_Fields fields   = fv_decode_fields(decoded.instr);
 
-      // Calculate dependency register
-      let score1 = False;
-      let score2 = False;
-   
-      if (decoded.op.rs1 != 0)
-         score1 = rg_scoreGPRs[decoded.op.rs1];
-   
-      if (decoded.op.rs2 != 0)
-         score2 = rg_scoreGPRs[decoded.op.rs2];
-
-      let score_conflict = score1 || score2;
-
-      if (cfg_verbose > 2) begin
-         $write("[%7d] ( |    ) : %25s Scoreboard = [", csr_cycle, "");
-         for(Integer i = 0; i < numRegs; i = i + 1) begin
-            $write("%1d, ", rg_scoreGPRs[i] ? 1 : 0);
-         end
-         $write("], dst = %d, rs1 = %d, rs2 = %d\n", fields.rd, fields.rs1, fields.rs2);
-      end
-
       if (decoded.pc != pcEpoch) begin
          if (cfg_verbose > 1) $display("[%7d] (A |  E ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
          fifo_d2e.deq;
-      end
-      else if (score_conflict) begin
-         if (cfg_verbose > 1) $display("[%7d] ( R|  E ) : %25s STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
       end
       else begin
          Bool checkScore = case(decoded.op.opcode) matches
