@@ -705,16 +705,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          fifo_d2e.deq;
       end
       else begin
-         Bool checkScore = case(decoded.op.opcode) matches
-                              tagged Br .*   : False;
-                              tagged St .*   : False;
-                              default        : True;
-                           endcase;
-
          // Update dependency flag for $rd
-         if (checkScore) begin
-            rw_scoreGPRsSet.wset(fields.rd);
-         end
+         rw_scoreGPRsSet.wset(decoded.op.rd);
 
          let msg <- fa_exec(decoded, fields);
          if (cfg_verbose > 1) begin
