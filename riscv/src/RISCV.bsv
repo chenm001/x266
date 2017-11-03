@@ -684,8 +684,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          if (cfg_verbose > 1) $display("[%7d] ( R| D  ) : %25s STALL Conflict pc = 0x%08h, instr = 0x%h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
       end
       else begin
+         let next_pc = fv_fall_through_pc(xPC);
+         rw_nxtPC.wset(next_pc);
+
+         decoded.bypass = isValid(rw_jmpPC.wget);
          fifo_d2e.enq( decoded );
-         rw_nxtPC.wset(fv_fall_through_pc(xPC));
       end
    endrule
 
@@ -700,7 +703,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       // Instruction fields decode
       Decoded_Fields fields   = fv_decode_fields(decoded.instr);
 
-      if (decoded.pc != pcEpoch) begin
+      if (decoded.bypass) begin
          if (cfg_verbose > 1) $display("[%7d] (A |  E ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
          fifo_d2e.deq;
       end

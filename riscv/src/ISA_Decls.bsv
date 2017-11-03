@@ -385,6 +385,7 @@ typedef struct {
    Instr    instr;
    Instr_s  op;
    Addr     pc;
+   Bool     bypass;
 } Decoded_Instr deriving(Bits);
 
 typedef struct {
@@ -471,7 +472,8 @@ function Decoded_Instr fv_decode(Addr pc, Instr instr);
    return Decoded_Instr {
             instr    :  instr,
             op       :  fv_decode_instr(instr),
-            pc       :  pc
+            pc       :  pc,
+            bypass   :  False
           };
 endfunction
 
