@@ -688,8 +688,12 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          let next_pc = fv_fall_through_pc(xPC);
          rw_nxtPC.wset(next_pc);
 
-         decoded.bypass = isValid(rw_jmpPC.wget);
-         fifo_d2e.enq( decoded );
+         if (isValid(rw_jmpPC.wget)) begin
+            if (cfg_verbose > 1) $display("[%7d] (A | D  ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", xPC, instr, pcEpoch);
+         end
+         else begin
+            fifo_d2e.enq( decoded );
+         end
       end
    endrule
 
@@ -699,33 +703,27 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    //(* no_implicit_conditions *)
    rule rl_exec(fifo_d2e.notEmpty && fifo_e2w.notFull);
       let decoded = fifo_d2e.first;
+      fifo_d2e.deq;
 
       // ----------------------------------------------------------------
       // Instruction fields decode
       Decoded_Fields fields = fv_decode_fields(decoded.instr);
 
-      if (decoded.bypass) begin
-         if (cfg_verbose > 1) $display("[%7d] (A |  E ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
-         fifo_d2e.deq;
+      // Update dependency flag for $rd
+      if (decoded.op.rd matches tagged Valid .rd)
+         rw_scoreGPRsSet.wset(rd);
+
+      let msg <- fa_exec(decoded, fields);
+      if (cfg_verbose > 1) begin
+         $write("[%7d] (  |  E ) : [ ", csr_cycle, msg);
+         $display(" ]    pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", decoded.pc, decoded.instr, pcEpoch);
       end
-      else begin
-         // Update dependency flag for $rd
-         if (decoded.op.rd matches tagged Valid .rd)
-            rw_scoreGPRsSet.wset(rd);
 
-         let msg <- fa_exec(decoded, fields);
-         if (cfg_verbose > 1) begin
-            $write("[%7d] (  |  E ) : [ ", csr_cycle, msg);
-            $display(" ]    pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", decoded.pc, decoded.instr, pcEpoch);
-         end
-         fifo_d2e.deq;
+      // Update pcEpoch
+      pcEpoch <= fromMaybe(fv_fall_through_pc(pcEpoch), rw_jmpPC.wget);
 
-         // Update pcEpoch
-         pcEpoch <= fromMaybe(fv_fall_through_pc(pcEpoch), rw_jmpPC.wget);
-
-         // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
-         csr_instret <= csr_instret + 1;
-      end
+      // ---------------- FINISH: increment csr_instret or record explicit CSRRx update of csr_instret
+      csr_instret <= csr_instret + 1;
    endrule
 
    // ---------------- Read and forward memory data
