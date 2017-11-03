@@ -255,9 +255,9 @@ function  Bit#(4)   instr_pred(Instr x); return x[27:24]; endfunction
 function  Bit#(4)   instr_succ(Instr x); return x[23:20]; endfunction
 
 typedef struct {
-   RegName     rs1;
-   RegName     rs2;
-   RegName     rd;
+   Maybe#(RegName)   rs1;
+   Maybe#(RegName)   rs2;
+   Maybe#(RegName)   rd;
 
    union tagged {
       LdFunc      Ld;
@@ -427,18 +427,18 @@ function Instr_s fv_decode_instr(Instr instr);
    OpKind kind   = unpack(opcode7);
 
    return case(kind)
-      Lui      :  Instr_s {opcode: tagged Lui,                                rs1: 0,     rs2: 0,     rd: rd};
-      Auipc    :  Instr_s {opcode: tagged Auipc,                              rs1: 0,     rs2: 0,     rd: rd};
-      Jal      :  Instr_s {opcode: tagged Jal,                                rs1: 0,     rs2: 0,     rd: rd};
-      Jalr     :  Instr_s {opcode: tagged Jalr,                               rs1: rs1,   rs2: 0,     rd: rd};
-      Branch   :  Instr_s {opcode: tagged Br    unpack(funct3),               rs1: rs1,   rs2: rs2,   rd:  0};
-      Load     :  Instr_s {opcode: tagged Ld    unpack(funct3),               rs1: rs1,   rs2: 0,     rd: rd};
-      Store    :  Instr_s {opcode: tagged St    unpack(funct3),               rs1: rs1,   rs2: rs2,   rd:  0};
+      Lui      :  Instr_s {opcode: tagged Lui,                                rs1: tagged Invalid,    rs2: tagged Invalid,    rd: tagged Valid rd};
+      Auipc    :  Instr_s {opcode: tagged Auipc,                              rs1: tagged Invalid,    rs2: tagged Invalid,    rd: tagged Valid rd};
+      Jal      :  Instr_s {opcode: tagged Jal,                                rs1: tagged Invalid,    rs2: tagged Invalid,    rd: tagged Valid rd};
+      Jalr     :  Instr_s {opcode: tagged Jalr,                               rs1: tagged Valid rs1,  rs2: tagged Invalid,    rd: tagged Valid rd};
+      Branch   :  Instr_s {opcode: tagged Br    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2,  rd: tagged Invalid};
+      Load     :  Instr_s {opcode: tagged Ld    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Invalid,    rd: tagged Valid rd};
+      Store    :  Instr_s {opcode: tagged St    unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Valid rs2,  rd: tagged Invalid};
       OpImm    :  Instr_s {opcode: tagged Alui  unpack({(funct3 == 3'b101 ? instr[30] : 1'b0), funct3}), // check SRAI and SRLI
-                                                                              rs1: rs1,   rs2: 0,     rd: rd};
-      Op       :  Instr_s {opcode: tagged Alu   unpack({instr[30], funct3}),  rs1: rs1,   rs2: rs2,   rd: rd};
-      System   :  Instr_s {opcode: tagged Sys   unpack(funct3),               rs1: rs1,   rs2: 0,     rd: rd};
-      default  :  Instr_s {opcode: Illegal, rs1: ?, rs2: ?, rd: ?};
+                                                                              rs1: tagged Valid rs1,  rs2: tagged Invalid,    rd: tagged Valid rd};
+      Op       :  Instr_s {opcode: tagged Alu   unpack({instr[30], funct3}),  rs1: tagged Valid rs1,  rs2: tagged Valid rs2,  rd: tagged Valid rd};
+      System   :  Instr_s {opcode: tagged Sys   unpack(funct3),               rs1: tagged Valid rs1,  rs2: tagged Invalid,    rd: tagged Valid rd};
+      default  :  Instr_s {opcode: Illegal, rs1: tagged Invalid, rs2: tagged Invalid, rd: tagged Invalid};
    endcase;
 endfunction
 

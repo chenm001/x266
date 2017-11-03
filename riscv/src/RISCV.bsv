@@ -665,11 +665,11 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       let score2 = False;
       let rd_upd = fromMaybe(0, rw_scoreGPRsSet.wget);
 
-      if (decoded.op.rs1 != 0)
-         score1 = rg_scoreGPRs[decoded.op.rs1] || (rd_upd == decoded.op.rs1);
+      if (decoded.op.rs1 matches tagged Valid .rs1 &&& rs1 != 0)
+         score1 = rg_scoreGPRs[rs1] || (rd_upd == rs1);
 
-      if (decoded.op.rs2 != 0)
-         score2 = rg_scoreGPRs[decoded.op.rs2] || (rd_upd == decoded.op.rs2);
+      if (decoded.op.rs2 matches tagged Valid .rs2 &&& rs2 != 0)
+         score2 = rg_scoreGPRs[rs2] || (rd_upd == rs2);
 
       let score_conflict = score1 || score2;
 
@@ -710,7 +710,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       end
       else begin
          // Update dependency flag for $rd
-         rw_scoreGPRsSet.wset(decoded.op.rd);
+         if (decoded.op.rd matches tagged Valid .rd)
+            rw_scoreGPRsSet.wset(rd);
 
          let msg <- fa_exec(decoded, fields);
          if (cfg_verbose > 1) begin
