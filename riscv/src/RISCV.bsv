@@ -184,111 +184,6 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    // Internal 256-bits memory bus
    RWire#(Vector#(8, Word)) rw_memBus  <- mkUnsafeRWire;
 
-   // ----------------------------------------------------------------
-   // Read a CSR
-   // If the addr is valid, return tagged Valid value
-   // else return tagged Invalid
-
-   function Maybe#(Word) fv_read_csr(CSR_Addr csr_addr);
-      if      (csr_addr == csr_CYCLE)     return tagged Valid truncate   (csr_cycle);
-      else if (csr_addr == csr_INSTRET)   return tagged Valid truncate   (csr_instret);
-
-      else if (csr_addr == csr_CYCLEH  )  return tagged Valid truncateLSB(csr_cycle);
-      else if (csr_addr == csr_INSTRETH)  return tagged Valid truncateLSB(csr_instret);
-
-      else if (csr_addr == csr_DSCRATCH)  return tagged Valid 0 ;
-
-      else return tagged Invalid;
-   endfunction: fv_read_csr
-
-   // ----------------------------------------------------------------
-   // Write a CSR
-   // We assume a valid csr_addr, since this is always preceded by a read_csr which performs the check
-
-   function Action fa_write_csr(CSR_Addr csr_addr, Word csr_value);
-      action
-         if (csr_addr == csr_DSCRATCH) begin
-            csr_dscratch <= tagged Valid csr_value;
-         end
-
-         else begin
-            $display("ERROR: fa_write_csr: (csr_addr 0x%0h, csr_value 0x%0h): illegal csr_addr", csr_addr, csr_value);
-            $finish;
-         end
-      endaction
-   endfunction: fa_write_csr
-
-   // ================================================================
-   // Instruction execution
-
-   // ----------------------------------------------------------------
-   // The following functions are common idioms for finishing an instruction
-
-   // ----------------
-   // Finish exception: record exception cause info, go to ENV_CALL state
-
-   function Action fa_finish_with_exception(Bit#(4) exc_code, Addr badaddr);
-      action
-         if (cfg_verbose > 0) begin
-            $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, pcEpoch, exc_code, badaddr);
-         end
-
-         csr_mepc     <= extend(pcEpoch);
-         csr_mcause   <= { 1'b0, 0, exc_code };
-         csr_mbadaddr <= extend(badaddr);
-
-         $finish;
-      endaction
-   endfunction
-
-   // ----------------
-   // Finish instr with no output (no Rd-write): set PC, go to FETCH state
-
-   function Action fa_finish_with_no_output();
-      action
-      endaction
-   endfunction
-
-   // ----------------
-   // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
-
-   function Action fa_finish_with_Rd(RegName rd, Word rd_value);
-      action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
-         fa_finish_with_no_output;
-      endaction
-   endfunction
-
-   // ----------------
-   // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
-
-   function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
-      action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, lsb5: lsb5})} );
-         fa_finish_with_no_output;
-      endaction
-   endfunction
-
-   // ----------------
-   // Finish jump instrs; write Rd, set PC, go to FETCH state
-
-   function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
-      action
-         fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
-         rw_jmpPC.wset(next_pc);
-      endaction
-   endfunction
-
-   // ----------------
-   // Finish conditional branch instr: set PC, go to FETCH state
-
-   function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
-      action
-         if (condition_taken) begin
-            rw_jmpPC.wset(next_pc);
-         end
-      endaction
-   endfunction
 
    // ----------------------------------------------------------------
    // Instruction execution
@@ -308,8 +203,114 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
          Word_S  s_v1 = unpack(v1);
          Word_S  s_v2 = unpack(v2);
 
+         // ----------------------------------------------------------------
+         // Read a CSR
+         // If the addr is valid, return tagged Valid value
+         // else return tagged Invalid
+
+         function Maybe#(Word) fv_read_csr(CSR_Addr csr_addr);
+            if      (csr_addr == csr_CYCLE)     return tagged Valid truncate   (csr_cycle);
+            else if (csr_addr == csr_INSTRET)   return tagged Valid truncate   (csr_instret);
+
+            else if (csr_addr == csr_CYCLEH  )  return tagged Valid truncateLSB(csr_cycle);
+            else if (csr_addr == csr_INSTRETH)  return tagged Valid truncateLSB(csr_instret);
+
+            else if (csr_addr == csr_DSCRATCH)  return tagged Valid 0 ;
+
+            else return tagged Invalid;
+         endfunction: fv_read_csr
+
          // Value of CSR field of instr (if a valid CSR address)
-         Maybe #(Word) m_v_csr = fv_read_csr(fields.csr);
+         Maybe#(Word) m_v_csr = fv_read_csr(fields.csr);
+
+         // ----------------------------------------------------------------
+         // Write a CSR
+         // We assume a valid csr_addr, since this is always preceded by a read_csr which performs the check
+
+         function Action fa_write_csr(CSR_Addr csr_addr, Word csr_value);
+            action
+               if (csr_addr == csr_DSCRATCH) begin
+                  csr_dscratch <= tagged Valid csr_value;
+               end
+
+               else begin
+                  $display("ERROR: fa_write_csr: (csr_addr 0x%0h, csr_value 0x%0h): illegal csr_addr", csr_addr, csr_value);
+                  $finish;
+               end
+            endaction
+         endfunction: fa_write_csr
+
+         // ================================================================
+         // Instruction execution
+
+         // ----------------------------------------------------------------
+         // The following functions are common idioms for finishing an instruction
+
+         // ----------------
+         // Finish exception: record exception cause info, go to ENV_CALL state
+
+         function Action fa_finish_with_exception(Bit#(4) exc_code, Addr badaddr);
+            action
+               if (cfg_verbose > 0) begin
+                  $display("[%7d] fa_do_exception: epc = 0x%0h, exc_code = 0x%0h, badaddr = 0x%0h", csr_cycle, pcEpoch, exc_code, badaddr);
+               end
+
+               csr_mepc     <= extend(pcEpoch);
+               csr_mcause   <= { 1'b0, 0, exc_code };
+               csr_mbadaddr <= extend(badaddr);
+
+               $finish;
+            endaction
+         endfunction
+
+         // ----------------
+         // Finish instr with no output (no Rd-write): set PC, go to FETCH state
+
+         function Action fa_finish_with_no_output();
+            action
+            endaction
+         endfunction
+
+         // ----------------
+         // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
+
+         function Action fa_finish_with_Rd(RegName rd, Word rd_value);
+            action
+               fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
+               fa_finish_with_no_output;
+            endaction
+         endfunction
+
+         // ----------------
+         // Finish instr with Rd-write: set Rd, set PC, go to WRITE_BACK state
+
+         function Action fa_finish_with_Ld(RegName rd, LdFunc op, Bit#(5) lsb5);
+            action
+               fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: (tagged MemOp {ld_op: op, lsb5: lsb5})} );
+               fa_finish_with_no_output;
+            endaction
+         endfunction
+
+         // ----------------
+         // Finish jump instrs; write Rd, set PC, go to FETCH state
+
+         function Action fa_finish_jump(RegName rd, Word rd_value, Addr next_pc);
+            action
+               fifo_e2w.enq( Exec2Wb_t {rd: rd, rd_value: tagged Value rd_value} );
+               rw_jmpPC.wset(next_pc);
+            endaction
+         endfunction
+
+         // ----------------
+         // Finish conditional branch instr: set PC, go to FETCH state
+
+         function Action fa_finish_cond_branch(Bool condition_taken, Addr next_pc);
+            action
+               if (condition_taken) begin
+                  rw_jmpPC.wset(next_pc);
+               end
+            endaction
+         endfunction
 
          // ----------------------------------------------------------------
          // Instructions for Upper Immediate
@@ -663,10 +664,10 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       let score1 = False;
       let score2 = False;
       let rd_upd = fromMaybe(0, rw_scoreGPRsSet.wget);
-   
+
       if (decoded.op.rs1 != 0)
          score1 = rg_scoreGPRs[decoded.op.rs1] || (rd_upd == decoded.op.rs1);
-   
+
       if (decoded.op.rs2 != 0)
          score2 = rg_scoreGPRs[decoded.op.rs2] || (rd_upd == decoded.op.rs2);
 
@@ -733,7 +734,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
       for(Integer i = 0; i < 8; i = i + 1) begin
          let data_resp <- dmemory[i].mem_resp;
          resp[i] = fromMaybe(?, data_resp);
-    
+
          if (cfg_verbose > 0 && !isValid(data_resp)) begin
             $display("[%7d] (  |   W) : Memory read failed on Bank(%d)", csr_cycle, i);
             $finish;
