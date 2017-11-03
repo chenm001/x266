@@ -702,7 +702,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
 
       // ----------------------------------------------------------------
       // Instruction fields decode
-      Decoded_Fields fields   = fv_decode_fields(decoded.instr);
+      Decoded_Fields fields = fv_decode_fields(decoded.instr);
 
       if (decoded.bypass) begin
          if (cfg_verbose > 1) $display("[%7d] (A |  E ) : %25s STALL Ignore pc = 0x%08h, instr = 0x%08h, epoch = 0x%08h", csr_cycle, "", decoded.pc, decoded.instr, pcEpoch);
