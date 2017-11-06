@@ -1,4 +1,4 @@
-From 59e6f46bb41f05def97f4601ad3d7cf167588279 Mon Sep 17 00:00:00 2001
+From b6ead34409cad954e5e00e6b3d341e3d0e88e9d4 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
 Date: Fri, 20 Oct 2017 17:01:18 -0500
 Subject: [PATCH] x266 RISC-V Vector Extension

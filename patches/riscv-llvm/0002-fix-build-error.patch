@@ -4,24 +4,9 @@ Date: Tue, 3 Oct 2017 11:14:53 -0500
 Subject: [PATCH 2/4] fix build error
 
 ---
- lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp |    2 ++
  utils/TableGen/CodeGenDAGPatterns.cpp             |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-index 91abb34..1a572c5 100644
---- a/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-+++ b/lib/CodeGen/SelectionDAG/LegalizeIntegerTypes.cpp
-@@ -1337,7 +1337,9 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
- SDValue DAGTypeLegalizer::PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo) {
-   // Promote the rw, locality, and cache type arguments to a supported integer
-   // width.
-+#ifndef NDEBUG
-   N->dump(&DAG);
-+#endif
-   SDValue Op2 = GetPromotedInteger(N->getOperand(2));
-   SDValue Op3 = GetPromotedInteger(N->getOperand(3));
-   SDValue Op4 = GetPromotedInteger(N->getOperand(4));
 diff --git a/utils/TableGen/CodeGenDAGPatterns.cpp b/utils/TableGen/CodeGenDAGPatterns.cpp
 index f6be8da..e99aaf9 100644
 --- a/utils/TableGen/CodeGenDAGPatterns.cpp

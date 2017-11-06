@@ -1,6 +1,6 @@
-From de31aa745eae05feeeb8ba1873cf1e00bcaa1d62 Mon Sep 17 00:00:00 2001
+From 762041c24cd626d0184b3c6349f0d4a6a1586515 Mon Sep 17 00:00:00 2001
 From: Min Chen <chenm003@163.com>
-Date: Fri, 20 Oct 2017 17:17:41 -0500
+Date: Mon, 6 Nov 2017 15:18:21 -0600
 Subject: [PATCH] x266 RISC-V Vector Extension
 
 ---
@@ -67,10 +67,10 @@ index 0000000..5557853
 +
 +}
 diff --git a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-index 1dffdb2..b3b6b4d 100644
+index 767a453..a57ab45 100644
 --- a/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
 +++ b/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
-@@ -255,6 +255,24 @@ public:
+@@ -283,6 +283,24 @@ public:
  
    bool isSImm21Lsb0() const { return isBareSimmNLsb0<21>(); }
  
@@ -189,12 +189,12 @@ index f94c37a..78bd510 100644
                                             SmallVectorImpl<MCFixup> &Fixups,
                                             const MCSubtargetInfo &STI) const {
 diff --git a/lib/Target/RISCV/RISCVISelLowering.cpp b/lib/Target/RISCV/RISCVISelLowering.cpp
-index 9ff9af9..e2caaff 100644
+index a68ada9..2edde7f 100644
 --- a/lib/Target/RISCV/RISCVISelLowering.cpp
 +++ b/lib/Target/RISCV/RISCVISelLowering.cpp
-@@ -45,6 +45,90 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
-   // Set up the register classes.
-   addRegisterClass(XLenVT, &RISCV::GPRRegClass);
+@@ -48,6 +48,90 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
+   if (Subtarget.hasStdExtF())
+     addRegisterClass(MVT::f32, &RISCV::FPR32RegClass);
  
 +  // Vector Extension
 +  // First set operation action for all vector types to expand. Then we
@@ -284,10 +284,10 @@ index 9ff9af9..e2caaff 100644
    computeRegisterProperties(STI.getRegisterInfo());
  
 diff --git a/lib/Target/RISCV/RISCVInstrInfo.td b/lib/Target/RISCV/RISCVInstrInfo.td
-index b58ee20..b6521ec 100644
+index 702e75e..a2fea94 100644
 --- a/lib/Target/RISCV/RISCVInstrInfo.td
 +++ b/lib/Target/RISCV/RISCVInstrInfo.td
-@@ -570,3 +570,5 @@ include "RISCVInstrInfoM.td"
+@@ -574,3 +574,5 @@ include "RISCVInstrInfoM.td"
  include "RISCVInstrInfoA.td"
  include "RISCVInstrInfoF.td"
  include "RISCVInstrInfoD.td"
@@ -477,7 +477,7 @@ index 0000000..a4be74f
 +def : Pat<(v32i8 (int_riscv_v_ld32x8 GPR:$rs1, imm7Lo2AllZero:$imm)), (PseudoLD32X8_1 GPR:$rs1, imm7Lo2AllZero:$imm)>;
 +
 diff --git a/lib/Target/RISCV/RISCVRegisterInfo.cpp b/lib/Target/RISCV/RISCVRegisterInfo.cpp
-index 980d9ce..2c9f69f 100644
+index 3506b69..0595da1 100644
 --- a/lib/Target/RISCV/RISCVRegisterInfo.cpp
 +++ b/lib/Target/RISCV/RISCVRegisterInfo.cpp
 @@ -47,6 +47,7 @@ BitVector RISCVRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
