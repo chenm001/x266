@@ -176,7 +176,7 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
    // Scoreboard map
    Reg#(Bool)        rg_scoreGPRs[numRegs];
    for(Integer i = 0; i < numRegs; i = i + 1)
-      rg_scoreGPRs[i] <- mkReg(False);
+      rg_scoreGPRs[i] <- mkConfigReg(False);
    RWire#(RegName)   rw_scoreGPRsSet   <- mkRWire;
    RWire#(RegName)   rw_scoreGPRsReset <- mkRWire;
 
@@ -617,14 +617,27 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
 
    // Update CPU internal status in every cycle
    (* fire_when_enabled, no_implicit_conditions *)
-   rule update_score;
+   rule update_score_check;
       let x = fromMaybe(0, rw_scoreGPRsSet.wget);
       let y = fromMaybe(0, rw_scoreGPRsReset.wget);
 
-      rg_scoreGPRs[x] <= True;
-      if (x != y) begin
-         rg_scoreGPRs[y] <= False;
+      if (x == y && x != 0) begin
+         $display("Register score status conflict!");
+         $finish;
       end
+   endrule
+
+   (* conflict_free="update_score_set, update_score_reset" *)
+   (* fire_when_enabled, no_implicit_conditions *)
+   rule update_score_set;
+      let x = fromMaybe(0, rw_scoreGPRsSet.wget);
+      rg_scoreGPRs[x] <= True;
+   endrule
+
+   (* fire_when_enabled, no_implicit_conditions *)
+   rule update_score_reset;
+      let y = fromMaybe(0, rw_scoreGPRsReset.wget);
+      rg_scoreGPRs[y] <= False;
    endrule
 
    // ---------------- FETCH
