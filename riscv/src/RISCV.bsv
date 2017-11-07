@@ -447,34 +447,30 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                Addr    mem_addr = truncate(pack(s_v1 + imm_s)) - dmemSt;
                Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
-               function Action fa_ST_req(Mem_Data_Size sz);
-                  action
-                     Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
-                     Bit#(3) bank = truncate(mem_addr >> 2);
-                     Word aligned_data = v2 << {align, 3'b0};
-                     Bit#(Bytes_per_Word) write_en = (case(sz)
-                                                         BITS8:  ('b0001 << align);
-                                                         BITS16: ('b0011 << align);
-                                                         default/*BITS32*/: ('b1111);
-                                                      endcase);
-
-                     for(Integer i = 0; i < memBanks; i = i + 1) begin
-                        let req = DMem_Req {mem_op:      MEM_OP_STORE,
-                                            addr:        bankAddr[i],
-                                            data:        aligned_data,
-                                            written:     (fromInteger(i) == bank ? write_en : 0)};
-                        dmemory[i].mem_req(req);
-                     end
-                     fa_finish_with_no_output;
-                  endaction
-               endfunction
-
-               case(op)
-                  Sb    :  fa_ST_req(BITS8);
-                  Sh    :  fa_ST_req(BITS16);
+               let sz = case(op)
+                  Sb    :  BITS8;
+                  Sh    :  BITS16;
                   /*Sw*/
-               default  :  fa_ST_req(BITS32);
-               endcase
+               default  :  BITS32;
+               endcase;
+
+               Bit#(Bits_per_Word_Byte_Index) align = truncate(mem_addr);
+               Bit#(3) bank = truncate(mem_addr >> 2);
+               Word aligned_data = v2 << {align, 3'b0};
+               Bit#(Bytes_per_Word) write_en = (case(sz)
+                                                   BITS8:  ('b0001 << align);
+                                                   BITS16: ('b0011 << align);
+                                                   default/*BITS32*/: ('b1111);
+                                                endcase);
+
+               for(Integer i = 0; i < memBanks; i = i + 1) begin
+                  let req = DMem_Req {mem_op:      MEM_OP_STORE,
+                                      addr:        bankAddr[i],
+                                      data:        aligned_data,
+                                      written:     (fromInteger(i) == bank ? write_en : 0)};
+                  dmemory[i].mem_req(req);
+               end
+               fa_finish_with_no_output;
 
                let msg =  fshow(op)
                         + $format(" %s, %1d(%s)", regNameABI[fields.rd], imm_s, regNameABI[fields.rs1]);
