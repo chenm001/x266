@@ -25,7 +25,7 @@ asm_tests=(
 	sub
 	xor xori
 	bpred_bht bpred_j bpred_j_noloop bpred_ras
-	cache
+	cache conflict
 	)
 
 vmh_dir=../programs/build/assembly/vmh
