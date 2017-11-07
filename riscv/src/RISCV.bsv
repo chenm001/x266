@@ -371,8 +371,8 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                case(op)
                   Eq    :  fa_finish_cond_branch(v1  == v2,    next_pc);
                   Neq   :  fa_finish_cond_branch(v1  != v2,    next_pc);
-                  Lt    :  fa_finish_cond_branch(s_v1 <  s_v2, next_pc);
-                  Ge    :  fa_finish_cond_branch(s_v1 >= s_v2, next_pc);
+                  Lt    :  fa_finish_cond_branch(signedLT(v1, v2), next_pc);
+                  Ge    :  fa_finish_cond_branch(signedGE(v1, v2), next_pc);
                   Ltu   :  fa_finish_cond_branch(v1  <  v2,    next_pc);
                   /* Geu */
                default  :  fa_finish_cond_branch(v1  >= v2,    next_pc);
