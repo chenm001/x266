@@ -417,27 +417,23 @@ module _mkRISCV#(Bit#(3) cfg_verbose)(RISCV_IFC)
                Bit#(5) lsb5     = truncate(mem_addr);
                Vector#(8, Addr) bankAddr = f_getBankAddr(mem_addr, 4);
 
-               function Action fa_LD_Req(Mem_Data_Size sz);
-                  action
-                     for(Integer i = 0; i < memBanks; i = i + 1) begin
-                        let req = DMem_Req {mem_op:      MEM_OP_LOAD,
-                                            addr:        bankAddr[i],
-                                            written:     0,
-                                            data:        ?};
-                        dmemory[i].mem_req(req);
-                     end
-                     fa_finish_with_Ld(fields.rd, op, lsb5);
-                  endaction
-               endfunction
-
-               case(op)
-                  Lb    :  fa_LD_Req(BITS8);
-                  Lbu   :  fa_LD_Req(BITS8);
-                  Lh    :  fa_LD_Req(BITS16);
-                  Lhu   :  fa_LD_Req(BITS16);
+               let sz = case(op)
+                  Lb    :  BITS8;
+                  Lbu   :  BITS8;
+                  Lh    :  BITS16;
+                  Lhu   :  BITS16;
                   /*Lw*/
-               default  :  fa_LD_Req(BITS32);
-               endcase
+               default  :  BITS32;
+               endcase;
+
+               for(Integer i = 0; i < memBanks; i = i + 1) begin
+                  let req = DMem_Req {mem_op:      MEM_OP_LOAD,
+                                      addr:        bankAddr[i],
+                                      written:     0,
+                                      data:        ?};
+                  dmemory[i].mem_req(req);
+               end
+               fa_finish_with_Ld(fields.rd, op, lsb5);
 
                let msg =  fshow(op)
                         + $format(" %s, %1d(%s)", regNameABI[fields.rd], imm_s, regNameABI[fields.rs1]);
