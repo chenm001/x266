@@ -15,6 +15,7 @@ bmarks_tests=(
 	vvadd
 	rsort
 	spmv
+	sad
 	)
 
 vmh_dir=../programs/build/benchmarks/vmh

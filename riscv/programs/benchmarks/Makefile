@@ -26,6 +26,7 @@ bmarks = \
 	multiply \
 	rsort \
 	spmv \
+	sad \
 
 bmarks_host = \
 
