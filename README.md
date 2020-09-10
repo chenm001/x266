@@ -61,5 +61,5 @@ See COPYRIGHT for more details.
 See `LICENSE.TXT` for more details.
 
 Creator on November 2015<br>
-Copyright (c) 2015-2017 Min Chen<br>
+Copyright (c) 2015-2020 Min Chen<br>
 Contact: Min Chen <chenm003@{163, gmail}.com><br>
