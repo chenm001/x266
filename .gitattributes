@@ -1,3 +1,16 @@
+* linguist-vendored
+*.c linguist-vendored=false
+*.h linguist-vendored=false
+*.c linguist-language=C
+*.h linguist-language=C
+*.bsv linguist-language=Bluespec
+*.v linguist-language=Verilog
+*.pl linguist-language=Perl
+*.ld linguist-language=Linker Script
+Makefile* linguist-language=Makefile
+*.patch linguist-language=diff
+*.[sS] linguist-language=Assembly
+
 * whitespace=!indent,trail,space
 * ident
 *.[ch] whitespace ident
