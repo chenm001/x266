@@ -26,7 +26,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
+ /*****************************************************************************
+ *****************************************************************************/
+#define MAX_WIDTH           (4096)
+#define MAX_HEIGHT          (2048)
+#define REF_BLOCK_SZ        (16)
+#define REF_FRAME_STRD      (MAX_WIDTH / REF_BLOCK_SZ)
+
+// Thanks to https://gist.github.com/PhilCK/1534763
+#ifdef __GNUC__
+#define PACKED( class_to_pack ) class_to_pack __attribute__((__packed__))
+#else
+#define PACKED( class_to_pack ) __pragma( pack(push, 1) ) class_to_pack __pragma( pack(pop) )
+#endif
+
+/*****************************************************************************
+ *****************************************************************************/
+
+PACKED(struct _ref_block_t
+{
+    // REF_BLOCK_SZ=16
+    uint8_t     m_Y[16*16];         // 256 bytes - Y
+    uint8_t     m_C[2][8*8];        // 128 bytes - UV
+    uint8_t     m_I[128];           // 128 bytes - Info
+});
+typedef struct _ref_block_t ref_block_t;
+
+PACKED(struct _ref_frame_t
+{
+    ref_block_t     m_frame[(MAX_WIDTH/REF_BLOCK_SZ) * (MAX_HEIGHT/REF_BLOCK_SZ)];
+});
+typedef struct _ref_frame_t ref_frame_t;
+
+typedef struct _codec_t
+{
+    ref_frame_t     m_frames[3];    // [0]=Cur, [1..N]=References
+
+} codec_t;
+
+/*****************************************************************************
+ *****************************************************************************/
 int main(int argc, char *argv[])
 {
     if(argc < 5)
