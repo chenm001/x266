@@ -43,6 +43,8 @@
 #define PACKED( class_to_pack ) __pragma( pack(push, 1) ) class_to_pack __pragma( pack(pop) )
 #endif
 
+#define ASIZE(x)            (sizeof(x) / sizeof((x)[0]))
+
 /*****************************************************************************
  *****************************************************************************/
 
@@ -102,6 +104,45 @@ void xConvInputFmt(ref_block_t     *pBlock,
     }
 }
 
+void xConvOutput420(const ref_block_t  *pBlock,
+                    uint8_t            *outY,
+                    const intptr_t      strdY,
+                    uint8_t            *outU,
+                    uint8_t            *outV,
+                    intptr_t            strdC,
+                    const int           width,
+                    const int           height)
+{
+    assert(!(width % REF_BLOCK_SZ) && "width is not multiple of 16");
+    assert(!(height % REF_BLOCK_SZ) && "height is not multiple of 16");
+
+    int i, j, x, y;
+    for(y = 0; y < height; y += REF_BLOCK_SZ)
+    {
+        for(x = 0; x < width; x += REF_BLOCK_SZ)
+        {
+            // Y
+            for(i = 0; i < REF_BLOCK_SZ; i++)
+            {
+                memcpy(&outY[(y+i)*strdY + x],
+                       &pBlock->m_Y[i * REF_BLOCK_SZ],
+                       REF_BLOCK_SZ*sizeof(uint8_t));
+            }
+
+            // UV - 420SP
+            for(i = 0; i < REF_BLOCK_SZ/2; i++)
+            {
+                for(j = 0; j < REF_BLOCK_SZ/2; j++)
+                {
+                    outU[((y>>1)+i)*strdC + ((x>>1)+j)] = pBlock->m_C[i*REF_BLOCK_SZ + j*2 + 0];
+                    outV[((y>>1)+i)*strdC + ((x>>1)+j)] = pBlock->m_C[i*REF_BLOCK_SZ + j*2 + 1];
+                }
+            }
+            pBlock++;
+        }
+    }
+}
+
  /*****************************************************************************
  *****************************************************************************/
 int main(int argc, char *argv[])
@@ -115,9 +156,10 @@ int main(int argc, char *argv[])
     // Encoder parameters
     FILE *fpi = NULL;
     FILE *fpo = NULL;
-    int nWidth = 0;
-    int nHeight = 0;
+    uint32_t nWidth = 0;
+    uint32_t nHeight = 0;
     int nFrames = 0;
+    uint8_t *frameBuf = NULL;
 
     int i;
     for(i = 1; i < argc; i++)
@@ -176,9 +218,53 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    // Encode
+    // Initialize codec
+    const uint32_t frameSize = nWidth * nHeight * 3 / 2;
+    frameBuf = (uint8_t*)_aligned_malloc(frameSize * sizeof(uint8_t), 4096);
+    assert(frameBuf && "Memory allocate failed\n");
 
-    // Prepare input frame
+    codec_t codec;
+    memset(&codec, 0, sizeof(codec));
+
+    codec.m_frames_strd = nWidth / REF_BLOCK_SZ;
+    for(i = 0; i < ASIZE(codec.m_frames); i++)
+    {
+        codec.m_frames[i] = (ref_block_t *)_aligned_malloc(nWidth * nHeight / (REF_BLOCK_SZ * REF_BLOCK_SZ) * sizeof(ref_block_t), 4096);
+    }
+
+    // Encode loop
+    for(i = 0; i < nFrames; i++)
+    {
+        // Prepare input frame
+        if(frameSize != fread(frameBuf, 1, frameSize, fpi))
+        {
+            fprintf(stderr, "Read file failed\n");
+            goto _cleanup;
+        }
+
+        xConvInputFmt(codec.m_frames[0],
+                      frameBuf,
+                      nWidth,
+                      frameBuf + nWidth * nHeight,
+                      frameBuf + nWidth * nHeight * 5 / 4,
+                      nWidth / 2,
+                      nWidth,
+                      nHeight);
+
+        // for test only
+        memset(frameBuf, 0xCD, nWidth * nHeight * 3 / 2 * sizeof(uint8_t));
+        xConvOutput420(codec.m_frames[0],
+                       frameBuf,
+                       nWidth,
+                       frameBuf + nWidth * nHeight,
+                       frameBuf + nWidth * nHeight * 5 / 4,
+                       nWidth / 2,
+                       nWidth,
+                       nHeight);
+
+        fwrite(frameBuf, 1, frameSize, fpo);
+    }
+    printf("Encode %d frames done\n", i);
 
     // Cleanup
 _cleanup:
@@ -186,6 +272,14 @@ _cleanup:
         fclose(fpi);
     if(fpo)
         fclose(fpo);
+    if(frameBuf)
+        _aligned_free(frameBuf);
+
+    for(i = 0; i < ASIZE(codec.m_frames); i++)
+    {
+        if(codec.m_frames[i])
+            _aligned_free((codec.m_frames[i]));
+    }
 
     return ret;
 }
