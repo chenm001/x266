@@ -57,8 +57,16 @@ PACKED(struct _ref_block_t
 });
 typedef struct _ref_block_t ref_block_t;
 
+PACKED(struct _param_t
+{
+    uint32_t nWidth;
+    uint32_t nHeight;
+});
+typedef struct _param_t param_t;
+
 typedef struct _codec_t
 {
+    param_t        *params;
     ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
     intptr_t        m_frames_strd;
 } codec_t;
@@ -143,6 +151,38 @@ void xConvOutput420(const ref_block_t  *pBlock,
     }
 }
 
+int xCodecInit(codec_t *codec, param_t *params)
+{
+    int i;
+    const uint32_t nWidth = params->nWidth;
+    const uint32_t nHeight = params->nHeight;
+
+    memset(codec, 0, sizeof(codec_t));
+
+    codec->params = params;
+    codec->m_frames_strd = nWidth / REF_BLOCK_SZ;
+
+    for(i = 0; i < ASIZE(codec->m_frames); i++)
+    {
+        codec->m_frames[i] = (ref_block_t *)_aligned_malloc(nWidth * nHeight / (REF_BLOCK_SZ * REF_BLOCK_SZ) * sizeof(ref_block_t), 4096);
+
+        if(codec->m_frames[i] == NULL)
+            return -1;
+    }
+    return 0;
+}
+
+void xCodecFree(codec_t *codec)
+{
+    int i;
+
+    for(i = 0; i < ASIZE(codec->m_frames); i++)
+    {
+        if(codec->m_frames[i])
+            _aligned_free((codec->m_frames[i]));
+    }
+}
+
  /*****************************************************************************
  *****************************************************************************/
 int main(int argc, char *argv[])
@@ -224,12 +264,16 @@ int main(int argc, char *argv[])
     assert(frameBuf && "Memory allocate failed\n");
 
     codec_t codec;
-    memset(&codec, 0, sizeof(codec));
+    param_t params;
 
-    codec.m_frames_strd = nWidth / REF_BLOCK_SZ;
-    for(i = 0; i < ASIZE(codec.m_frames); i++)
+    params.nWidth = nWidth;
+    params.nHeight = nHeight;
+
+    if(xCodecInit(&codec, &params))
     {
-        codec.m_frames[i] = (ref_block_t *)_aligned_malloc(nWidth * nHeight / (REF_BLOCK_SZ * REF_BLOCK_SZ) * sizeof(ref_block_t), 4096);
+        fprintf(stderr, "Codec init failed\n");
+        ret = -2;
+        goto _cleanup;
     }
 
     // Encode loop
@@ -275,11 +319,7 @@ _cleanup:
     if(frameBuf)
         _aligned_free(frameBuf);
 
-    for(i = 0; i < ASIZE(codec.m_frames); i++)
-    {
-        if(codec.m_frames[i])
-            _aligned_free((codec.m_frames[i]));
-    }
+    xCodecFree(&codec);
 
     return ret;
 }
