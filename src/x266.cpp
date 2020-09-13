@@ -44,6 +44,10 @@
 #endif
 
 #define ASIZE(x)            (sizeof(x) / sizeof((x)[0]))
+#define xSHR(x, n)          ( (n)>=32 ? 0 : ((x)>>(n)) )
+#define xSHL(x, n)          ( (n)>=32 ? 0 : ((x)<<(n)) )
+#define MAX(a, b)           ( (a) > (b) ? (a) : (b) )
+#define MIN(a, b)           ( (a) < (b) ? (a) : (b) )
 
 /*****************************************************************************
  *****************************************************************************/
@@ -73,6 +77,132 @@ typedef struct _codec_t
 
 /*****************************************************************************
  *****************************************************************************/
+// Credit to my x265 @ https://code.google.com/archive/p/x265/
+PACKED(struct _bitStream_t
+{
+    uint32_t    dwCache;
+    int32_t     nCachedBits;
+    uint8_t    *pucBits;
+    uint8_t    *pucBits0;
+});
+typedef _bitStream_t bitStream_t;
+
+// TODO: bsr
+static int xLog2(uint32_t x)
+{
+    uint32_t log2Size = 0;
+    while(x > 0) {
+        x >>= 1;
+        log2Size++;
+    }
+    return(log2Size);
+}
+
+#define putBits32(dst, x)    *(uint32_t*)(dst) = (x);
+#define BSWAP32(x)          ( (x<<24) + ((x<<8)&0xff0000) + ((x>>8)&0xff00) + (x>>24) )
+#define flushCache(dst, x, bits)    \
+{ \
+    int _i; \
+    for(_i=0; _i < (bits)>>3; _i++) \
+    { \
+        const uint32_t _tmp = (x) >> 24; \
+        (x) <<= 8; \
+        if (   (dst)[-1] == 0 \
+            && (dst)[-2] == 0 \
+            && _tmp <= 3 ) \
+            *(dst)++ = 0x03; \
+        *(dst)++ = _tmp; \
+    } \
+}
+
+// ***************************************************************************
+static void xBitStreamInit(bitStream_t *pBS, uint8_t *pucBuffer, int nBufferSize)
+{
+    assert( nBufferSize > 0 );
+
+    pBS->pucBits        = pucBuffer;
+    pBS->pucBits0       = pucBuffer;
+    pBS->dwCache        = 0;
+    pBS->nCachedBits    = 0;
+}
+
+static void xPutBits32(bitStream_t *pBS, uint32_t uiBits)
+{
+    assert( pBS->nCachedBits % 8 == 0 );
+    putBits32(pBS->pucBits, uiBits);
+    pBS->pucBits += 4;
+}
+
+static void xPutBits(bitStream_t *pBS, uint32_t uiBits, int nNumBits)
+{
+    int nShift = 32 - pBS->nCachedBits - nNumBits;
+    
+    assert((nNumBits >= 0) && (nNumBits <= 32));
+    assert(xSHR(uiBits, nNumBits) == 0);
+
+    if (nShift >= 0)
+    {
+        pBS->dwCache     |= xSHL(uiBits, nShift);
+        pBS->nCachedBits += nNumBits;
+    }
+    else
+    {
+        uint32_t dwCache = pBS->dwCache;
+        dwCache |= xSHR(uiBits, -nShift);
+
+        flushCache(pBS->pucBits, dwCache, 32);
+        
+        pBS->dwCache = xSHL(uiBits, (32 + nShift));
+        pBS->nCachedBits = -nShift;
+    }
+}
+
+static void xWriteAlignZero(bitStream_t *pBS)
+{
+    int nShift = (32 - pBS->nCachedBits) & 7;
+    xPutBits(pBS, 0, nShift);
+}
+
+static void xWriteAlignOne(bitStream_t *pBS)
+{
+    int nShift = (32 - pBS->nCachedBits) & 7;
+    xPutBits(pBS, (1<<nShift)-1, nShift);
+}
+
+static void xWriteRBSPTrailingBits(bitStream_t *pBS)
+{
+    xPutBits(pBS, 1, 1);
+    xWriteAlignZero(pBS);
+}
+
+static int32_t xBitFlush(bitStream_t *pBS)
+{
+    flushCache(pBS->pucBits, pBS->dwCache, pBS->nCachedBits);
+    pBS->nCachedBits &= 7;
+    return (pBS->pucBits - pBS->pucBits0) + ((pBS->nCachedBits + 7) >> 3);
+}
+
+static void xWriteUvlc(bitStream_t *pBS, uint32_t uiCode)
+{
+    uint32_t uiLength = xLog2(++uiCode) - 1;
+
+    xPutBits( pBS, 0,       uiLength);
+    xPutBits( pBS, uiCode, (uiLength+1));
+}
+
+static uint32_t xConvertToUInt(int iValue)
+{
+    return ( iValue > 0) ? (iValue<<1)-1 : -iValue<<1;
+}
+
+static void xWriteSvlc( bitStream_t *pBS, int32_t iCode )
+{
+    uint32_t uiCode;
+  
+    uiCode = xConvertToUInt( iCode );
+    xWriteUvlc( pBS, uiCode );
+}
+
 void xConvInputFmt(ref_block_t     *pBlock,
                    const uint8_t   *inpY,
                    const intptr_t   strdY,
