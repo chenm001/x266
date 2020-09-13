@@ -323,6 +323,35 @@ void xWriteSPS(codec_t *codec, bitStream_t *bitstrm)
     xWriteAlignOne(bitstrm);
 }
 
+void xWritePPS(codec_t *codec, bitStream_t *bitstrm)
+{
+    xPutBits(bitstrm, 0, 6);                    // pps_pic_parameter_set_id
+    xPutBits(bitstrm, 0, 4);                    // pps_seq_parameter_set_id
+    xPutBits(bitstrm, 0, 1);                    // pps_mixed_nalu_types_in_pic_flag
+    xWriteUvlc(bitstrm, codec->params->nWidth); // pps_pic_width_in_luma_samples
+    xWriteUvlc(bitstrm, codec->params->nHeight);// pps_pic_height_in_luma_samples
+    xPutBits(bitstrm, 0, 1);                    // pps_conformance_window_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_scaling_window_explicit_signalling_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_output_flag_present_flag
+    xPutBits(bitstrm, 1, 1);                    // pps_no_pic_partition_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_subpic_id_mapping_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_cabac_init_present_flag
+    xWriteUvlc(bitstrm, 0);                     // pps_num_ref_idx_default_active_minus1[0]
+    xWriteUvlc(bitstrm, 0);                     // pps_num_ref_idx_default_active_minus1[1]
+    xPutBits(bitstrm, 0, 1);                    // pps_rpl1_idx_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_weighted_pred_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_weighted_bipred_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_ref_wraparound_enabled_flag
+    xWriteSvlc(bitstrm, 0);                     // pps_init_qp_minus26
+    xPutBits(bitstrm, 0, 1);                    // pps_cu_qp_delta_enabled_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_chroma_tool_offsets_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_deblocking_filter_control_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_picture_header_extension_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_slice_header_extension_present_flag
+    xPutBits(bitstrm, 0, 1);                    // pps_extension_flag
+    xWriteAlignOne(bitstrm);
+}
+
 void xConvInputFmt(ref_block_t     *pBlock,
                    const uint8_t   *inpY,
                    const intptr_t   strdY,
