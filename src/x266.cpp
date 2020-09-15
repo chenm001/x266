@@ -347,7 +347,7 @@ void xWriteSPS(codec_t *codec)
     xPutBits(bitstrm, 0, 1);                    // sps_field_seq_flag
     xPutBits(bitstrm, 0, 1);                    // sps_vui_parameters_present_flag
     xPutBits(bitstrm, 0, 1);                    // sps_extension_present_flag
-    xWriteAlignOne(bitstrm);
+    xWriteRBSPTrailingBits(bitstrm);
     xBitFlush(bitstrm);
 }
 
@@ -380,7 +380,7 @@ void xWritePPS(codec_t *codec)
     xPutBits(bitstrm, 0, 1);                    // pps_picture_header_extension_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_slice_header_extension_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_extension_flag
-    xWriteAlignOne(bitstrm);
+    xWriteRBSPTrailingBits(bitstrm);
     xBitFlush(bitstrm);
 }
 
@@ -397,7 +397,7 @@ void xWritePictureHeader(codec_t *codec, const int writeRbspTrailingBits)
     xPutBits(bitstrm, 0, 1);                    // ph_pic_output_flag
 
     if(writeRbspTrailingBits)
-        xWriteAlignOne(bitstrm);
+        xWriteRBSPTrailingBits(bitstrm);
     xBitFlush(bitstrm);
 }
 
@@ -408,7 +408,7 @@ void xWriteSliceHeader(codec_t *codec)
     xWriteNALHeader(bitstrm, RADL_NUT);
     xPutBits(bitstrm, 0, 1);                    // sh_picture_header_in_slice_header_flag
 
-    xWriteAlignOne(bitstrm);
+    xWriteRBSPTrailingBits(bitstrm);
     xBitFlush(bitstrm);
 }
 
