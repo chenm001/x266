@@ -35,6 +35,7 @@
 #define MAX_HEIGHT          (2048)
 #define REF_BLOCK_SZ        (16)
 #define REF_FRAME_STRD      (MAX_WIDTH / REF_BLOCK_SZ)
+#define BIT_BUF_SIZE        (1 * 1024 * 1024)
 
 // Thanks to https://gist.github.com/PhilCK/1534763
 #ifdef __GNUC__
@@ -68,16 +69,6 @@ PACKED(struct _param_t
 });
 typedef struct _param_t param_t;
 
-typedef struct _codec_t
-{
-    param_t        *params;
-    ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
-    intptr_t        m_frames_strd;
-} codec_t;
-
-/*****************************************************************************
- *****************************************************************************/
-// Credit to my x265 @ https://code.google.com/archive/p/x265/
 PACKED(struct _bitStream_t
 {
     uint32_t    dwCache;
@@ -87,6 +78,26 @@ PACKED(struct _bitStream_t
 });
 typedef _bitStream_t bitStream_t;
 
+enum
+{
+    IDR_W_RADL = 7,
+    IDR_N_LP = 8,
+    VPS_NUT = 14,
+    SPS_NUT = 15,
+    PPS_NUT = 16,
+};
+
+typedef struct _codec_t
+{
+    param_t        *params;
+    ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
+    intptr_t        m_frames_strd;
+    bitStream_t     bitstrm;
+} codec_t;
+
+/*****************************************************************************
+ *****************************************************************************/
+// Credit to my x265 @ https://code.google.com/archive/p/x265/
 // TODO: bsr
 static int xLog2(uint32_t x)
 {
@@ -221,13 +232,23 @@ static void codeProfileTierLevel(codec_t *codec, bitStream_t *bitstrm)
     xPutBits(bitstrm, 0, 8);            // ptl_num_sub_profiles
 }
 
-void xWriteSPS(codec_t *codec, bitStream_t *bitstrm)
+void xWriteNALHeader(bitStream_t *bitstrm, const int nalType)
 {
+    const uint32_t val = (nalType << 3) | 1;    // [0, 0, 000000, ttttt, 001]
+    xPutBits32(bitstrm, BSWAP32(1));            // Start Code
+    xPutBits(bitstrm, val, 16);
+}
+
+void xWriteSPS(codec_t *codec)
+{
+    bitStream_t *bitstrm = &codec->bitstrm;
+
+    xWriteNALHeader(bitstrm, SPS_NUT);
     xPutBits(bitstrm, 0, 4);                    // sps_seq_parameter_set_id
     xPutBits(bitstrm, 0, 4);                    // vps_seq_parameter_set_id
     xPutBits(bitstrm, 0, 3);                    // sps_max_sub_layers_minus1
     xPutBits(bitstrm, 1, 2);                    // sps_chroma_format_idc @ 0=400, 1=420, 2=422, 3=444
-    xPutBits(bitstrm, 2, 2);                    // sps_log2_ctu_size_minus5 @ [0,2], 3=reserved
+    xPutBits(bitstrm, 1, 2);                    // sps_log2_ctu_size_minus5 @ [0,2], 3=reserved
     xPutBits(bitstrm, 1, 1);                    // sps_ptl_dpb_hrd_params_present_flag @ must be 1 when SPS_ID_0
 
     if(1)   // sps_ptl_dpb_hrd_params_present_flag
@@ -321,10 +342,14 @@ void xWriteSPS(codec_t *codec, bitStream_t *bitstrm)
     xPutBits(bitstrm, 0, 1);                    // sps_vui_parameters_present_flag
     xPutBits(bitstrm, 0, 1);                    // sps_extension_present_flag
     xWriteAlignOne(bitstrm);
+    xBitFlush(bitstrm);
 }
 
-void xWritePPS(codec_t *codec, bitStream_t *bitstrm)
+void xWritePPS(codec_t *codec)
 {
+    bitStream_t *bitstrm = &codec->bitstrm;
+
+    xWriteNALHeader(bitstrm, PPS_NUT);
     xPutBits(bitstrm, 0, 6);                    // pps_pic_parameter_set_id
     xPutBits(bitstrm, 0, 4);                    // pps_seq_parameter_set_id
     xPutBits(bitstrm, 0, 1);                    // pps_mixed_nalu_types_in_pic_flag
@@ -350,19 +375,21 @@ void xWritePPS(codec_t *codec, bitStream_t *bitstrm)
     xPutBits(bitstrm, 0, 1);                    // pps_slice_header_extension_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_extension_flag
     xWriteAlignOne(bitstrm);
+    xBitFlush(bitstrm);
 }
 
 void xConvInputFmt(ref_block_t     *pBlock,
                    const uint8_t   *inpY,
-                   const intptr_t   strdY,
                    const uint8_t   *inpU,
                    const uint8_t   *inpV,
-                   const intptr_t   strdC,
+                   const intptr_t   strdY,
                    const int        width,
                    const int        height)
 {
     assert(!(width % REF_BLOCK_SZ) && "width is not multiple of 16");
     assert(!(height % REF_BLOCK_SZ) && "height is not multiple of 16");
+
+    const intptr_t strdC = (strdY >> 1);
 
     int i, j, x, y;
     for(y = 0; y < height; y += REF_BLOCK_SZ)
@@ -462,6 +489,35 @@ void xCodecFree(codec_t *codec)
     }
 }
 
+int xEncodeFrame(codec_t *codec,
+                 uint8_t *buf,
+                 const uint8_t *srcY,
+                 const uint8_t *srcU,
+                 const uint8_t *srcV,
+                 const intptr_t strdY)
+{
+    const uint32_t nWidth = codec->params->nWidth;
+    const uint32_t nHeight = codec->params->nHeight;
+
+    // Convert format to internal
+    xConvInputFmt(codec->m_frames[0],
+                  srcY,
+                  srcU,
+                  srcV,
+                  strdY,
+                  nWidth,
+                  nHeight);
+
+    // Encode
+    xBitStreamInit(&codec->bitstrm, buf, BIT_BUF_SIZE);
+
+    // Headers
+    xWriteSPS(codec);
+    xWritePPS(codec);
+
+    return xBitFlush(&codec->bitstrm);
+}
+
  /*****************************************************************************
  *****************************************************************************/
 int main(int argc, char *argv[])
@@ -479,6 +535,7 @@ int main(int argc, char *argv[])
     uint32_t nHeight = 0;
     int nFrames = 0;
     uint8_t *frameBuf = NULL;
+    uint8_t *bitBuf = NULL;
 
     int i;
     for(i = 1; i < argc; i++)
@@ -532,15 +589,29 @@ int main(int argc, char *argv[])
         ref_block_t blocks[2];
         memset(blocks, 0xCD, sizeof(blocks));
 
-        xConvInputFmt(blocks, &tmp[0], 32, &tmp[256], &tmp[320], 16, 32, 16);
+        xConvInputFmt(blocks, &tmp[0], &tmp[256], &tmp[320], 32, 32, 16);
         printf("xConvFmt Done\n");
+
+        // for test only
+        memset(frameBuf, 0xCD, nWidth * nHeight * 3 / 2 * sizeof(uint8_t));
+        xConvOutput420(codec.m_frames[0],
+                       frameBuf,
+                       nWidth,
+                       frameBuf + nWidth * nHeight,
+                       frameBuf + nWidth * nHeight * 5 / 4,
+                       nWidth / 2,
+                       nWidth,
+                       nHeight);
+
     }
 #endif
 
     // Initialize codec
     const uint32_t frameSize = nWidth * nHeight * 3 / 2;
     frameBuf = (uint8_t*)_aligned_malloc(frameSize * sizeof(uint8_t), 4096);
-    assert(frameBuf && "Memory allocate failed\n");
+    assert(frameBuf && "frameBuf Memory allocate failed\n");
+    bitBuf = (uint8_t*)_aligned_malloc(BIT_BUF_SIZE * sizeof(uint8_t), 64);
+    assert(bitBuf && "bitBuf Memory allocate failed\n");
 
     codec_t codec;
     param_t params;
@@ -565,27 +636,15 @@ int main(int argc, char *argv[])
             goto _cleanup;
         }
 
-        xConvInputFmt(codec.m_frames[0],
-                      frameBuf,
-                      nWidth,
-                      frameBuf + nWidth * nHeight,
-                      frameBuf + nWidth * nHeight * 5 / 4,
-                      nWidth / 2,
-                      nWidth,
-                      nHeight);
+        // Encode
+        int nSize = xEncodeFrame(&codec,
+                                 bitBuf,
+                                 frameBuf,
+                                 frameBuf + nWidth * nHeight,
+                                 frameBuf + nWidth * nHeight * 5 / 4,
+                                 nWidth);
 
-        // for test only
-        memset(frameBuf, 0xCD, nWidth * nHeight * 3 / 2 * sizeof(uint8_t));
-        xConvOutput420(codec.m_frames[0],
-                       frameBuf,
-                       nWidth,
-                       frameBuf + nWidth * nHeight,
-                       frameBuf + nWidth * nHeight * 5 / 4,
-                       nWidth / 2,
-                       nWidth,
-                       nHeight);
-
-        fwrite(frameBuf, 1, frameSize, fpo);
+        fwrite(bitBuf, 1, nSize, fpo);
     }
     printf("Encode %d frames done\n", i);
 
@@ -597,6 +656,8 @@ _cleanup:
         fclose(fpo);
     if(frameBuf)
         _aligned_free(frameBuf);
+    if(bitBuf)
+        _aligned_free(bitBuf);
 
     xCodecFree(&codec);
 
