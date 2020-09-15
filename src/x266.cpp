@@ -89,7 +89,7 @@ enum
 
 typedef struct _codec_t
 {
-    param_t        *params;
+    param_t         params;
     ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
     intptr_t        m_frames_strd;
     bitStream_t     bitstrm;
@@ -258,8 +258,8 @@ void xWriteSPS(codec_t *codec)
 
     xPutBits(bitstrm, 0, 1);                    // sps_gdr_enabled_flag
     xPutBits(bitstrm, 0, 1);                    // sps_ref_pic_resampling_enabled_flag
-    xWriteUvlc(bitstrm, codec->params->nWidth); // sps_pic_width_max_in_luma_samples
-    xWriteUvlc(bitstrm, codec->params->nHeight);// sps_pic_height_max_in_luma_samples
+    xWriteUvlc(bitstrm, codec->params.nWidth);  // sps_pic_width_max_in_luma_samples
+    xWriteUvlc(bitstrm, codec->params.nHeight); // sps_pic_height_max_in_luma_samples
     xPutBits(bitstrm, 0, 1);                    // sps_conformance_window_flag
     xPutBits(bitstrm, 0, 1);                    // sps_subpic_info_present_flag
     xWriteUvlc(bitstrm, 0);                     // sps_bitdepth_minus8
@@ -353,8 +353,8 @@ void xWritePPS(codec_t *codec)
     xPutBits(bitstrm, 0, 6);                    // pps_pic_parameter_set_id
     xPutBits(bitstrm, 0, 4);                    // pps_seq_parameter_set_id
     xPutBits(bitstrm, 0, 1);                    // pps_mixed_nalu_types_in_pic_flag
-    xWriteUvlc(bitstrm, codec->params->nWidth); // pps_pic_width_in_luma_samples
-    xWriteUvlc(bitstrm, codec->params->nHeight);// pps_pic_height_in_luma_samples
+    xWriteUvlc(bitstrm, codec->params.nWidth);  // pps_pic_width_in_luma_samples
+    xWriteUvlc(bitstrm, codec->params.nHeight); // pps_pic_height_in_luma_samples
     xPutBits(bitstrm, 0, 1);                    // pps_conformance_window_flag
     xPutBits(bitstrm, 0, 1);                    // pps_scaling_window_explicit_signalling_flag
     xPutBits(bitstrm, 0, 1);                    // pps_output_flag_present_flag
@@ -465,7 +465,7 @@ int xCodecInit(codec_t *codec, param_t *params)
 
     memset(codec, 0, sizeof(codec_t));
 
-    codec->params = params;
+    codec->params = *params;
     codec->m_frames_strd = nWidth / REF_BLOCK_SZ;
 
     for(i = 0; i < ASIZE(codec->m_frames); i++)
@@ -496,8 +496,8 @@ int xEncodeFrame(codec_t *codec,
                  const uint8_t *srcV,
                  const intptr_t strdY)
 {
-    const uint32_t nWidth = codec->params->nWidth;
-    const uint32_t nHeight = codec->params->nHeight;
+    const uint32_t nWidth = codec->params.nWidth;
+    const uint32_t nHeight = codec->params.nHeight;
 
     // Convert format to internal
     xConvInputFmt(codec->m_frames[0],
