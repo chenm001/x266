@@ -80,11 +80,17 @@ typedef _bitStream_t bitStream_t;
 
 enum
 {
+    TRAIL_NUT = 0,
+    STSA_NUT = 1,
+    RADL_NUT = 2,
+    RASL_NUT = 3,
     IDR_W_RADL = 7,
     IDR_N_LP = 8,
+    CRA_NUT = 9,
     VPS_NUT = 14,
     SPS_NUT = 15,
     PPS_NUT = 16,
+    PH_NUT = 19,
 };
 
 typedef struct _codec_t
@@ -357,7 +363,7 @@ void xWritePPS(codec_t *codec)
     xWriteUvlc(bitstrm, codec->params.nHeight); // pps_pic_height_in_luma_samples
     xPutBits(bitstrm, 0, 1);                    // pps_conformance_window_flag
     xPutBits(bitstrm, 0, 1);                    // pps_scaling_window_explicit_signalling_flag
-    xPutBits(bitstrm, 0, 1);                    // pps_output_flag_present_flag
+    xPutBits(bitstrm, 1, 1);                    // pps_output_flag_present_flag
     xPutBits(bitstrm, 1, 1);                    // pps_no_pic_partition_flag
     xPutBits(bitstrm, 0, 1);                    // pps_subpic_id_mapping_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_cabac_init_present_flag
@@ -374,6 +380,34 @@ void xWritePPS(codec_t *codec)
     xPutBits(bitstrm, 0, 1);                    // pps_picture_header_extension_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_slice_header_extension_present_flag
     xPutBits(bitstrm, 0, 1);                    // pps_extension_flag
+    xWriteAlignOne(bitstrm);
+    xBitFlush(bitstrm);
+}
+
+void xWritePictureHeader(codec_t *codec, const int writeRbspTrailingBits)
+{
+    bitStream_t *bitstrm = &codec->bitstrm;
+
+    xWriteNALHeader(bitstrm, PH_NUT);
+    xPutBits(bitstrm, 0, 1);                    // ph_gdr_or_irap_pic_flag
+    xPutBits(bitstrm, 0, 1);                    // ph_non_ref_pic_flag
+    xPutBits(bitstrm, 0, 1);                    // ph_inter_slice_allowed_flag
+    xWriteUvlc(bitstrm, 0);                     // ph_pic_parameter_set_id
+    xPutBits(bitstrm, 0, 8);                    // ph_pic_order_cnt_lsb
+    xPutBits(bitstrm, 0, 1);                    // ph_pic_output_flag
+
+    if(writeRbspTrailingBits)
+        xWriteAlignOne(bitstrm);
+    xBitFlush(bitstrm);
+}
+
+void xWriteSliceHeader(codec_t *codec)
+{
+    bitStream_t *bitstrm = &codec->bitstrm;
+
+    xWriteNALHeader(bitstrm, RADL_NUT);
+    xPutBits(bitstrm, 0, 1);                    // sh_picture_header_in_slice_header_flag
+
     xWriteAlignOne(bitstrm);
     xBitFlush(bitstrm);
 }
@@ -514,6 +548,8 @@ int xEncodeFrame(codec_t *codec,
     // Headers
     xWriteSPS(codec);
     xWritePPS(codec);
+    xWritePictureHeader(codec, 1);
+    xWriteSliceHeader(codec);
 
     return xBitFlush(&codec->bitstrm);
 }
