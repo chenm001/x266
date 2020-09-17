@@ -46,6 +46,18 @@
 #define xSHL(x, n)          ( (n)>=32 ? 0 : ((x)<<(n)) )
 #define MAX(a, b)           ( (a) > (b) ? (a) : (b) )
 #define MIN(a, b)           ( (a) < (b) ? (a) : (b) )
+#define AV32(a)             (*(uint32_t*)(a))
+#define AV64(a)             (*(uint64_t*)(a))
+
+#if defined(__GNUC__)
+    #define BSWAP32(x)      __builtin_bswap32(x)
+    #define BSWAP64(x)      __builtin_bswap64(x)
+#elif defined(_MSC_VER)
+    #define BSWAP32(x)      _byteswap_ulong(x)
+    #define BSWAP64(x)      _byteswap_uint64(x)
+#else
+    #error Unsupport platform
+#endif
 
 /*****************************************************************************
  *****************************************************************************/
@@ -66,14 +78,14 @@ PACKED(struct _param_t
 });
 typedef struct _param_t param_t;
 
-PACKED(struct _bitStream_t
+PACKED(struct _bs_t
 {
-    uint8_t    *pucBits;
-    uint8_t    *pucBits0;
+    uint8_t    *pucBuf;
+    uint8_t    *pucBufEnd;
     uint64_t    dwCache;
-    int32_t     nCachedBits;
+    int32_t     cachedBits;
 });
-typedef _bitStream_t bitStream_t;
+typedef _bs_t bs_t;
 
 enum
 {
@@ -95,11 +107,58 @@ typedef struct _codec_t
     param_t         params;
     ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
     intptr_t        m_frames_strd;
-    bitStream_t     bitstrm;
+    bs_t            bs;
 } codec_t;
 
 /*****************************************************************************
  *****************************************************************************/
+void bsInit(bs_t *bs, uint8_t *buf, intptr_t size)
+{
+    assert(size >= 8 && "bitstream size too small");
+    assert(!((uint32_t)bs & 7) && "bitstream must be aligned to 64 bits");
+
+    bs->dwCache     = BSWAP64(AV64(buf));
+    bs->cachedBits = 8*sizeof(uint64_t);
+    bs->pucBuf      = buf + sizeof(uint64_t);;
+    bs->pucBufEnd   = buf + size;
+
+    // Clear end of bitstream to avoid unaligned read
+    memset(bs->pucBufEnd, 0, 4);
+}
+
+uint32_t bsShowBits(bs_t *bs, int nBits)
+{
+    assert(nBits <= 32 && "nBits must be less or equal to 32");
+    const int shift = 64 - nBits;
+    const uint32_t bins = bs->cachedBits >> shift;
+    return bins;
+}
+
+void bsSkipBits(bs_t *bs, int nBits)
+{
+    assert(nBits <= 32 && "nBits must be less or equal to 32");
+    const int left = bs->cachedBits - nBits;
+    bs->dwCache <<= nBits;
+    bs->cachedBits -= nBits;
+
+    // Refill
+    if(left <= 32)
+    {
+        const int shift = 64 - left - 32;
+        const uint32_t val = BSWAP32(AV32(bs->pucBuf));
+        bs->pucBuf += sizeof(uint32_t);
+        bs->cachedBits += 8*sizeof(uint32_t);
+        bs->dwCache |= ((uint64_t)val << shift);
+    }
+}
+
+uint32_t bsGetBits(bs_t *bs, int nBits)
+{
+    const uint32_t bins = bsShowBits(bs, nBits);
+    bsSkipBits(bs, nBits);
+    return bins;
+}
+
 void xConvInputFmt(ref_block_t     *pBlock,
                    const uint8_t   *inpY,
                    const uint8_t   *inpU,
