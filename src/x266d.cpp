@@ -166,14 +166,14 @@ uint32_t bsGetBits(bs_t *bs, int nBits)
     return bins;
 }
 
-uint32_t bsGetUEv(bs_t *bs)
+uint32_t bsGetUe(bs_t *bs)
 {
     const uint32_t tmp = 0x80000000;//bsNextBits32(bs);
     const int clz = 31 - CLZ(tmp);
     return bsGetBits(bs, 2*clz+1) - 1;
 }
 
-int32_t bsGetSEv(bs_t *bs)
+int32_t bsGetSe(bs_t *bs)
 {
     const uint32_t tmp = 0x80000000;//bsNextBits32(bs);
     const int clz = 31 - CLZ(tmp);
@@ -196,6 +196,28 @@ int bsBitsRemain(bs_t *bs)
     const int remain = ((uint8_t*)bs->pucBufEnd - (uint8_t*)bs->pucBuf) * 8;
     return (remain + bs->cachedBits);
 }
+
+int bsFindStartCodeAndEmulation(uint8_t *inBuf, int size, uint8_t *outBuf, uint32_t *outSize)
+{
+    int i;
+    uint32_t tmp = ~0;
+    uint32_t pos = 0;
+
+    for(i = 0; i < size; i++)
+    {
+        const uint8_t val = inBuf[i];
+        tmp = (tmp << 8) | val;
+        if(tmp == 0x00000001)
+            break;
+        if((tmp & 0x00FFFFFF) != 3)
+            outBuf[pos++] = val;
+    }
+
+    *outSize = pos-3;
+
+    return i-3;
+}
+
 
 void xConvInputFmt(ref_block_t     *pBlock,
                    const uint8_t   *inpY,
@@ -276,7 +298,17 @@ void xConvOutput420(const ref_block_t  *pBlock,
     }
 }
 
-
+#if 0 && UNIT_bsFindStartCodeAndEmulation
+    {
+        uint8_t tmp0[] = {
+            0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 3, 2, 0, 0, 3, 1, 0, 0, 0, 1, 2,
+        };
+        uint8_t tmp1[128];
+        uint32_t outSize;
+        int ret = bsFindStartCodeAndEmulation(tmp0+4, ASIZE(tmp0)-4, tmp1, &outSize);
+        assert(ret == 13 && outSize == 11);
+    }
+#endif
  
  /*****************************************************************************
  *****************************************************************************/
