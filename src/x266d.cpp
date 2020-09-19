@@ -52,9 +52,12 @@
 #if defined(__GNUC__)
     #define BSWAP32(x)      __builtin_bswap32(x)
     #define BSWAP64(x)      __builtin_bswap64(x)
+    #define CLZ(x)          __builtin_clz(x)
 #elif defined(_MSC_VER)
+    #include <intrin.h>
     #define BSWAP32(x)      _byteswap_ulong(x)
     #define BSWAP64(x)      _byteswap_uint64(x)
+    #define CLZ(x)          __lzcnt(x)
 #else
     #error Unsupport platform
 #endif
@@ -112,6 +115,7 @@ typedef struct _codec_t
 
 /*****************************************************************************
  *****************************************************************************/
+// NOTE: There may read beyond boundary up to 3 bytes at end of stream!
 void bsInit(bs_t *bs, uint8_t *buf, intptr_t size)
 {
     assert(size >= 8 && "bitstream size too small");
@@ -121,16 +125,19 @@ void bsInit(bs_t *bs, uint8_t *buf, intptr_t size)
     bs->cachedBits = 8*sizeof(uint64_t);
     bs->pucBuf      = buf + sizeof(uint64_t);;
     bs->pucBufEnd   = buf + size;
-
-    // Clear end of bitstream to avoid unaligned read
-    memset(bs->pucBufEnd, 0, 4);
 }
 
-uint32_t bsShowBits(bs_t *bs, int nBits)
+uint32_t bsNextBits32(bs_t *bs)
+{
+    const uint32_t bins = (uint32_t)(bs->dwCache >> 32);
+    return bins;
+}
+
+uint32_t bsNextBits(bs_t *bs, int nBits)
 {
     assert(nBits <= 32 && "nBits must be less or equal to 32");
     const int shift = 64 - nBits;
-    const uint32_t bins = bs->cachedBits >> shift;
+    const uint32_t bins = (uint32_t)(bs->dwCache >> shift);
     return bins;
 }
 
@@ -154,9 +161,40 @@ void bsSkipBits(bs_t *bs, int nBits)
 
 uint32_t bsGetBits(bs_t *bs, int nBits)
 {
-    const uint32_t bins = bsShowBits(bs, nBits);
+    const uint32_t bins = bsNextBits(bs, nBits);
     bsSkipBits(bs, nBits);
     return bins;
+}
+
+uint32_t bsGetUEv(bs_t *bs)
+{
+    const uint32_t tmp = 0x80000000;//bsNextBits32(bs);
+    const int clz = 31 - CLZ(tmp);
+    return bsGetBits(bs, 2*clz+1) - 1;
+}
+
+int32_t bsGetSEv(bs_t *bs)
+{
+    const uint32_t tmp = 0x80000000;//bsNextBits32(bs);
+    const int clz = 31 - CLZ(tmp);
+    const uint32_t bins = bsGetBits(bs, 2*clz+1);
+    int32_t val = (bins >> 1);
+    if(bins & 1)
+        val = - val;
+    return val;
+}
+
+void bsSkipToByteAlign(bs_t *bs)
+{
+    const uint32_t bins = 8 - (bs->cachedBits & 7);
+    bsSkipBits(bs, bins);
+}
+
+int bsBitsRemain(bs_t *bs)
+{
+    // NOTE: may negative number
+    const int remain = ((uint8_t*)bs->pucBufEnd - (uint8_t*)bs->pucBuf) * 8;
+    return (remain + bs->cachedBits);
 }
 
 void xConvInputFmt(ref_block_t     *pBlock,
