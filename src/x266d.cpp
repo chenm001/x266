@@ -203,6 +203,9 @@ int bsFindStartCodeAndEmulation(uint8_t *inBuf, int size, uint8_t *outBuf, uint3
     uint32_t tmp = ~0;
     uint32_t pos = 0;
 
+    if(size < 4)
+        return -1;
+
     for(i = 0; i < size; i++)
     {
         const uint8_t val = inBuf[i];
@@ -215,7 +218,7 @@ int bsFindStartCodeAndEmulation(uint8_t *inBuf, int size, uint8_t *outBuf, uint3
 
     *outSize = pos-3;
 
-    return i-3;
+    return (tmp == 0x00000001 ? (i-3) : -1);
 }
 
 
@@ -301,12 +304,15 @@ void xConvOutput420(const ref_block_t  *pBlock,
 #if 0 && UNIT_bsFindStartCodeAndEmulation
     {
         uint8_t tmp0[] = {
-            0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 3, 2, 0, 0, 3, 1, 0, 0, 0, 1, 2,
+            0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 3, 2, 0, 0, 3, 1, 0, 0, 0, 1, 2, 0, 0, 0, 0
         };
         uint8_t tmp1[128];
         uint32_t outSize;
-        int ret = bsFindStartCodeAndEmulation(tmp0+4, ASIZE(tmp0)-4, tmp1, &outSize);
+        int ret;
+        ret = bsFindStartCodeAndEmulation(tmp0+4, ASIZE(tmp0)-4, tmp1, &outSize);
         assert(ret == 13 && outSize == 11);
+        ret = bsFindStartCodeAndEmulation(tmp0+4+4+ret, ASIZE(tmp0)-4-4-ret, tmp1, &outSize);
+        assert(ret == -1);
     }
 #endif
  
@@ -331,7 +337,10 @@ int main(int argc, char *argv[])
     uint32_t nFrames = -1;
 
     // Internal
-    uint8_t *bitBuf = NULL;
+    uint8_t *bitBuf0 = NULL;
+    uint8_t *bitBuf1 = NULL;
+    uint32_t bitSize0 = 0;
+    uint32_t bitSize1 = 0;
 
     for(i = 1; i < argc; i++)
     {
@@ -348,8 +357,13 @@ int main(int argc, char *argv[])
             nFrames = atoi(argv[++i]);
         }
     }
-    bitBuf = (uint8_t*)_aligned_malloc(BIT_BUF_SIZE * sizeof(uint8_t), 64);
-    assert(bitBuf && "bitBuf Memory allocate failed\n");
+
+    // Prepare
+    bitBuf0 = (uint8_t*)_aligned_malloc(BIT_BUF_SIZE * sizeof(uint8_t), 64);
+    assert(bitBuf0 && "bitBuf Memory allocate failed\n");
+
+    bitBuf1 = (uint8_t*)_aligned_malloc(BIT_BUF_SIZE * sizeof(uint8_t), 64);
+    assert(bitBuf1 && "bitBuf Memory allocate failed\n");
 
     if(fpi == NULL ||
        fpo == NULL)
@@ -358,13 +372,54 @@ int main(int argc, char *argv[])
         goto _cleanup;
     }
 
+    // Decode
+
+    bitSize0 = fread(bitBuf0, 1, BIT_BUF_SIZE, fpi);
+
+    int nPos0 = bsFindStartCodeAndEmulation(bitBuf0, bitSize0, bitBuf1, &bitSize1);
+    assert(nPos0 >= 0 && "First Start Code does not found in the stream");
+
+    // Drop leading garbage bytes
+    bitSize0 -= nPos0;
+
+    while(1)
+    {
+        int nPos1 = bsFindStartCodeAndEmulation(&bitBuf0[nPos0+5], bitSize0, bitBuf1, &bitSize1);
+
+        if(nPos1 < 0)
+        {
+            // End of stream
+            if(feof(fpi) ||
+               (bitSize0 == BIT_BUF_SIZE))
+                break;
+
+            // Move data to front of buffer
+            memmove(&bitBuf0[0], &bitBuf0[nPos0], bitSize0);
+            nPos0 = 0;
+
+            // Refill
+            bitSize0 += fread(&bitBuf0[bitSize0], 1, BIT_BUF_SIZE-bitSize0, fpi);
+            continue;
+        }
+
+        // Decode Frame
+
+        // Loop Next
+        nPos0 = nPos1;
+        bitSize0 -= (nPos1 - nPos0);
+    }
+
+    // Decode Flush
+
 _cleanup:;
     if(fpi)
         fclose(fpi);
     if(fpo)
         fclose(fpo);
-    if(bitBuf)
-        _aligned_free(bitBuf);
+    if(bitBuf0)
+        _aligned_free(bitBuf0);
+    if(bitBuf1)
+        _aligned_free(bitBuf1);
 
     return ret;
 }
