@@ -90,7 +90,7 @@ PACKED(struct _bs_t
 });
 typedef _bs_t bs_t;
 
-enum
+enum _nal_unit_type
 {
     TRAIL_NUT = 0,
     STSA_NUT = 1,
@@ -105,12 +105,20 @@ enum
     PH_NUT = 19,
 };
 
+PACKED(struct _nal_unit_header_t
+{
+    uint8_t     nuh_layer_id;
+    uint8_t     nal_unit_type;
+});
+typedef _nal_unit_header_t nal_unit_header_t;
+
 typedef struct _codec_t
 {
-    param_t         params;
-    ref_block_t    *m_frames[3];            // [0]=Cur, [1..N]=References
-    intptr_t        m_frames_strd;
-    bs_t            bs;
+    param_t                 params;
+    ref_block_t            *m_frames[3];            // [0]=Cur, [1..N]=References
+    intptr_t                m_frames_strd;
+    bs_t                    bs;
+    nal_unit_header_t       nalu_header;
 } codec_t;
 
 /*****************************************************************************
@@ -301,20 +309,34 @@ void xConvOutput420(const ref_block_t  *pBlock,
     }
 }
 
-#if 0 && UNIT_bsFindStartCodeAndEmulation
-    {
-        uint8_t tmp0[] = {
-            0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 3, 2, 0, 0, 3, 1, 0, 0, 0, 1, 2, 0, 0, 0, 0
-        };
-        uint8_t tmp1[128];
-        uint32_t outSize;
-        int ret;
-        ret = bsFindStartCodeAndEmulation(tmp0+4, ASIZE(tmp0)-4, tmp1, &outSize);
-        assert(ret == 13 && outSize == 11);
-        ret = bsFindStartCodeAndEmulation(tmp0+4+4+ret, ASIZE(tmp0)-4-4-ret, tmp1, &outSize);
-        assert(ret == -1);
-    }
-#endif
+/*****************************************************************************
+ * Parsing Functions (JVET-S2001-vH)
+ *****************************************************************************/
+void nal_unit_header(bs_t *bs, nal_unit_header_t *nuh)
+{
+    uint32_t val = bsGetBits(bs, 16);
+
+    nuh->nuh_layer_id = (val >> 8) & 0x3F;
+    nuh->nal_unit_type = (val >> 3) & 0x1F;
+}
+
+/*****************************************************************************
+ * Decode Framework
+ *****************************************************************************/
+void xDecodeInit(codec_t *codec)
+{
+    memset(codec, 0, sizeof(*codec));
+}
+
+int xDecodeFrame(codec_t *codec, uint8_t *buf, int size)
+{
+    bs_t *bs = &codec->bs;
+    bsInit(bs, buf, size);
+
+    nal_unit_header(bs, &codec->nalu_header);
+
+    return 0;
+}
  
  /*****************************************************************************
  *****************************************************************************/
@@ -373,6 +395,7 @@ int main(int argc, char *argv[])
     }
 
     // Decode
+    codec_t codec;
 
     bitSize0 = fread(bitBuf0, 1, BIT_BUF_SIZE, fpi);
 
@@ -382,6 +405,9 @@ int main(int argc, char *argv[])
     // Drop leading garbage bytes
     bitSize0 -= nPos0;
 
+    xDecodeInit(&codec);
+
+    // Decode loop
     while(1)
     {
         int nPos1 = bsFindStartCodeAndEmulation(&bitBuf0[nPos0+5], bitSize0, bitBuf1, &bitSize1);
@@ -402,11 +428,19 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        // Decode Frame
+        // NALU size
+        int nFrameSize = nPos1 - nPos0;
+
+        // Remove trailing zero filling bytes
+        while(!bitBuf0[nPos0 + nFrameSize - 1])
+            nFrameSize--;
+
+        // Decode Frame (input NALU without Start Code)
+        ret = xDecodeFrame(&codec, &bitBuf0[nPos0+4], nFrameSize);
 
         // Loop Next
         nPos0 = nPos1;
-        bitSize0 -= (nPos1 - nPos0);
+        bitSize0 -= nFrameSize;
     }
 
     // Decode Flush
