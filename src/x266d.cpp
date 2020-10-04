@@ -194,7 +194,7 @@ void bsInit(bs_t *bs, uint8_t *buf, intptr_t size)
     while(size > 0 && !buf[size-1])
         size--;
 
-    bs->rbspBits = (size << 3) - 8 + (CTZ(buf[size - 1]) ^ 7);
+    bs->rbspBits = (size << 3) - 8 + 7 - CTZ(buf[size - 1]);
 }
 
 uint32_t bsNextBits32(bs_t *bs)
