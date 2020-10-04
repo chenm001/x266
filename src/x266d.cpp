@@ -52,7 +52,7 @@
 #if defined(__GNUC__)
     #define BSWAP32(x)      __builtin_bswap32(x)
     #define BSWAP64(x)      __builtin_bswap64(x)
-    #define CLZ(x)          __builtin_clz(x)
+    #define CLZ(x)          (__builtin_clz(x) ^ 31)
 #elif defined(_MSC_VER)
     #include <intrin.h>
     #define BSWAP32(x)      _byteswap_ulong(x)
