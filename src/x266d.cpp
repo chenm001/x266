@@ -127,7 +127,7 @@ typedef struct _codec_t
 void bsInit(bs_t *bs, uint8_t *buf, intptr_t size)
 {
     assert(size >= 8 && "bitstream size too small");
-    assert(!((uint32_t)bs & 7) && "bitstream must be aligned to 64 bits");
+    assert(!((uint32_t)buf & 7) && "bitstream must be aligned to 64 bits");
 
     bs->dwCache     = BSWAP64(AV64(buf));
     bs->cachedBits = 8*sizeof(uint64_t);
