@@ -538,6 +538,46 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
         }
     }
 
+    // Calculate NumDirectRefLayers[], ReferenceLayerIdx[][]
+    uint8_t NumRefLayers[MAX_VPS_OUTPUT_LAYER] = {0};
+    uint8_t ReferenceLayerIdx[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER] = {0};
+    {
+        uint8_t NumDirectRefLayers[MAX_VPS_OUTPUT_LAYER];
+        uint8_t dependencyFlag[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER];
+        uint8_t LayerUsedAsRefLayerFlag[MAX_VPS_OUTPUT_LAYER];
+        uint8_t DirectRefLayerIdx[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER];
+
+        for(i = 0; i <= vps->vps_max_layers_minus1; i++)
+        {
+            for(j = 0; j <= vps->vps_max_layers_minus1; j++)
+            {
+                dependencyFlag[i][j] = vps->vps_direct_ref_layer_flag[i][j];
+                for(k = 0; k < i; k++)
+                {
+                    if(vps->vps_direct_ref_layer_flag[i][k] && dependencyFlag[k][j])
+                        dependencyFlag[ i ][ j ] = 1;
+                }
+            }
+            LayerUsedAsRefLayerFlag[i] = 0;
+        }
+        for(i = 0; i <= vps->vps_max_layers_minus1; i++)
+        {
+            int d, r;
+            for(j = 0, d = 0, r = 0; j <= vps->vps_max_layers_minus1; j++)
+            {
+                if(vps->vps_direct_ref_layer_flag[i][j])
+                {
+                    DirectRefLayerIdx[i][d++] = j;
+                    LayerUsedAsRefLayerFlag[j] = 1;
+                }
+                if(dependencyFlag[i][j])
+                    ReferenceLayerIdx[i][r++] = j;
+            }
+            NumDirectRefLayers[i] = d;
+            NumRefLayers[i] = r;
+        }
+    }
+
     vps->vps_ols_mode_idc = 4;
     if(vps->vps_max_layers_minus1 > 0)
     {
@@ -601,6 +641,113 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
         }
     }
 
+    // Calculate layerIncludedInOlsFlag[][]
+    uint8_t layerIncludedInOlsFlag[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER] = {0};
+    uint8_t OutputLayerIdx[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER] = {0};
+    {
+        const int olsModeIdc = vps->vps_ols_mode_idc;
+
+        uint8_t NumOutputLayersInOls[MAX_VPS_OUTPUT_LAYER];
+        uint8_t OutputLayerIdInOls[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER];
+        uint8_t NumSubLayersInLayerInOLS[MAX_VPS_OUTPUT_LAYER][MAX_VPS_OUTPUT_LAYER];
+        uint8_t LayerUsedAsOutputLayerFlag[MAX_VPS_OUTPUT_LAYER];
+        int maxSublayerNeeded;
+        int m;
+
+        NumOutputLayersInOls[0] = 1;
+        OutputLayerIdInOls[0][0] = vps->vps_layer_id[0];
+        NumSubLayersInLayerInOLS[0][0] = vps->vps_ptl_max_tid[vps->vps_ols_ptl_idx[0]] + 1;
+        LayerUsedAsOutputLayerFlag[0] = 1;
+
+        for(i = 1; i <= vps->vps_max_layers_minus1; i++)
+        {
+            if(olsModeIdc != 2/*vps->vps_ols_mode_idc = = 4 || vps->vps_ols_mode_idc < 2*/)
+                LayerUsedAsOutputLayerFlag[i] = 1;
+            else/* if(vps->vps_ols_mode_idc == 2)*/
+                LayerUsedAsOutputLayerFlag[i] = 0;
+        }
+        for(i = 1; i < TotalNumOlss; i++)
+        {
+            if(olsModeIdc == 4 || olsModeIdc == 0)
+            {
+                NumOutputLayersInOls[i] = 1;
+                OutputLayerIdInOls[i][0] = vps->vps_layer_id[i];
+                if(vps->vps_each_layer_is_an_ols_flag)
+                    NumSubLayersInLayerInOLS[i][0] = vps->vps_ptl_max_tid[vps->vps_ols_ptl_idx[i]] + 1;
+                else {
+                    NumSubLayersInLayerInOLS[i][i] = vps->vps_ptl_max_tid[vps->vps_ols_ptl_idx[i]] + 1;
+                    for(k = i - 1; k >= 0; k--)
+                    {
+                        NumSubLayersInLayerInOLS[i][k] = 0;
+                        for(m = k + 1; m <= i; m++)
+                        {
+                            maxSublayerNeeded = MIN(NumSubLayersInLayerInOLS[i][m], vps->vps_max_tid_il_ref_pics_plus1[m][k]);
+                            if(vps->vps_direct_ref_layer_flag[m][k] && NumSubLayersInLayerInOLS[ i ][ k ] < maxSublayerNeeded)
+                                NumSubLayersInLayerInOLS[ i ][ k ] = maxSublayerNeeded;
+                        }
+                    }
+                }
+            }
+            else if(olsModeIdc == 1)
+            {
+                NumOutputLayersInOls[i] = i + 1;
+                for(j = 0; j < NumOutputLayersInOls[i]; j++)
+                {
+                    OutputLayerIdInOls[i][j] = vps->vps_layer_id[j];
+                    NumSubLayersInLayerInOLS[i][j] = vps->vps_ptl_max_tid[vps->vps_ols_ptl_idx[i]] + 1;
+                }
+            }
+            else/* if(olsModeIdc == 2)*/
+            {
+                for(j = 0; j <= vps->vps_max_layers_minus1; j++)
+                {
+                    layerIncludedInOlsFlag[i][j] = 0;
+                    NumSubLayersInLayerInOLS[i][j] = 0;
+                }
+
+                int highestIncludedLayer = 0;
+                for(k = 0, j = 0; k <= vps->vps_max_layers_minus1; k++)
+                {
+                    if(vps->vps_ols_output_layer_flag[i][k])
+                    {
+                        layerIncludedInOlsFlag[i][k] = 1;
+                        highestIncludedLayer = k;
+                        LayerUsedAsOutputLayerFlag[k] = 1;
+                        OutputLayerIdx[i][j] = k;
+                        OutputLayerIdInOls[i][j++] = vps->vps_layer_id[k];
+                        NumSubLayersInLayerInOLS[ i ][ k ] = vps->vps_ptl_max_tid[vps->vps_ols_ptl_idx[i]] + 1;
+                    }
+                }
+                NumOutputLayersInOls[i] = j;
+                for(j = 0; j < NumOutputLayersInOls[i]; j++)
+                {
+                    int idx = OutputLayerIdx[i][j];
+                    for( k = 0; k < NumRefLayers[idx]; k++ )
+                    {
+                        if (!layerIncludedInOlsFlag[i][ReferenceLayerIdx[idx][k]])
+                            layerIncludedInOlsFlag[i][ReferenceLayerIdx[idx][k]] = 1;
+                    }
+                }
+                for(k = highestIncludedLayer - 1; k >= 0; k--)
+                {
+                    if(layerIncludedInOlsFlag[i][k] && !vps->vps_ols_output_layer_flag[i][k])
+                    {
+                        for(m = k + 1; m <= highestIncludedLayer; m++)
+                        {
+                            maxSublayerNeeded = MIN(NumSubLayersInLayerInOLS[i][m], vps->vps_max_tid_il_ref_pics_plus1[m][k]);
+                            if(vps->vps_direct_ref_layer_flag[m][k] &&
+                               layerIncludedInOlsFlag[i][m] &&
+                               NumSubLayersInLayerInOLS[i][k] < maxSublayerNeeded)
+                            {
+                                NumSubLayersInLayerInOLS[i][k] = maxSublayerNeeded;
+                            }
+                        }
+                    }
+                }
+            } // end of olsModeIdc==2
+        }
+    } // end of Calculate layerIncludedInOlsFlag[][]
+
     if(!vps->vps_each_layer_is_an_ols_flag)
     {
         vps->vps_num_dpb_params_minus1 = bsGetUe(bs);
@@ -648,8 +795,7 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
                 {
                     for(j = 0, k = 0; k <= vps->vps_max_layers_minus1; k++)
                     {
-                        // TODO: calculate layerIncludedInOlsFlag
-                        if(0 /*layerIncludedInOlsFlag[i][k]*/)
+                        if(layerIncludedInOlsFlag[i][k])
                             LayerIdInOls[i][j++] = vps->vps_layer_id[k];
                     }
                     NumLayerInOls[i] = j;
