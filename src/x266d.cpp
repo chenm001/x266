@@ -498,7 +498,6 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
 
     memset(vps, 0, sizeof(vps_t));
 
-    //codec->vps.
     vps->vps_video_parameter_set_id = bsGetBits(bs, 4);
     vps->vps_max_layers_minus1 = bsGetBits(bs, 6);
     vps->vps_max_sublayers_minus1 = bsGetBits(bs, 3);
