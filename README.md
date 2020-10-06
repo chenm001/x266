@@ -1,12 +1,15 @@
 
-x266 - open H.266 codec reference implementation
+?266 - open H.266 codec reference implementation
 ==========================================
 
-x266 is an open source highly optimal software/hardware co-design architecture implementation of the next generation H.266 video codec.
+## **Note: The project will be rename soon due to the Multicoreware scramble my x266 registering trademarks, the new project name will be decide in later, it sounds not affect develop H.266 codec.**
+
+
+?266 is an open source highly optimal software/hardware co-design architecture implementation of the next generation H.266 video codec.
 
 It is demonstration research of industrialized implement video coding H.266. as soon as H.266 specification release, I will publishing my industrialize H.266 codec.
 
-_x266 based on Software/Hardware Cooperative concept and custom RISC-V processor with audio/video/image/deep_learning SIMD extension._
+_?266 based on Software/Hardware Cooperative concept and custom RISC-V processor with audio/video/image/deep_learning SIMD extension._
 
 
 Building
@@ -49,13 +52,13 @@ Prebuilt
 
 Note
 =================
-- The x266's RISC-V NON-Standard Vector Extension ONLY compile and disassembly by x266 project modified llvm suite. You may build bu yourself or please contract to get prebuilt Centos-6 binary package.
+- The ?266's RISC-V NON-Standard Vector Extension ONLY compile and disassembly by ?266 project modified llvm suite. You may build bu yourself or please contract to get prebuilt Centos-6 binary package.
 
 
 License
 =======
 
-x266 is distributed under the terms of the Private/Education ONLY License.
+?266 is distributed under the terms of the Private/Education ONLY License.
 See COPYRIGHT for more details.
 
 See `LICENSE.TXT` for more details.
