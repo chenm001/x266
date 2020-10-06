@@ -1,6 +1,6 @@
-* linguist-vendored
-*.c linguist-vendored=false
-*.h linguist-vendored=false
+#* linguist-vendored
+#*.c linguist-vendored=false
+#*.h linguist-vendored=false
 *.c linguist-language=C
 *.h linguist-language=C
 *.bsv linguist-language=Bluespec
