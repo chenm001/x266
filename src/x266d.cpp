@@ -39,6 +39,10 @@
 #define MAX_VPS_PTLS                    (1)     // maximum u(8)
 #define MAX_VPS_DPB_PARAMS              (1)     // maximum ue(v)
 #define MAX_VPS_HRD_PARAMS              (1)     // maximum ue(v)
+#define MAX_SPS_SUBPIC                  (1)     // maximum ue(v)
+#define MAX_SPS_VER_VIRT_BOUND          (1)     // maximum ue(v)
+#define MAX_SPS_HOR_VIRT_BOUND          (1)     // maximum ue(v)
+#define MAX_SPS_QP_TABLE                (1)     // maximum ue(v)
 
 // Thanks to https://gist.github.com/PhilCK/1534763
 #ifdef __GNUC__
@@ -168,14 +172,162 @@ typedef struct _vps_t
     uint8_t     vps_ols_timing_hrd_idx[MAX_VPS_OUTPUT_LAYER];                           // ue(v)
 } vps_t;
 
+typedef struct _sps_t
+{
+    uint8_t     sps_seq_parameter_set_id;                                               // u(4)
+    uint8_t     sps_video_parameter_set_id;                                             // u(4)
+    uint8_t     sps_max_sublayers_minus1;                                               // u(3)
+    uint8_t     sps_chroma_format_idc;                                                  // u(2)
+    uint8_t     sps_log2_ctu_size_minus5;                                               // u(2)
+    //uint8_t     sps_ptl_dpb_hrd_params_present_flag;                                    // u(1)
+    uint8_t     sps_gdr_enabled_flag;                                                   // u(1)
+    //uint8_t     sps_ref_pic_resampling_enabled_flag;                                    // u(1)
+    uint8_t     sps_res_change_in_clvs_allowed_flag;                                    // u(1)
+    uint16_t    sps_pic_width_max_in_luma_samples;                                      // ue(v)
+    uint16_t    sps_pic_height_max_in_luma_samples;                                     // ue(v)
+    //uint8_t     sps_conformance_window_flag;                                            // u(1)
+    uint16_t    sps_conf_win_left_offset;                                               // ue(v)
+    uint16_t    sps_conf_win_right_offset;                                              // ue(v)
+    uint16_t    sps_conf_win_top_offset;                                                // ue(v)
+    uint16_t    sps_conf_win_bottom_offset;                                             // ue(v)
+    //uint8_t     sps_subpic_info_present_flag;                                           // u(1)
+    uint8_t     sps_num_subpics_minus1;                                                 // ue(v)
+    uint8_t     sps_independent_subpics_flag;                                           // u(1)
+    uint8_t     sps_subpic_same_size_flag;                                              // u(1)
+    uint16_t    sps_subpic_ctu_top_left_x[MAX_SPS_SUBPIC];                              // u(v)
+    uint16_t    sps_subpic_ctu_top_left_y[MAX_SPS_SUBPIC];                              // u(v)
+    uint16_t    sps_subpic_width_minus1[MAX_SPS_SUBPIC];                                // u(v)
+    uint16_t    sps_subpic_wheight_minus1[MAX_SPS_SUBPIC];                              // u(v)
+    uint8_t     sps_subpic_treated_as_pic_flag[MAX_SPS_SUBPIC];                         // u(1)
+    uint8_t     sps_loop_filter_across_subpic_enabled_flag[MAX_SPS_SUBPIC];             // u(1)
+    uint8_t     sps_subpic_id_len_minus1;                                               // ue(v)
+    //uint8_t     sps_subpic_id_mapping_explicitly_signalled_flag;                        // u(1)
+    uint8_t     sps_subpic_id_mapping_present_flag;                                     // u(1)
+    uint8_t     sps_subpic_id[MAX_SPS_SUBPIC];                                          // u(v)
+    uint8_t     sps_bitdepth_minus8;                                                    // ue(v)
+    uint8_t     sps_entropy_coding_sync_enabled_flag;                                   // u(1)
+    uint8_t     sps_entry_point_offsets_present_flag;                                   // u(1)
+    uint8_t     sps_log2_max_pic_order_cnt_lsb_minus4;                                  // u(4)
+    uint8_t     sps_poc_msb_cycle_flag;                                                 // u(1)
+    uint8_t     sps_poc_msb_cycle_len_minus1;                                           // ue(v)
+    uint8_t     sps_num_extra_ph_bytes;                                                 // u(2)
+    uint8_t     sps_extra_ph_bit_present_flag[4];                                       // u(8)
+    uint8_t     sps_num_extra_sh_bytes;                                                 // u(2)
+    uint8_t     sps_extra_sh_bit_present_flag[4];                                       // u(8)
+    uint8_t     sps_sublayer_dpb_params_flag;                                           // u(1)
+    uint8_t     sps_log2_min_luma_coding_block_size_minus2;                             // ue(v)
+    uint8_t     sps_partition_constraints_override_enabled_flag;                        // u(1)
+    uint8_t     sps_log2_diff_min_qt_min_cb_intra_slice_luma;                           // ue(v)
+    uint8_t     sps_max_mtt_hierarchy_depth_intra_slice_luma;                           // ue(v)
+    uint8_t     sps_log2_diff_max_bt_min_qt_intra_slice_luma;                           // ue(v)
+    uint8_t     sps_log2_diff_max_tt_min_qt_intra_slice_luma;                           // ue(v)
+    uint8_t     sps_qtbtt_dual_tree_intra_flag;                                         // u(1)
+    uint8_t     sps_log2_diff_min_qt_min_cb_intra_slice_chroma;                         // ue(v)
+    uint8_t     sps_max_mtt_hierarchy_depth_intra_slice_chroma;                         // ue(v)
+    uint8_t     sps_log2_diff_max_bt_min_qt_intra_slice_chroma;                         // ue(v)
+    uint8_t     sps_log2_diff_max_tt_min_qt_intra_slice_chroma;                         // ue(v)
+    uint8_t     sps_log2_diff_min_qt_min_cb_inter_slice;                                // ue(v)
+    uint8_t     sps_max_mtt_hierarchy_depth_inter_slice;                                // ue(v)
+    uint8_t     sps_log2_diff_max_bt_min_qt_inter_slice;                                // ue(v)
+    uint8_t     sps_log2_diff_max_tt_min_qt_inter_slice;                                // ue(v)
+    uint8_t     sps_max_luma_transform_size_64_flag;                                    // u(1)
+    uint8_t     sps_transform_skip_enabled_flag;                                        // u(1)
+    uint8_t     sps_log2_transform_skip_max_size_minus2;                                // ue(v)
+    uint8_t     sps_bdpcm_enabled_flag;                                                 // u(1)
+    uint8_t     sps_mts_enabled_flag;                                                   // u(1)
+    uint8_t     sps_explicit_mts_intra_enabled_flag;                                    // u(1)
+    uint8_t     sps_explicit_mts_inter_enabled_flag;                                    // u(1)
+    uint8_t     sps_lfnst_enabled_flag;                                                 // u(1)
+    uint8_t     sps_joint_cbcr_enabled_flag;                                            // u(1)
+    uint8_t     sps_same_qp_table_for_chroma_flag;                                      // u(1)
+    uint8_t     sps_qp_table_start_minus26[MAX_SPS_QP_TABLE];                           // se(v)
+    uint8_t     sps_num_points_in_qp_table_minus1[MAX_SPS_QP_TABLE];                    // ue(v)
+    uint8_t     sps_delta_qp_in_val_minus1[MAX_SPS_QP_TABLE][MAX_SPS_QP_TABLE];         // ue(v)
+    uint8_t     sps_delta_qp_diff_val[MAX_SPS_QP_TABLE][MAX_SPS_QP_TABLE];              // ue(v)
+    uint8_t     sps_sao_enabled_flag;                                                   // u(1)
+    uint8_t     sps_alf_enabled_flag;                                                   // u(1)
+    uint8_t     sps_ccalf_enabled_flag;                                                 // u(1)
+    uint8_t     sps_lmcs_enabled_flag;                                                  // u(1)
+    uint8_t     sps_weighted_pred_flag;                                                 // u(1)
+    uint8_t     sps_weighted_bipred_flag;                                               // u(1)
+    uint8_t     sps_long_term_ref_pics_flag;                                            // u(1)
+    uint8_t     sps_inter_layer_prediction_enabled_flag;                                // u(1)
+    uint8_t     sps_idr_rpl_present_flag;                                               // u(1)
+    uint8_t     sps_rpl1_same_as_rpl0_flag;                                             // u(1)
+    uint8_t     sps_num_ref_pic_lists[2];                                               // ue(v)
+    uint8_t     sps_ref_wraparound_enabled_flag;                                        // u(1)
+    uint8_t     sps_temporal_mvp_enabled_flag;                                          // u(1)
+    uint8_t     sps_sbtmvp_enabled_flag;                                                // u(1)
+    uint8_t     sps_amvr_enabled_flag;                                                  // u(1)
+    uint8_t     sps_bdof_enabled_flag;                                                  // u(1)
+    uint8_t     sps_bdof_control_present_in_ph_flag;                                    // u(1)
+    uint8_t     sps_smvd_enabled_flag;                                                  // u(1)
+    uint8_t     sps_dmvr_enabled_flag;                                                  // u(1)
+    uint8_t     sps_dmvr_control_present_in_ph_flag;                                    // u(1)
+    uint8_t     sps_mmvd_enabled_flag;                                                  // u(1)
+    uint8_t     sps_mmvd_fullpel_only_enabled_flag;                                     // u(1)
+    uint8_t     sps_six_minus_max_num_merge_cand;                                       // ue(v)
+    uint8_t     sps_sbt_enabled_flag;                                                   // u(1)
+    uint8_t     sps_affine_enabled_flag;                                                // u(1)
+    uint8_t     sps_five_minus_max_num_subblock_merge_cand;                             // ue(v)
+    uint8_t     sps_6param_affine_enabled_flag;                                         // u(1)
+    uint8_t     sps_affine_amvr_enabled_flag;                                           // u(1)
+    uint8_t     sps_affine_prof_enabled_flag;                                           // u(1)
+    uint8_t     sps_prof_control_present_in_ph_flag;                                    // u(1)
+    uint8_t     sps_bcw_enabled_flag;                                                   // u(1)
+    uint8_t     sps_ciip_enabled_flag;                                                  // u(1)
+    uint8_t     sps_gpm_enabled_flag;                                                   // u(1)
+    uint8_t     sps_max_num_merge_cand_minus_max_num_gpm_cand;                          // ue(v)
+    uint8_t     sps_log2_parallel_merge_level_minus2;                                   // ue(v)
+    uint8_t     sps_isp_enabled_flag;                                                   // u(1)
+    uint8_t     sps_mrl_enabled_flag;                                                   // u(1)
+    uint8_t     sps_mip_enabled_flag;                                                   // u(1)
+    uint8_t     sps_cclm_enabled_flag;                                                  // u(1)
+    uint8_t     sps_chroma_horizontal_collocated_flag;                                  // u(1)
+    uint8_t     sps_chroma_vertical_collocated_flag;                                    // u(1)
+    uint8_t     sps_palette_enabled_flag;                                               // u(1)
+    uint8_t     sps_act_enabled_flag;                                                   // u(1)
+    uint8_t     sps_min_qp_prime_ts;                                                    // ue(v)
+    uint8_t     sps_ibc_enabled_flag;                                                   // u(1)
+    uint8_t     sps_six_minus_max_num_ibc_merge_cand;                                   // ue(v)
+    uint8_t     sps_ladf_enabled_flag;                                                  // u(1)
+    uint8_t     sps_num_ladf_intervals_minus2;                                          // u(2)
+    uint8_t     sps_ladf_lowest_interval_qp_offset;                                     // se(v)
+    uint8_t     sps_ladf_qp_offset[4];                                                  // se(v)
+    uint8_t     sps_ladf_delta_threshold_minus1[4];                                     // ue(v)
+    uint8_t     sps_explicit_scaling_list_enabled_flag;                                 // u(1)
+    uint8_t     sps_scaling_matrix_for_lfnst_disabled_flag;                             // u(1)
+    uint8_t     sps_scaling_matrix_for_alternative_colour_space_disabled_flag;          // u(1)
+    uint8_t     sps_scaling_matrix_designated_colour_space_flag;                        // u(1)
+    uint8_t     sps_dep_quant_enabled_flag;                                             // u(1)
+    uint8_t     sps_sign_data_hiding_enabled_flag;                                      // u(1)
+    uint8_t     sps_virtual_boundaries_enabled_flag;                                    // u(1)
+    uint8_t     sps_virtual_boundaries_present_flag;                                    // u(1)
+    uint8_t     sps_num_ver_virtual_boundaries;                                         // ue(v)
+    uint8_t     sps_virtual_boundary_pos_x_minus1[MAX_SPS_VER_VIRT_BOUND];              // ue(v)
+    uint8_t     sps_num_hor_virtual_boundaries;                                         // ue(v)
+    uint8_t     sps_virtual_boundary_pos_y_minus1[MAX_SPS_HOR_VIRT_BOUND];              // ue(v)
+    uint8_t     sps_timing_hrd_params_present_flag;                                     // u(1)
+    uint8_t     sps_sublayer_cpb_params_present_flag;                                   // u(1)
+    uint8_t     sps_field_seq_flag;                                                     // u(1)
+    uint8_t     sps_vui_parameters_present_flag;                                        // u(1)
+    uint8_t     sps_vui_payload_size_minus1;                                            // ue(v)
+} sps_t;
+
 typedef struct _codec_t
 {
     param_t                 params;
     ref_block_t            *m_frames[3];            // [0]=Cur, [1..N]=References
     intptr_t                m_frames_strd;
+
+    uint8_t                 CtbLog2SizeY;
+    uint8_t                 CtbSizeY;
+    uint8_t                 MaxNumMergeCand;
+
     bs_t                    bs;
     nal_unit_header_t       nalu_header;
     vps_t                   vps;
+    sps_t                   sps;
 } codec_t;
 
 /*****************************************************************************
@@ -476,7 +628,7 @@ void profile_tier_level(codec_t *codec, bs_t *bs, int profileTierPresentFlag, in
     }
 }
 
-void dpb_parameters(codec_t *codec, bs_t *bs)
+void dpb_parameters(codec_t *codec, bs_t *bs, uint32_t MaxSubLayersMinus1, uint32_t subLayerInfoFlag)
 {
     // TODO:
 }
@@ -491,7 +643,17 @@ void ols_timing_hrd_parameters(codec_t *codec, bs_t *bs, int firstSubLayer, int 
     // TODO:
 }
 
-void xDecodeVPS(codec_t *codec, bs_t *bs)
+void ref_pic_list_struct(codec_t *codec, bs_t *bs, int listIdx, int rplsIdx)
+{
+    // TODO:
+}
+
+void vui_payload(codec_t *codec, bs_t *bs, int size)
+{
+    // TODO:
+}
+
+int xDecodeVPS(codec_t *codec, bs_t *bs)
 {
     int i, j, k;
     vps_t *const vps = &codec->vps;
@@ -764,7 +926,7 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
             {
                 vps->vps_dpb_max_tid[i] = bsGetBits(bs, 3);
             }
-            dpb_parameters(codec, bs);
+            dpb_parameters(codec, bs, vps->vps_dpb_max_tid[i], vps->vps_sublayer_cpb_params_present_flag);
         }
 
         // Calculate NumMultiLayerOlss
@@ -856,6 +1018,343 @@ void xDecodeVPS(codec_t *codec, bs_t *bs)
     }
 
     bsRbspTrailingBits(bs);
+
+    return 0;
+}
+
+int xDecodeSPS(codec_t *codec, bs_t *bs)
+{
+    int i, j;
+    sps_t *const sps = &codec->sps;
+    uint32_t CtbSizeY;
+    uint32_t CtbLog2SizeY;
+    uint32_t tmpWidthVal;
+    uint32_t tmpHeightVal;
+
+    memset(sps, 0, sizeof(sps_t));
+
+    sps->sps_seq_parameter_set_id = bsGetBits(bs, 4);
+    sps->sps_video_parameter_set_id = bsGetBits(bs, 4);
+    sps->sps_max_sublayers_minus1 = bsGetBits(bs, 3);
+    sps->sps_chroma_format_idc = bsGetBits(bs, 2);
+    CtbLog2SizeY = codec->CtbLog2SizeY = sps->sps_log2_ctu_size_minus5 = bsGetBits(bs, 2);
+    CtbSizeY = codec->CtbSizeY = (1 << codec->CtbLog2SizeY);
+
+    const uint32_t sps_ptl_dpb_hrd_params_present_flag = bsGetBit(bs);
+    if(sps_ptl_dpb_hrd_params_present_flag)
+    {
+        profile_tier_level(codec, bs, 1, sps->sps_max_sublayers_minus1);
+    }
+
+    sps->sps_gdr_enabled_flag = bsGetBit(bs);
+    if(bsGetBit(bs) /*sps->sps_ref_pic_resampling_enabled_flag*/)
+        sps->sps_res_change_in_clvs_allowed_flag = bsGetBit(bs);
+    sps->sps_pic_width_max_in_luma_samples = bsGetUe(bs);
+    sps->sps_pic_height_max_in_luma_samples = bsGetUe(bs);
+
+    tmpWidthVal  = (sps->sps_pic_width_max_in_luma_samples + CtbSizeY - 1) >> CtbLog2SizeY;
+    tmpHeightVal = (sps->sps_pic_height_max_in_luma_samples + CtbSizeY - 1) >> CtbLog2SizeY;
+
+    const uint32_t tmpLog2WidthVal = CLZ(tmpWidthVal) + 1;
+    const uint32_t tmpLog2heightVal = CLZ(tmpHeightVal) + 1;
+
+    if(bsGetBit(bs) /*sps->sps_conformance_window_flag*/)
+    {
+        sps->sps_conf_win_left_offset = bsGetUe(bs);
+        sps->sps_conf_win_right_offset = bsGetUe(bs);
+        sps->sps_conf_win_top_offset = bsGetUe(bs);
+        sps->sps_conf_win_bottom_offset = bsGetUe(bs);
+    }
+    if(bsGetBit(bs) /*sps->sps_subpic_info_present_flag*/)
+    {
+        sps->sps_num_subpics_minus1 = bsGetUe(bs);
+        if(sps->sps_num_subpics_minus1 > 0)
+        {
+            sps->sps_independent_subpics_flag = bsGetBit(bs);
+            sps->sps_subpic_same_size_flag = bsGetBit(bs);
+
+            for(i = 0; i <= sps->sps_num_subpics_minus1; i++)
+            {
+                if(i == 0 || !sps->sps_subpic_same_size_flag)
+                {
+                    if(i > 0)
+                    {
+                        if(sps->sps_pic_width_max_in_luma_samples > CtbSizeY)
+                            sps->sps_subpic_ctu_top_left_x[i] = bsGetBits(bs, tmpLog2WidthVal);
+                        if(sps->sps_pic_height_max_in_luma_samples > CtbSizeY)
+                            sps->sps_subpic_ctu_top_left_y[i] = bsGetBits(bs, tmpLog2heightVal);
+                    }
+                    if(i < sps->sps_num_subpics_minus1)
+                    {
+                        if(sps->sps_pic_width_max_in_luma_samples > CtbSizeY)
+                            sps->sps_subpic_width_minus1[i] = bsGetBits(bs, tmpLog2WidthVal);
+                        if(sps->sps_pic_height_max_in_luma_samples > CtbSizeY)
+                            sps->sps_subpic_wheight_minus1[i] = bsGetBits(bs, tmpLog2heightVal);
+                    }
+                }
+                if(!sps->sps_independent_subpics_flag)
+                {
+                    sps->sps_subpic_treated_as_pic_flag[i] = bsGetBit(bs);
+                    sps->sps_loop_filter_across_subpic_enabled_flag[i] = bsGetBit(bs);
+                }
+            }
+        }
+        sps->sps_subpic_id_len_minus1 = bsGetUe(bs);
+        if (bsGetBit(bs) /*sps->sps_subpic_id_mapping_explicitly_signalled_flag*/)
+        {
+            sps->sps_subpic_id_mapping_present_flag = bsGetBit(bs);
+            if (sps->sps_subpic_id_mapping_present_flag)
+            {
+                for (i = 0; i <= sps->sps_num_subpics_minus1; i++)
+                {
+                    sps->sps_subpic_id[i] = bsGetBits(bs, sps->sps_subpic_id_len_minus1 + 1);
+                }
+            }
+        }
+    }
+    sps->sps_bitdepth_minus8 = bsGetUe(bs);
+    sps->sps_entropy_coding_sync_enabled_flag = bsGetBit(bs);
+    sps->sps_entry_point_offsets_present_flag = bsGetBit(bs);
+    sps->sps_log2_max_pic_order_cnt_lsb_minus4 = bsGetBits(bs, 4);
+    sps->sps_poc_msb_cycle_flag = bsGetBit(bs);
+    if(sps->sps_poc_msb_cycle_flag)
+        sps->sps_poc_msb_cycle_len_minus1 = bsGetUe(bs);
+
+    sps->sps_num_extra_ph_bytes = bsGetBits(bs, 2);
+    for(i = 0; i < sps->sps_num_extra_ph_bytes; i++)
+        sps->sps_extra_ph_bit_present_flag[i] = bsGetBits(bs, 8);
+
+    sps->sps_num_extra_sh_bytes = bsGetBits(bs, 2);
+    for(i = 0; i < sps->sps_num_extra_sh_bytes; i++)
+        sps->sps_extra_sh_bit_present_flag[i] = bsGetBits(bs, 8);
+
+    if(sps_ptl_dpb_hrd_params_present_flag)
+    {
+        if(sps->sps_max_sublayers_minus1 > 0)
+            sps->sps_sublayer_dpb_params_flag = bsGetBit(bs);
+        dpb_parameters(codec, bs, sps->sps_max_sublayers_minus1, sps_ptl_dpb_hrd_params_present_flag);
+    }
+
+    sps->sps_log2_min_luma_coding_block_size_minus2 = bsGetUe(bs);
+    sps->sps_partition_constraints_override_enabled_flag = bsGetBit(bs);
+    sps->sps_log2_diff_min_qt_min_cb_intra_slice_luma = bsGetUe(bs); 
+    sps->sps_max_mtt_hierarchy_depth_intra_slice_luma = bsGetUe(bs);
+    if(sps->sps_max_mtt_hierarchy_depth_intra_slice_luma != 0)
+    {
+        sps->sps_log2_diff_max_bt_min_qt_intra_slice_luma = bsGetUe(bs);
+        sps->sps_log2_diff_max_tt_min_qt_intra_slice_luma = bsGetUe(bs);
+    }
+    if(sps->sps_chroma_format_idc != 0)
+        sps->sps_qtbtt_dual_tree_intra_flag = bsGetBit(bs);
+    if(sps->sps_qtbtt_dual_tree_intra_flag)
+    {
+        sps->sps_log2_diff_min_qt_min_cb_intra_slice_chroma = bsGetUe(bs);
+        sps->sps_max_mtt_hierarchy_depth_intra_slice_chroma = bsGetUe(bs);
+        if(sps->sps_max_mtt_hierarchy_depth_intra_slice_chroma != 0)
+        {
+            sps->sps_log2_diff_max_bt_min_qt_intra_slice_chroma = bsGetUe(bs);
+            sps->sps_log2_diff_max_tt_min_qt_intra_slice_chroma = bsGetUe(bs);
+        }
+    }
+    sps->sps_log2_diff_min_qt_min_cb_inter_slice = bsGetUe(bs);
+    sps->sps_max_mtt_hierarchy_depth_inter_slice = bsGetUe(bs);
+    if(sps->sps_max_mtt_hierarchy_depth_inter_slice != 0)
+    {
+        sps->sps_log2_diff_max_bt_min_qt_inter_slice = bsGetUe(bs);
+        sps->sps_log2_diff_max_tt_min_qt_inter_slice = bsGetUe(bs);
+    }
+
+    if(CtbSizeY > 32)
+        sps->sps_max_luma_transform_size_64_flag = bsGetBit(bs);
+
+    sps->sps_transform_skip_enabled_flag = bsGetBit(bs);
+    if(sps->sps_transform_skip_enabled_flag)
+    {
+        sps->sps_log2_transform_skip_max_size_minus2 = bsGetUe(bs);
+        sps->sps_bdpcm_enabled_flag = bsGetBit(bs);
+    }
+
+    sps->sps_mts_enabled_flag = bsGetBit(bs);
+    if(sps->sps_mts_enabled_flag)
+    {
+        sps->sps_explicit_mts_intra_enabled_flag = bsGetBit(bs);
+        sps->sps_explicit_mts_inter_enabled_flag = bsGetBit(bs);
+    }
+    sps->sps_lfnst_enabled_flag = bsGetBit(bs);
+    if(sps->sps_chroma_format_idc != 0)
+    {
+        sps->sps_joint_cbcr_enabled_flag = bsGetBit(bs);
+        sps->sps_same_qp_table_for_chroma_flag = bsGetBit(bs);
+        const int numQpTables = sps->sps_same_qp_table_for_chroma_flag ? 1 : (sps->sps_joint_cbcr_enabled_flag ? 3 : 2);
+        for(i = 0; i < numQpTables; i++)
+        {
+            sps->sps_qp_table_start_minus26[i] = bsGetSe(bs);
+            sps->sps_num_points_in_qp_table_minus1[i] = bsGetUe(bs);
+            for(j = 0; j <= sps->sps_num_points_in_qp_table_minus1[i]; j++)
+            {
+                sps->sps_delta_qp_in_val_minus1[i][j] = bsGetUe(bs);
+                sps->sps_delta_qp_diff_val[i][j] = bsGetUe(bs);
+            }
+        }
+    }
+    sps->sps_sao_enabled_flag = bsGetBit(bs);
+    sps->sps_alf_enabled_flag = bsGetBit(bs);
+    if(sps->sps_alf_enabled_flag && sps->sps_chroma_format_idc != 0)
+        sps->sps_ccalf_enabled_flag  = bsGetBit(bs);
+    sps->sps_lmcs_enabled_flag = bsGetBit(bs);
+    sps->sps_weighted_pred_flag = bsGetBit(bs);
+    sps->sps_weighted_bipred_flag = bsGetBit(bs);
+    sps->sps_long_term_ref_pics_flag = bsGetBit(bs);
+
+    if(sps->sps_seq_parameter_set_id > 0)
+        sps->sps_inter_layer_prediction_enabled_flag = bsGetBit(bs);
+    sps->sps_idr_rpl_present_flag = bsGetBit(bs);
+    sps->sps_rpl1_same_as_rpl0_flag = bsGetBit(bs);
+    for(i = 0; i < (sps->sps_rpl1_same_as_rpl0_flag ? 1 : 2); i++)
+    {
+        sps->sps_num_ref_pic_lists[i] = bsGetUe(bs);
+        for(j = 0; j < sps->sps_num_ref_pic_lists[i]; j++)
+            ref_pic_list_struct(codec, bs, i, j);
+    }
+    sps->sps_ref_wraparound_enabled_flag = bsGetBit(bs);
+
+    sps->sps_temporal_mvp_enabled_flag = bsGetBit(bs);
+    if(sps->sps_temporal_mvp_enabled_flag)
+        sps->sps_sbtmvp_enabled_flag = bsGetBit(bs);
+
+    sps->sps_amvr_enabled_flag = bsGetBit(bs);
+
+    sps->sps_bdof_enabled_flag = bsGetBit(bs);
+    if(sps->sps_bdof_enabled_flag)
+        sps->sps_bdof_control_present_in_ph_flag = bsGetBit(bs);
+
+    sps->sps_smvd_enabled_flag = bsGetBit(bs);
+
+    sps->sps_dmvr_enabled_flag = bsGetBit(bs);
+    if(sps->sps_dmvr_enabled_flag)
+        sps->sps_dmvr_control_present_in_ph_flag = bsGetBit(bs);
+
+    sps->sps_mmvd_enabled_flag = bsGetBit(bs);
+    if(sps->sps_mmvd_enabled_flag)
+        sps->sps_mmvd_fullpel_only_enabled_flag = bsGetBit(bs);
+
+    sps->sps_six_minus_max_num_merge_cand = bsGetUe(bs);
+    codec->MaxNumMergeCand = 6 - sps->sps_six_minus_max_num_merge_cand;
+    sps->sps_sbt_enabled_flag = bsGetBit(bs);
+    sps->sps_affine_enabled_flag = bsGetBit(bs);
+    if(sps->sps_affine_enabled_flag)
+    {
+        sps->sps_five_minus_max_num_subblock_merge_cand = bsGetUe(bs);
+        sps->sps_6param_affine_enabled_flag = bsGetBit(bs);
+        if(sps->sps_amvr_enabled_flag)
+            sps->sps_affine_amvr_enabled_flag = bsGetBit(bs);
+
+        sps->sps_affine_prof_enabled_flag = bsGetBit(bs);
+        if(sps->sps_affine_prof_enabled_flag)
+            sps->sps_prof_control_present_in_ph_flag = bsGetBit(bs);
+    }
+    sps->sps_bcw_enabled_flag = bsGetBit(bs);
+    sps->sps_ciip_enabled_flag = bsGetBit(bs);
+    if(codec->MaxNumMergeCand >= 2)
+    {
+        sps->sps_gpm_enabled_flag = bsGetBit(bs);
+        if(sps->sps_gpm_enabled_flag && codec->MaxNumMergeCand >= 3)
+            sps->sps_max_num_merge_cand_minus_max_num_gpm_cand = bsGetUe(bs);
+    }
+    sps->sps_log2_parallel_merge_level_minus2 = bsGetUe(bs);
+    sps->sps_isp_enabled_flag = bsGetBit(bs);
+    sps->sps_mrl_enabled_flag = bsGetBit(bs);
+    sps->sps_mip_enabled_flag = bsGetBit(bs);
+    if(sps->sps_chroma_format_idc != 0)
+        sps->sps_cclm_enabled_flag = bsGetBit(bs);
+    if(sps->sps_chroma_format_idc == 1)
+    {
+        sps->sps_chroma_horizontal_collocated_flag = bsGetBit(bs);
+        sps->sps_chroma_vertical_collocated_flag = bsGetBit(bs);
+    }
+    sps->sps_palette_enabled_flag = bsGetBit(bs);
+    if(sps->sps_chroma_format_idc == 3 && !sps->sps_max_luma_transform_size_64_flag)
+        sps->sps_act_enabled_flag = bsGetBit(bs);
+    if(sps->sps_transform_skip_enabled_flag || sps->sps_palette_enabled_flag)
+        sps->sps_min_qp_prime_ts = bsGetUe(bs);
+
+    sps->sps_ibc_enabled_flag = bsGetBit(bs);
+    if(sps->sps_ibc_enabled_flag)
+        sps->sps_six_minus_max_num_ibc_merge_cand = bsGetUe(bs);
+
+    sps->sps_ladf_enabled_flag = bsGetBit(bs);
+    if(sps->sps_ladf_enabled_flag)
+    {
+        sps->sps_num_ladf_intervals_minus2 = bsGetBits(bs, 2);
+        sps->sps_ladf_lowest_interval_qp_offset = bsGetSe(bs);
+        for(i = 0; i < sps->sps_num_ladf_intervals_minus2+1; i++)
+        {
+            sps->sps_ladf_qp_offset[i] = bsGetSe(bs);
+            sps->sps_ladf_delta_threshold_minus1[i] = bsGetUe(bs);
+        }
+    }
+
+    sps->sps_explicit_scaling_list_enabled_flag = bsGetBit(bs);
+    if(sps->sps_lfnst_enabled_flag && sps->sps_explicit_scaling_list_enabled_flag)
+        sps->sps_scaling_matrix_for_lfnst_disabled_flag = bsGetBit(bs);
+    if(sps->sps_act_enabled_flag && sps->sps_explicit_scaling_list_enabled_flag)
+        sps->sps_scaling_matrix_for_alternative_colour_space_disabled_flag = bsGetBit(bs);
+    if(sps->sps_scaling_matrix_for_alternative_colour_space_disabled_flag)
+        sps->sps_scaling_matrix_designated_colour_space_flag = bsGetBit(bs);
+
+    sps->sps_dep_quant_enabled_flag = bsGetBit(bs);
+
+    sps->sps_virtual_boundaries_enabled_flag = bsGetBit(bs);
+    if(sps->sps_virtual_boundaries_enabled_flag)
+    {
+        sps->sps_virtual_boundaries_present_flag = bsGetBit(bs);
+        if(sps->sps_virtual_boundaries_present_flag)
+        {
+            sps->sps_num_ver_virtual_boundaries = bsGetUe(bs);
+            for(i = 0; i < sps->sps_num_ver_virtual_boundaries; i++)
+            {
+                sps->sps_virtual_boundary_pos_x_minus1[i] = bsGetUe(bs);
+            }
+            sps->sps_num_hor_virtual_boundaries = bsGetUe(bs);
+            for(i = 0; i < sps->sps_num_hor_virtual_boundaries; i++)
+            {
+                sps->sps_virtual_boundary_pos_y_minus1[i] = bsGetUe(bs);
+            }
+        }
+    }
+    if(sps_ptl_dpb_hrd_params_present_flag)
+    {
+        sps->sps_timing_hrd_params_present_flag = bsGetBit(bs);
+        if(sps->sps_timing_hrd_params_present_flag)
+        {
+            general_timing_hrd_parameters(codec, bs);
+            if(sps->sps_max_sublayers_minus1 > 0)
+                sps->sps_sublayer_cpb_params_present_flag = bsGetBit(bs);
+            const int firstSubLayer = sps->sps_sublayer_cpb_params_present_flag ? 0 : sps->sps_max_sublayers_minus1;
+            ols_timing_hrd_parameters(codec, bs, firstSubLayer, sps->sps_max_sublayers_minus1);
+        }
+    }
+    sps->sps_field_seq_flag = bsGetBit(bs);
+
+    sps->sps_vui_parameters_present_flag = bsGetBit(bs);
+    if(sps->sps_vui_parameters_present_flag)
+    {
+        sps->sps_vui_payload_size_minus1 = bsGetUe(bs);
+        bsSkipToByteAlign(bs);
+        vui_payload(codec, bs, sps->sps_vui_payload_size_minus1+1);
+    }
+
+    const int sps_extension_flag = bsGetBit(bs);
+    if(sps_extension_flag)
+    {
+        // TODO: Skip multiple of bits at once
+        while(bsRbspRemain(bs) > 0)
+            bsSkipBit(bs);
+    }
+
+    bsRbspTrailingBits(bs);
+
+    return 0;
 }
 
 int xDecodeFrame(codec_t *codec, uint8_t *buf, int size)
